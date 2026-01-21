@@ -1,9 +1,10 @@
+use rama::http::sse::datastar::PatchElements;
+use rama::utils::str::NonEmptyStr;
 
-// use rama::http::sse::datastar::PatchElements;
-// pub fn patch_element(id: &str, html: &str) -> PatchElements {
-// 	PatchElements::new(format!(
-// 		r#"<div id=\"{id}\">{html}</div>"#,
-// 		id = id,
-// 		html = html
-// 	))
-// }
+pub fn patch_element(id: &str, html: &str) -> PatchElements {
+    let html = format!(r#"<div id="{id}">{html}</div>"#);
+
+    PatchElements::new(
+        NonEmptyStr::try_from(html.as_str()).expect("html must not be empty")
+    )
+}

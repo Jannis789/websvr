@@ -36,7 +36,7 @@ async fn main() {
     match client.get(url).send().await {
         Ok(resp) => {
             match resp.try_into_string().await {
-                Ok(body) => println!("Client-Response: {}", body),
+                Ok(_body) => println!("Client responded with body!"),
                 Err(e) => eprintln!("Fehler beim Lesen des Bodys: {e}"),
             }
         }

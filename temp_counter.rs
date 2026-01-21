@@ -14,19 +14,19 @@ mod counter {
 
 		Response::builder()
 			.header("content-type", "application/json")
-			.body(format!(r#"{{ \"counter\": {} }}"#, value).into())
+			.body(format!(r#"{{ "counter": {} }}"#, value).into())
 			.unwrap()
 	}
 
 	// HTML nur für SSE
 	pub fn get_template() -> &'static str {
 		r#"
-<div data-signals:counter=\"0\">
-	<button data-on:click=\"@get('/increment')\">
-		Increment
-	</button>
-	<div data-text=\"$counter\"></div>
-</div>
+            <div data-signals:counter="0">
+	            <button data-on:click="@get('/increment')">
+		                Increment
+	            </button>
+	            <div data-text="$counter"></div>
+            </div>
 		"#
 	}
 }
