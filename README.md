@@ -18,6 +18,8 @@
     ```
 
     → `elements` fehlen bei mehrzeiligen Inhalten, weswegen es nicht in DOM gerendert wird.
+    → sollte mit use rama::http::sse::datastar::PatchElements; gefixt sein (Annahme)
+    → use rama::http::sse::datastar::ElementPatchMode auch mal angucken für den Event (Annahme)
 
 ## Datastar Patch Optionen
 
