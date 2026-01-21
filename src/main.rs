@@ -1,4 +1,7 @@
 mod route;
+mod pages;
+mod util;
+mod components;
 use route::router::router;
 use dotenv::dotenv;
 use std::env;
@@ -7,7 +10,6 @@ use rama::http::server::HttpServer;
 use rama::http::client::EasyHttpWebClient;
 use rama::http::service::client::HttpClientExt;
 use rama::http::BodyExtractExt;
-use rama::Context;
 
 #[tokio::main]
 async fn main() {
@@ -31,8 +33,7 @@ async fn main() {
     // HTTP-Client-Request an den eigenen Server
     let client = EasyHttpWebClient::default();
     let url = format!("http://{}/", addr);
-    let ctx = Context::default();
-    match client.get(url).send(ctx).await {
+    match client.get(url).send().await {
         Ok(resp) => {
             match resp.try_into_string().await {
                 Ok(body) => println!("Client-Response: {}", body),

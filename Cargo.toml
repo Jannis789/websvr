@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-stream = "0.3.6"
 dotenv = "0.15.0"
-rama = { version = "0.2.0", features = ["http-full"] }
-rama-proxy = "0.2.0"
+futures-core = "0.3.31"
+rama = { version = "0.3.0-alpha.4", features = ["http-full"] }
+rama-proxy = "0.3.0-alpha.4"
 sea-orm = { version = "1.1.19", features = ["sqlx-sqlite", "runtime-tokio-native-tls", "macros"] }
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.49.0", features = ["full"] }
