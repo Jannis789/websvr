@@ -4,7 +4,7 @@ use crate::util::public_service::PublicService;
 
 pub fn router() -> WebService<()> {
     let svc = WebService::default();
-    let svc = PublicService::mount(svc); // mount gibt den neuen svc zurück
-    let svc = HomePage::mount(svc);       // mount gibt wieder zurück
+    let svc = PublicService::serve(svc);
+    let svc = HomePage::serve(svc);
     svc
 }

@@ -3,14 +3,14 @@ use rama::http::{
     sse::datastar::ElementPatchMode,
 };
 
-use crate::{ patch, util::patcher::{ PatchConfig, Patcher }, components::{ Header, Body, Footer } };
+use crate::{ patch, util::patcher::{ Patcher }, components::{ Header, Body, Footer } };
 
 pub struct HomePage;
 
 impl HomePage {
-    pub fn mount(svc: WebService<()>) -> WebService<()> {
+    pub fn serve(svc: WebService<()>) -> WebService<()> {
         svc.with_get("/", Html(HomePage::get_template()))
-            .with_get("/HomePage/sse", Self::patch_stream)
+            .with_get("/HomePage/sse", Self::handle_patch)
     }
 
     fn get_template() -> &'static str {
@@ -39,20 +39,20 @@ impl HomePage {
         "#
     }
 
-    async fn patch_stream() -> impl IntoResponse {
+    async fn handle_patch() -> impl IntoResponse {
         let stream = Patcher::new().set(
             vec![
                 patch!({
                 mode: ElementPatchMode::Replace,
-                content: format!(r#"<div id="header">{}</div>"#,Header::get_template()),
+                content: format!(r#"<div id="header">{}</div>"#,Header::render()),
             }),
                 patch!({
                 mode: ElementPatchMode::Replace,
-                content: format!(r#"<div id="body">{}</div>"#,Body::get_template()),
+                content: format!(r#"<div id="body">{}</div>"#,Body::render()),
             }),
                 patch!({
                 mode: ElementPatchMode::Replace,
-                content: format!(r#"<div id="footer">{}</div>"#,Footer::get_template()),
+                content: format!(r#"<div id="footer">{}</div>"#,Footer::render()),
             })
             ]
         );

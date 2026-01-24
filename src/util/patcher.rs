@@ -1,37 +1,44 @@
+// src/util/patcher.rs
 use async_stream::stream;
 use rama::futures::Stream;
-use rama::http::sse::Event;
-use rama::http::sse::datastar::EventData;
-use rama::http::sse::datastar::{ElementPatchMode, PatchElements};
-use rama::utils::str::NonEmptyStr;
+use rama::http::sse::datastar::{ElementPatchMode, PatchElements, EventData};
 use std::convert::Infallible;
-use tokio::time::{Duration, sleep};
+use std::sync::Arc;
+use tokio::time::{sleep, Duration};
 // ================= PatchConfig =================
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct PatchConfig {
     pub mode: ElementPatchMode,
     pub selector: Option<String>,
     pub content: Option<String>,
+
+    // Patch-spezifische Hooks
+    pub before_patch: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub after_patch: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub failed_patch: Option<Arc<dyn Fn(&str) + Send + Sync>>,
 }
 
 // ================= Patcher =================
+#[derive(Clone, Default)]
 pub struct Patcher {
     patches: Vec<PatchConfig>,
+
+    // Globale Hooks
+    pub before_patch: Option<Arc<dyn Fn(&PatchConfig) + Send + Sync>>,
+    pub after_patch: Option<Arc<dyn Fn(&PatchConfig) + Send + Sync>>,
+    pub failed_patch: Option<Arc<dyn Fn(&PatchConfig, &str) + Send + Sync>>,
 }
 
 impl Patcher {
     pub fn new() -> Self {
-        Self {
-            patches: Vec::new(),
-        }
+        Self::default()
     }
 
-    // Flow: set mehrere Patches auf einmal
     pub fn set(mut self, patches: Vec<PatchConfig>) -> Self {
         for cfg in &patches {
             self.validate(cfg);
         }
-        self.patches.extend(patches);
+        self.patches = patches;
         self
     }
 
@@ -51,56 +58,98 @@ impl Patcher {
                 }
             }
             _ => {
-                if cfg.selector.is_none() {
-                    panic!("❌ selector required for mode {:?}", cfg.mode);
-                }
-                if cfg.content.is_none() {
-                    panic!("❌ content required for mode {:?}", cfg.mode);
+                if cfg.selector.is_none() || cfg.content.is_none() {
+                    panic!("❌ selector and content required for mode {:?}", cfg.mode);
                 }
             }
         }
     }
 
-    // Build liefert den Stream
-    pub fn build(self) -> impl Stream<Item = Result<Event<EventData>, Infallible>> {
+    pub fn build(self) -> impl Stream<Item = Result<rama::http::sse::Event<EventData>, Infallible>> {
         stream! {
             for cfg in self.patches {
-                let event = match cfg.mode {
+                // Patch-spezifischer before_patch
+                if let Some(hook) = &cfg.before_patch {
+                    hook();
+                }
+
+                // Globaler before_patch
+                if let Some(hook) = &self.before_patch {
+                    hook(&cfg);
+                }
+
+                // PatchElements erzeugen
+                let event_res = match cfg.mode {
                     ElementPatchMode::Remove => {
-                        PatchElements::new_remove(NonEmptyStr::try_from(cfg.selector.unwrap()).unwrap())
-                    }
-                    ElementPatchMode::Replace => {
-                        // with_mode unnecessary, Replace is default
-                        PatchElements::new(NonEmptyStr::try_from(cfg.content.unwrap()).unwrap())
+                        cfg.selector.as_ref()
+                            .map(|selector| {
+                                PatchElements::new_remove(selector.as_str().try_into().unwrap())
+                            })
+                            .ok_or("selector required for Remove mode")
                     }
                     _ => {
-                        let mut patch = PatchElements::new(NonEmptyStr::try_from(cfg.content.unwrap()).unwrap())
-                            .with_selector(NonEmptyStr::try_from(cfg.selector.unwrap()).unwrap());
-                        patch = patch.with_mode(cfg.mode);
-                        patch
+                        cfg.content.as_ref()
+                            .map(|content| {
+                                let mut patch = PatchElements::new(content.as_str().try_into().unwrap());
+                                
+                                if let Some(selector) = &cfg.selector {
+                                    patch = patch.with_selector(selector.as_str().try_into().unwrap());
+                                }
+                                
+                                patch.with_mode(cfg.mode.clone())
+                            })
+                            .ok_or("content required for this mode")
                     }
                 };
 
-                sleep(Duration::from_millis(250)).await; // delay, remove for production
-                yield Ok(EventData::from(event)
-                    .try_into_sse_event()
-                      .expect("Invalid DataStar event"));
+                match event_res {
+                    Ok(event) => {
+                        if cfg!(debug_assertions) {
+                            sleep(Duration::from_millis(250)).await;
+                        }
+
+                        if let Some(hook) = &cfg.after_patch {
+                            hook();
+                        }
+                        if let Some(hook) = &self.after_patch {
+                            hook(&cfg);
+                        }
+
+                        yield Ok(EventData::from(event).try_into_sse_event().unwrap());
+                    }
+                    Err(e) => {
+                        let error_msg = e.to_string();
+                        if let Some(hook) = &cfg.failed_patch {
+                            hook(&error_msg);
+                        }
+                        if let Some(hook) = &self.failed_patch {
+                            hook(&cfg, &error_msg);
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// ================= Makro für JS-ähnliche Patch-Literals =================
+// ================= Makro =================
 #[macro_export]
 macro_rules! patch {
     ({ $($field:ident : $value:expr),+ $(,)? }) => {
-        PatchConfig {
+        $crate::util::patcher::PatchConfig {
             $(
                 $field: patch!(@map $field $value),
             )*
             ..Default::default()
         }
     };
+
+    // Einfache Closure-Weiterleitung - KEINE zusätzliche Wrapping-Logik
+    (@map before_patch $value:expr) => { Some(std::sync::Arc::new($value)) };
+    (@map after_patch $value:expr) => { Some(std::sync::Arc::new($value)) };
+    (@map failed_patch $value:expr) => { Some(std::sync::Arc::new($value)) };
+    
+    // Standard mappings
     (@map selector $value:expr) => { Some($value.into()) };
     (@map content $value:expr) => { Some($value.into()) };
     (@map mode $value:expr) => { $value };
