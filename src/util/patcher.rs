@@ -27,6 +27,7 @@ pub struct Patcher {
     pub before_patch: Option<Arc<dyn Fn(&PatchConfig) + Send + Sync>>,
     pub after_patch: Option<Arc<dyn Fn(&PatchConfig) + Send + Sync>>,
     pub failed_patch: Option<Arc<dyn Fn(&PatchConfig, &str) + Send + Sync>>,
+    pub all_patched: Option<Arc<dyn Fn(&[PatchConfig]) + Send + Sync>>,
 }
 
 impl Patcher {
@@ -67,7 +68,7 @@ impl Patcher {
 
     pub fn build(self) -> impl Stream<Item = Result<rama::http::sse::Event<EventData>, Infallible>> {
         stream! {
-            for cfg in self.patches {
+            for cfg in &self.patches {
                 // Patch-spezifischer before_patch
                 if let Some(hook) = &cfg.before_patch {
                     hook();
@@ -79,7 +80,7 @@ impl Patcher {
                 }
 
                 // PatchElements erzeugen
-                let event_res = match cfg.mode {
+                let event_res = match cfg.mode.clone() {
                     ElementPatchMode::Remove => {
                         cfg.selector.as_ref()
                             .map(|selector| {
@@ -127,6 +128,10 @@ impl Patcher {
                         }
                     }
                 }
+            }
+
+            if let Some(hook) = &self.all_patched {
+                hook(&self.patches);
             }
         }
     }

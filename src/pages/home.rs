@@ -2,7 +2,7 @@ use rama::http::{
     service::web::{ WebService, response::{ Html, IntoResponse, Sse } },
     sse::datastar::ElementPatchMode,
 };
-
+use std::sync::Arc;
 use crate::{ patch, util::patcher::{ Patcher }, components::{ Header, Body, Footer } };
 
 pub struct HomePage;
@@ -40,7 +40,7 @@ impl HomePage {
     }
 
     async fn handle_patch() -> impl IntoResponse {
-        let stream = Patcher::new().set(
+        let mut stream = Patcher::new().set(
             vec![
                 patch!({
                 mode: ElementPatchMode::Replace,
@@ -56,7 +56,7 @@ impl HomePage {
             })
             ]
         );
-
+        
         Sse::new(stream.build())
     }
 }
