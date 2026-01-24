@@ -1,17 +1,17 @@
-use std::convert::Infallible;
 use async_stream::stream;
-use tokio::time::{sleep, Duration};
 use rama::futures::Stream;
-use rama::http::sse::datastar::{ElementPatchMode, PatchElements};
 use rama::http::sse::Event;
-use rama::utils::str::NonEmptyStr;
 use rama::http::sse::datastar::EventData;
+use rama::http::sse::datastar::{ElementPatchMode, PatchElements};
+use rama::utils::str::NonEmptyStr;
+use std::convert::Infallible;
+use tokio::time::{Duration, sleep};
 // ================= PatchConfig =================
 #[derive(Debug, Clone, Default)]
 pub struct PatchConfig {
     pub mode: ElementPatchMode,
-    pub selector: Option<&'static str>,
-    pub content: Option<&'static str>,
+    pub selector: Option<String>,
+    pub content: Option<String>,
 }
 
 // ================= Patcher =================
@@ -21,7 +21,9 @@ pub struct Patcher {
 
 impl Patcher {
     pub fn new() -> Self {
-        Self { patches: Vec::new() }
+        Self {
+            patches: Vec::new(),
+        }
     }
 
     // Flow: set mehrere Patches auf einmal
@@ -82,7 +84,7 @@ impl Patcher {
                 sleep(Duration::from_millis(250)).await; // delay, remove for production
                 yield Ok(EventData::from(event)
                     .try_into_sse_event()
-                    .expect("Invalid DataStar event"));
+                      .expect("Invalid DataStar event"));
             }
         }
     }
@@ -91,7 +93,7 @@ impl Patcher {
 // ================= Makro für JS-ähnliche Patch-Literals =================
 #[macro_export]
 macro_rules! patch {
-    ({ $($field:ident : $value:expr),* $(,)? }) => {
+    ({ $($field:ident : $value:expr),+ $(,)? }) => {
         PatchConfig {
             $(
                 $field: patch!(@map $field $value),
@@ -99,7 +101,7 @@ macro_rules! patch {
             ..Default::default()
         }
     };
-    (@map selector $value:expr) => { Some($value) };
-    (@map content $value:expr) => { Some($value) };
+    (@map selector $value:expr) => { Some($value.into()) };
+    (@map content $value:expr) => { Some($value.into()) };
     (@map mode $value:expr) => { $value };
 }

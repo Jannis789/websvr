@@ -1,55 +1,76 @@
-use rama::http::service::web::WebService;
-use rama::http::service::web::response::{ Html, Sse, IntoResponse };
-use crate::util::apply_patch::{Patcher, PatchConfig};
-use rama::http::sse::datastar::ElementPatchMode;
-use crate::patch;
+use rama::http::{
+    service::web::{ extract::Query, WebService, response::{ Html, IntoResponse, Json, Sse } },
+    sse::datastar::ElementPatchMode,
+};
+
+use serde::Deserialize;
+use serde_json::json;
+
+use crate::{ patch, util::patcher::{ PatchConfig, Patcher }, components::{ Header, Body, Footer } };
+
+#[derive(Deserialize)]
+struct HeadParams {
+    dark: bool,
+}
+
 pub struct HomePage;
 
 impl HomePage {
     pub fn mount(svc: WebService<()>) -> WebService<()> {
-        svc.with_get("/", Html(HomePage::get_layout_template())).with_get(
-            "/HomePage/sse",
-            Self::patch_stream
-        )
+        svc.with_get("/", Html(HomePage::get_template()))
+            .with_get("/HomePage/theme", Self::deploy_css)
+            .with_get("/HomePage/sse", Self::patch_stream)
     }
 
-    fn get_layout_template() -> &'static str {
+    fn get_template() -> &'static str {
         r#"
             <!doctype html>
             <html>
-            <head>
+            <head data-init="@get('/HomePage/theme?dark=' + window.matchMedia('(prefers-color-scheme: dark)').matches)">
                 <meta charset="utf-8">
                 <title>Home</title>
-                <!-- URL OHNE LEERZEICHEN am Ende! -->
+                <style data-signals:css="''" data-text="$css"></style>
                 <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
             </head>
             <body data-init="@get('/HomePage/sse')">
                 <div id="header"></div>
                 <div id="body"></div>
-                <div id="footer">x</div>
+                <div id="footer"></div>
             </body>
             </html>
         "#
     }
 
     async fn patch_stream() -> impl IntoResponse {
-        let stream = Patcher::new().set(vec![
-            patch!({
-                selector: "#footer",
-                mode: ElementPatchMode::Remove,
-            }),
-            patch!({
+        let stream = Patcher::new().set(
+            vec![
+                patch!({
                 mode: ElementPatchMode::Replace,
-                content: r#"<div id="header"><h1>Willkommen auf der Startseite!</h1></div>"#,
+                content: format!(r#"<div id="header">{}</div>"#,Header::get_template()),
             }),
-            patch!({
-                selector: "#body",
-                mode: ElementPatchMode::Inner,
-                content: r#"<p id="body">Neuer Absatz</p>"#,
+                patch!({
+                mode: ElementPatchMode::Replace,
+                content: format!(r#"<div id="body">{}</div>"#,Body::get_template()),
             }),
-        ]);
+                patch!({
+                mode: ElementPatchMode::Replace,
+                content: format!(r#"<div id="footer">{}</div>"#,Footer::get_template()),
+            })
+            ]
+        );
 
         Sse::new(stream.build())
     }
-}
 
+    async fn deploy_css(Query(params): Query<HeadParams>) -> impl IntoResponse {
+        let mut css = "".to_string(); 
+        if params.dark {
+            css += include_str!("../../public/typography/colors-dark.css");
+        } else {
+            css += include_str!("../../public/typography/colors-light.css");
+        }
+        css += include_str!("../../public/typography/component.css");
+
+        Json(json!({ "css": css }))
+    }
+}

@@ -1,4 +1,7 @@
+pub struct Header;
 
-pub fn get_template() -> &'static str {
-	"<h1>Header</h1>"
+impl Header {
+    pub fn get_template() -> &'static str {
+        "<h1>Header</h1>"
+    }
 }

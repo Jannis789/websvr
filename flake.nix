@@ -15,6 +15,7 @@
             pkgs.cargo
             pkgs.pkg-config
             pkgs.openssl
+            pkgs.rustup
           ];
           shellHook = ''
             if ! cargo install --list | grep -q '^rama '; then

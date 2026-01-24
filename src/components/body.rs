@@ -1,4 +1,7 @@
+pub struct Body;
 
-pub fn get_template() -> &'static str {
-	r#"<div id="body-content"></div>"#
+impl Body {
+    pub fn get_template() -> &'static str {
+        r#"<div id="body-content">Body</div>"#
+    }
 }

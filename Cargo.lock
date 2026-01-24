@@ -2580,19 +2580,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rama-proxy"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "149eaf3134c30af80017182f3e659ad05d242e1ade8181ef8035b83859fafac7"
-dependencies = [
- "rama-core",
- "rama-net",
- "rama-utils",
- "serde",
- "unicode-normalization",
-]
-
-[[package]]
 name = "rama-socks5"
 version = "0.3.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4254,9 +4241,9 @@ dependencies = [
  "dotenv",
  "futures-core",
  "rama",
- "rama-proxy",
  "sea-orm",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
