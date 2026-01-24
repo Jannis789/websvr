@@ -1,4 +1,37 @@
-body {
-    background: white;
-    color: black;
+@media (prefers-color-scheme: light) {
+    :root {
+        --destructive-bg-color: var(--red-3);
+        --destructive-color: var(--red-4);
+
+        --success-bg-color: var(--green-4);
+        --success-color: var(--green-5);
+
+        --warning-bg-color: var(--yellow-5);
+        --warning-color: #b58300;
+
+        --error-bg-color: var(--red-3);
+        --error-color: var(--red-4);
+
+        --window-bg-color: #fafafb;
+        --window-fg-color: rgba(0, 0, 6, 0.8);
+
+        --view-bg-color: #ffffff;
+        --view-fg-color: rgba(0, 0, 6, 0.8);
+
+        --headerbar-bg-color: #ffffff;
+        --headerbar-fg-color: rgba(0, 0, 6, 0.8);
+        --headerbar-border-color: rgba(0, 0, 6, 0.8);
+
+        --sidebar-bg-color: #ebebed;
+        --sidebar-fg-color: rgba(0, 0, 6, 0.8);
+
+        --card-bg-color: #ffffff;
+        --card-fg-color: rgba(0, 0, 6, 0.8);
+
+        --dialog-bg-color: #fafafb;
+        --dialog-fg-color: rgba(0, 0, 6, 0.8);
+
+        --overview-bg-color: #f3f3f5;
+        --overview-fg-color: rgba(0, 0, 6, 0.8);
+    }
 }

@@ -70,8 +70,8 @@ impl Patcher {
                         PatchElements::new_remove(NonEmptyStr::try_from(cfg.selector.unwrap()).unwrap())
                     }
                     ElementPatchMode::Replace => {
+                        // with_mode unnecessary, Replace is default
                         PatchElements::new(NonEmptyStr::try_from(cfg.content.unwrap()).unwrap())
-                            .with_mode(ElementPatchMode::Replace)
                     }
                     _ => {
                         let mut patch = PatchElements::new(NonEmptyStr::try_from(cfg.content.unwrap()).unwrap())

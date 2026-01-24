@@ -1,1 +1,14 @@
 /** */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Adwaita', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--theme-bg-color);
+    color: var(--theme-text-color);
+    line-height: 1.6;
+}

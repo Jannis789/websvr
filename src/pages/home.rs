@@ -1,24 +1,15 @@
 use rama::http::{
-    service::web::{ extract::Query, WebService, response::{ Html, IntoResponse, Json, Sse } },
+    service::web::{ WebService, response::{ Html, IntoResponse, Sse } },
     sse::datastar::ElementPatchMode,
 };
 
-use serde::Deserialize;
-use serde_json::json;
-
 use crate::{ patch, util::patcher::{ PatchConfig, Patcher }, components::{ Header, Body, Footer } };
-
-#[derive(Deserialize)]
-struct HeadParams {
-    dark: bool,
-}
 
 pub struct HomePage;
 
 impl HomePage {
     pub fn mount(svc: WebService<()>) -> WebService<()> {
         svc.with_get("/", Html(HomePage::get_template()))
-            .with_get("/HomePage/theme", Self::deploy_css)
             .with_get("/HomePage/sse", Self::patch_stream)
     }
 
@@ -26,17 +17,24 @@ impl HomePage {
         r#"
             <!doctype html>
             <html>
-            <head data-init="@get('/HomePage/theme?dark=' + window.matchMedia('(prefers-color-scheme: dark)').matches)">
-                <meta charset="utf-8">
-                <title>Home</title>
-                <style data-signals:css="''" data-text="$css"></style>
-                <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
-            </head>
-            <body data-init="@get('/HomePage/sse')">
-                <div id="header"></div>
-                <div id="body"></div>
-                <div id="footer"></div>
-            </body>
+                <head>
+                  <meta charset="utf-8">
+                  <title>Home</title>
+                  <link rel="stylesheet" href="/public/typography/base.css">
+                  <script>
+                    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    document.write(
+                      `<link rel="stylesheet" href="/public/typography/colors-${dark ? "dark" : "light"}.css">`
+                    );
+                  </script>
+                  <link rel="stylesheet" href="/public/pages/home.css">
+                  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
+                </head>
+                <body data-init="@get('/HomePage/sse')">
+                    <div id="header"></div>
+                    <div id="body"></div>
+                    <div id="footer"></div>
+                </body>
             </html>
         "#
     }
@@ -60,17 +58,5 @@ impl HomePage {
         );
 
         Sse::new(stream.build())
-    }
-
-    async fn deploy_css(Query(params): Query<HeadParams>) -> impl IntoResponse {
-        let mut css = "".to_string(); 
-        if params.dark {
-            css += include_str!("../../public/typography/colors-dark.css");
-        } else {
-            css += include_str!("../../public/typography/colors-light.css");
-        }
-        css += include_str!("../../public/typography/component.css");
-
-        Json(json!({ "css": css }))
     }
 }

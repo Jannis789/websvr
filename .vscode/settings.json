@@ -1,0 +1,12 @@
+{
+  "[nix]": {
+    "editor.defaultFormatter": "jnoortheen.nix-ide"
+  },
+  "editor.fontFamily": "FiraCode Nerd Font",
+  "editor.fontSize": 12,
+  "workbench.colorTheme": "Catppuccin Mocha",
+  "workbench.sideBar.location": "right",
+  "[css]": {
+    "editor.defaultFormatter": "vscode.css-language-features"
+  }
+}
