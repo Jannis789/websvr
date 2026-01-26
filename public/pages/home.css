@@ -1,1 +1,222 @@
-@import url('../typography/component.css');
+body {
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+/* ========== 1. VARIABLES ========== */
+:root {
+    /* UI Dimensions */
+    --radius-window: 16px;
+    --radius-card: 12px;
+    --radius-btn: 6px;
+
+    --sidebar-width: 260px;
+    --sidebar-width-collapsed: 70px;
+
+    --header-height: 70px;
+}
+
+/* ========== 2. BODY & RESET ========== */
+
+body {
+    background-color: #000;
+    font-family: var(--font-sans);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--window-fg-color);
+}
+
+/* ========== 3. MAIN CONTAINER ========== */
+
+#main-container {
+    position: relative;
+    width: 95%;
+    max-width: 1600px;
+    height: 96vh;
+    background: var(--window-bg-color);
+    border-radius: var(--radius-window);
+    border: 1px solid var(--borders);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    
+}
+
+/* ========== 4. SIDEBAR ========== */
+
+#sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg-color);
+    border-top-left-radius: var(--radius-window);
+    border-bottom-left-radius: var(--radius-window);
+    border-right: 1px solid var(--borders);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 2;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    height: 64px;
+}
+
+/* Sidebar Navigation Items */
+.nav-list {
+    list-style: none;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--sidebar-fg-color);
+    cursor: pointer;
+    margin-bottom: 2px;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.nav-icon {
+    font-size: 22px;
+    min-width: 22px;
+    display: flex;
+    justify-content: center;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--borders);
+    flex-shrink: 0;
+}
+
+/* ========== 5. HEADER ========== */
+
+#header {
+    height: var(--header-height);
+    background: var(--view-bg-color);
+    min-height: var(--header-height);
+}
+
+.header-spacer {
+    width: 32px;
+}
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    justify-content: flex-end;
+    height: var(--header-height);
+    box-shadow: 0px 1px 3px 0px black;
+    position: relative;
+    border-bottom: 1px solid var(--overview-bg-color);
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.header-separator {
+    width: 1px;
+    height: 24px;
+    background: var(--borders);
+}
+
+/* ========== 8. MEDIA LIST ========== */
+
+.media-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.media-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+/* ========== 9. PROGRESS BARS ========== */
+
+.progress-container {
+    margin-top: 16px;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    margin-bottom: 4px;
+    color: var(--view-fg-color);
+}
+
+.progress-track {
+    width: 100%;
+    height: 10px;
+    background-color: #374151;
+    border-radius: 9999px;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--accent-color);
+    border-radius: 9999px;
+}
+
+/* ========== 10. BUTTONS ========== */
+
+.btn {
+    padding: 8px 16px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.95rem;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: inherit;
+    border-radius: var(--radius-btn);
+}
+
+.btn:hover {
+    background: var(--hover-color);
+    border-radius: var(--radius-btn);
+}
+
+.btn-primary {
+    background-color: var(--accent-bg-color);
+    color: var(--accent-fg-color);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--headerbar-fg-color);
+    width: 45px;
+    height: 45px;
+    padding: 0;
+}
+/* ========== 11. TOGGLE SWITCH ========== */

@@ -48,6 +48,12 @@
   font-display: swap;
 }
 
+* {
+  font-family: var(--font-sans);
+  box-sizing: border-box;
+  color: var(--theme-text-color);
+}
+
 :root {
     --font-sans: "Adwaita Sans", system-ui, sans-serif;
     --font-mono: "Adwaita Mono", monospace;

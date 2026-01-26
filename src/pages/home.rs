@@ -2,9 +2,7 @@ use rama::http::{
     service::web::{ WebService, response::{ Html, IntoResponse, Sse } },
     sse::datastar::ElementPatchMode,
 };
-use std::sync::Arc;
-use crate::{ patch, util::patcher::{ Patcher }, components::{ Header, Body, Footer } };
-
+use crate::{ component_patch, util::component_patcher::{ ComponentPatcher }, components::layout::{ Header, Body, Sidebar } };
 pub struct HomePage;
 
 impl HomePage {
@@ -16,10 +14,13 @@ impl HomePage {
     fn get_template() -> &'static str {
         r#"
             <!doctype html>
-            <html>
+            <html lang="de">
                 <head>
                   <meta charset="utf-8">
-                  <title>Home</title>
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Media Server UI</title>
+                  <!-- Icons (Phosphor) -->
+                  <script src="https://unpkg.com/@phosphor-icons/web"></script>
                   <link rel="stylesheet" href="/public/typography/base.css">
                   <script>
                     const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -31,32 +32,43 @@ impl HomePage {
                   <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
                 </head>
                 <body data-init="@get('/HomePage/sse')">
-                    <div id="header"></div>
-                    <div id="body"></div>
-                    <div id="footer"></div>
+                    <div id="main-container">
+                        <div id="sidebar"></div>
+                        <div id="header"></div>
+                        <div id="body"></div>
+                    </div>
+                    <script>
+                        function toggleSidebar() {
+                            const container = document.getElementById('main-container');
+                            container.classList.toggle('collapsed');
+                        }
+                    </script>
                 </body>
             </html>
         "#
     }
 
     async fn handle_patch() -> impl IntoResponse {
-        let mut stream = Patcher::new().set(
+        let stream = ComponentPatcher::new().set(
             vec![
-                patch!({
-                mode: ElementPatchMode::Replace,
-                content: format!(r#"<div id="header">{}</div>"#,Header::render()),
-            }),
-                patch!({
-                mode: ElementPatchMode::Replace,
-                content: format!(r#"<div id="body">{}</div>"#,Body::render()),
-            }),
-                patch!({
-                mode: ElementPatchMode::Replace,
-                content: format!(r#"<div id="footer">{}</div>"#,Footer::render()),
-            })
+                component_patch!({
+                    mode: ElementPatchMode::Inner,
+                    selector: "#sidebar",
+                    content: Sidebar,
+                }),
+                component_patch!({
+                    mode: ElementPatchMode::Inner,
+                    selector: "#header",
+                    content: Header,
+                }),
+                component_patch!({
+                    mode: ElementPatchMode::Inner,
+                    selector: "#body",
+                    content: Body,
+                }),
             ]
         );
-        
+
         Sse::new(stream.build())
     }
 }

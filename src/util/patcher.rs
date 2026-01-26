@@ -12,7 +12,7 @@ pub struct PatchConfig {
     pub selector: Option<String>,
     pub content: Option<String>,
 
-    // Patch-spezifische Hooks
+    // hooks
     pub before_patch: Option<Arc<dyn Fn() + Send + Sync>>,
     pub after_patch: Option<Arc<dyn Fn() + Send + Sync>>,
     pub failed_patch: Option<Arc<dyn Fn(&str) + Send + Sync>>,
@@ -23,13 +23,13 @@ pub struct PatchConfig {
 pub struct Patcher {
     patches: Vec<PatchConfig>,
 
-    // Globale Hooks
+    // hooks
     pub before_patch: Option<Arc<dyn Fn(&PatchConfig) + Send + Sync>>,
     pub after_patch: Option<Arc<dyn Fn(&PatchConfig) + Send + Sync>>,
     pub failed_patch: Option<Arc<dyn Fn(&PatchConfig, &str) + Send + Sync>>,
     pub all_patched: Option<Arc<dyn Fn(&[PatchConfig]) + Send + Sync>>,
 }
-
+#[allow(dead_code)]
 impl Patcher {
     pub fn new() -> Self {
         Self::default()
@@ -69,7 +69,7 @@ impl Patcher {
     pub fn build(self) -> impl Stream<Item = Result<rama::http::sse::Event<EventData>, Infallible>> {
         stream! {
             for cfg in &self.patches {
-                // Patch-spezifischer before_patch
+
                 if let Some(hook) = &cfg.before_patch {
                     hook();
                 }
@@ -149,12 +149,10 @@ macro_rules! patch {
         }
     };
 
-    // Einfache Closure-Weiterleitung - KEINE zusätzliche Wrapping-Logik
     (@map before_patch $value:expr) => { Some(std::sync::Arc::new($value)) };
     (@map after_patch $value:expr) => { Some(std::sync::Arc::new($value)) };
     (@map failed_patch $value:expr) => { Some(std::sync::Arc::new($value)) };
     
-    // Standard mappings
     (@map selector $value:expr) => { Some($value.into()) };
     (@map content $value:expr) => { Some($value.into()) };
     (@map mode $value:expr) => { $value };
