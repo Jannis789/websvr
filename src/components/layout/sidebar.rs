@@ -7,14 +7,11 @@ pub struct Sidebar;
 impl Component for Sidebar {
     fn get_template() -> &'static str {
         r#"
-        <nav id="sidebar">
+        <nav id="sidebar-content" data-signals:collapsed="false" data-class:collapsed="$collapsed"> 
             <div class="sidebar-header">
-                <button class="btn btn-ghost">
-                    <i class="ph ph-list text-xl"></i>
+                <button class="btn btn-ghost" data-on:click="$collapsed = !$collapsed">
+                    <i class="ic-open-menu ic-medium"></i>
                 </button>
-            </div>
-            
-            <div class="sidebar-footer">
             </div>
         </nav>
         "#

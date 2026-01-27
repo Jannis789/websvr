@@ -7,7 +7,7 @@ pub struct Body;
 impl Component for Body {
     fn get_template() -> &'static str {
         r#"
-        <div id="body"></div>
+        <div></div>
         "#
     }
 

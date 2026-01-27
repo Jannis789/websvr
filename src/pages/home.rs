@@ -18,7 +18,7 @@ impl HomePage {
                 <head>
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Media Server UI</title>
+                  <title>Media Server</title>
                   <!-- Icons (Phosphor) -->
                   <script src="https://unpkg.com/@phosphor-icons/web"></script>
                   <link rel="stylesheet" href="/public/typography/base.css">
@@ -37,12 +37,6 @@ impl HomePage {
                         <div id="header"></div>
                         <div id="body"></div>
                     </div>
-                    <script>
-                        function toggleSidebar() {
-                            const container = document.getElementById('main-container');
-                            container.classList.toggle('collapsed');
-                        }
-                    </script>
                 </body>
             </html>
         "#
