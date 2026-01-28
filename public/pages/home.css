@@ -1,10 +1,27 @@
-body {
-  margin: 0;
-  padding: 0;
-  line-height: 1.6;
+/* =========================
+   1. RESET & BODY
+   ========================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-/* ========== 1. VARIABLES ========== */
+body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: #000;
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    color: var(--window-fg-color);
+}
+
+/* =========================
+   2. VARIABLES
+   ========================= */
 :root {
     /* UI Dimensions */
     --radius-window: 16px;
@@ -12,26 +29,54 @@ body {
     --radius-btn: 6px;
 
     --sidebar-width: 260px;
-    --sidebar-width-collapsed: 70px;
+    --sidebar-collapsed-width: 70px;
+    --sidebar-current-width: var(--sidebar-width); /* dynamisch über collapse setzen */
 
-    --header-height: 70px;
+    --header-height: 64px;
 }
 
-/* ========== 2. BODY & RESET ========== */
-
-body {
-    background-color: #000;
-    font-family: var(--font-sans);
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    color: var(--window-fg-color);
+/* =========================
+   3. ICONS
+   ========================= */
+.ic-open-menu,
+.ic-avatar-default,
+.ic-notification-bell,
+.ic-search {
+    background-color: var(--window-fg-color);
+    -webkit-mask: no-repeat center / contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
 }
 
-/* ========== 3. MAIN CONTAINER ========== */
+.ic-open-menu {
+    -webkit-mask-image: url('/public/assets/icons/gtk/open-menu-symbolic.svg');
+    mask-image: url('/public/assets/icons/gtk/open-menu-symbolic.svg');
+}
 
+.ic-avatar-default {
+    -webkit-mask-image: url('/public/assets/icons/status/avatar-default-symbolic.svg');
+    mask-image: url('/public/assets/icons/status/avatar-default-symbolic.svg');
+}
+
+.ic-notification-bell {
+    -webkit-mask-image: url('/public/assets/icons/legacy/preferences-system-notifications-symbolic.svg');
+    mask-image: url('/public/assets/icons/legacy/preferences-system-notifications-symbolic.svg');
+}
+
+.ic-search {
+    -webkit-mask-image: url('/public/assets/icons/legacy/preferences-system-search-symbolic.svg');
+    mask-image: url('/public/assets/icons/legacy/preferences-system-search-symbolic.svg');
+}
+
+.ic-small { width: 16px; height: 16px; }
+.ic-medium { width: 24px; height: 24px; }
+.ic-large { width: 32px; height: 32px; margin: 6px; }
+.ic-xlarge { width: 48px; height: 48px; margin: 6px; }
+
+/* =========================
+   4. MAIN CONTAINER
+   ========================= */
 #main-container {
     position: relative;
     width: 95%;
@@ -45,35 +90,39 @@ body {
     flex-direction: column;
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    
 }
 
-/* ========== 4. SIDEBAR ========== */
-
-#sidebar {
+/* =========================
+   5. SIDEBAR
+   ========================= */
+#sidebar-content {
     position: absolute;
     top: 0;
     left: 0;
     bottom: 0;
-    width: var(--sidebar-width);
+    width: var(--sidebar-current-width);
     background: var(--sidebar-bg-color);
     border-top-left-radius: var(--radius-window);
     border-bottom-left-radius: var(--radius-window);
-    border-right: 1px solid var(--borders);
+    border-right: 1px solid var(--headerbar-shade-color);
     display: flex;
     flex-direction: column;
-    transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: width 0.3s cubic-bezier(0.25,0.8,0.25,1);
     z-index: 2;
+}
+
+#sidebar-content.collapsed {
+    --sidebar-current-width: var(--sidebar-collapsed-width);
 }
 
 .sidebar-header {
     display: flex;
     align-items: center;
-    padding: 0 20px;
-    height: 64px;
+    padding: 0 12px;
+    height: var(--header-height);
 }
 
-/* Sidebar Navigation Items */
+/* Sidebar Navigation */
 .nav-list {
     list-style: none;
     flex: 1;
@@ -100,47 +149,58 @@ body {
     justify-content: center;
 }
 
-/* Sidebar Footer */
-.sidebar-footer {
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--borders);
-    flex-shrink: 0;
-}
-
-/* ========== 5. HEADER ========== */
-
+/* =========================
+   6. HEADER
+   ========================= */
 #header {
     height: var(--header-height);
-    background: var(--view-bg-color);
     min-height: var(--header-height);
+    background: var(--view-bg-color);
 }
 
-.header-spacer {
-    width: 32px;
-}
+/* Flex-Lösung für Header + zentrierter Mitte */
 .header-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
     width: 100%;
-    justify-content: flex-end;
     height: var(--header-height);
-    box-shadow: 0px 1px 3px 0px black;
-    position: relative;
-    border-bottom: 1px solid var(--overview-bg-color);
-    padding-left: 20px;
+    padding-left: var(--sidebar-current-width);
     padding-right: 20px;
+    box-shadow: 0 1px 3px var(--headerbar-shadow-color);
+    border-bottom: 1px solid var(--overview-bg-color);
+    transition: all 0.3s cubic-bezier(0.25,0.8,0.25,1);
 }
 
+.header-controls.collapsed {
+    padding-left: var(--sidebar-collapsed-width);
+}
+.header-controls-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-controls-middle {
+  display: flex;
+  justify-content: center;
+  flex: 1; /* Mittlere Zone nimmt alle verfügbaren Platz */
+}
+
+.header-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Separator zwischen Buttons */
 .header-separator {
     width: 1px;
     height: 24px;
     background: var(--borders);
 }
 
-/* ========== 8. MEDIA LIST ========== */
-
+/* =========================
+   7. MEDIA LIST
+   ========================= */
 .media-list {
     display: flex;
     flex-direction: column;
@@ -157,8 +217,9 @@ body {
     cursor: pointer;
 }
 
-/* ========== 9. PROGRESS BARS ========== */
-
+/* =========================
+   8. PROGRESS BARS
+   ========================= */
 .progress-container {
     margin-top: 16px;
 }
@@ -184,8 +245,9 @@ body {
     border-radius: 9999px;
 }
 
-/* ========== 10. BUTTONS ========== */
-
+/* =========================
+   9. BUTTONS
+   ========================= */
 .btn {
     padding: 8px 16px;
     font-weight: 600;
@@ -219,4 +281,3 @@ body {
     height: 45px;
     padding: 0;
 }
-/* ========== 11. TOGGLE SWITCH ========== */

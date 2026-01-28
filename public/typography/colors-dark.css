@@ -36,4 +36,6 @@
   --overview-fg-color: #ffffff;
 
   --strong-contrast: #111;
+
+  --headerbar-shadow-color: var(--dark-5);
 }

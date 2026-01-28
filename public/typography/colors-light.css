@@ -35,4 +35,6 @@
   --overview-fg-color: rgba(0, 0, 6, 0.8);
 
   --strong-contrast: #eee;
+
+    --headerbar-shadow-color: var(--light-3);
 }
