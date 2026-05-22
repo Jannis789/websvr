@@ -1,0 +1,85 @@
+use rama::service::Service;
+use rama::http::Request;
+use rama::extensions::{ExtensionsMut, ExtensionsRef};
+use rama::http::response::Response;
+use platform_core::ClientId;
+use std::convert::Infallible;
+use std::future::Future;
+
+use rama::http::header;
+
+use crate::common;
+
+/// Service that validates or generates a `ClientId` from the request cookie.
+///
+/// If the `platform_cid` cookie is present and valid, its value is injected
+/// into `req.extensions()`.  Otherwise a fresh `ClientId` is generated and
+/// a `Set-Cookie` header is prepared.
+///
+/// Wrapped as a layer via `rama::layer::layer_fn`.
+#[derive(Debug, Clone)]
+pub struct AuthService<S> {
+    inner: S,
+}
+
+impl<S> AuthService<S> {
+    pub fn new(inner: S) -> Self {
+        Self { inner }
+    }
+}
+
+impl<S, ResBody> Service<Request> for AuthService<S>
+where
+    S: Service<Request, Output = Response<ResBody>, Error = Infallible>,
+    ResBody: Default + From<String> + Send + 'static,
+{
+    type Output = Response<ResBody>;
+    type Error = Infallible;
+
+    fn serve(
+        &self,
+        req: Request,
+    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
+        async move {
+            let client_id = extract_or_generate_client_id(&req);
+            let mut req = req;
+            let is_new = req.extensions().get::<ClientId>().is_none();
+            req.extensions_mut().insert(client_id);
+
+            let mut response = self.inner.serve(req).await.unwrap();
+
+            // Set cookie only for new client IDs
+            if is_new {
+                let cookie = format!(
+                    "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+                    platform_core::client_id::CLIENT_ID_COOKIE,
+                    client_id,
+                    30 * 24 * 60 * 60 // 30 days
+                );
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    cookie.parse().unwrap(),
+                );
+            }
+
+            Ok(response)
+        }
+    }
+}
+
+fn extract_or_generate_client_id(req: &Request) -> ClientId {
+    // Try to parse from extensions first (already set by a higher layer)
+    if let Some(cid) = req.extensions().get::<ClientId>() {
+        return *cid;
+    }
+
+    // Try to parse from cookie
+    if let Some(cookie_str) = common::get_cookie_value(req, platform_core::client_id::CLIENT_ID_COOKIE) {
+        if let Some(cid) = ClientId::parse(&cookie_str) {
+            return cid;
+        }
+    }
+
+    // Generate new
+    ClientId::generate()
+}
