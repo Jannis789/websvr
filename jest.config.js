@@ -1,9 +1,6 @@
-/**
- * Jest configuration for Service Worker hash-sync tests.
- * Tests are run in a Node.js environment with mocked fetch/ServiceWorker APIs.
- */
+/** @type {import('jest').Config} */
 module.exports = {
-  testEnvironment: 'node',
-  testMatch: ['**/sw.test.js'],
-  transform: {},
+  testEnvironment: 'jsdom',
+  testMatch: ['**/tests/**/*.test.js'],
+  setupFiles: ['./tests/setup.js'],
 };
