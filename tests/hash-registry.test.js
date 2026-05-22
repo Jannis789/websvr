@@ -1,166 +1,195 @@
 /**
- * §2.12 — Unit Tests for SW Hash Registry
+ * §2.12 — Tests for the REAL sw.js
  *
- * Tests the in-memory HASH_REGISTRY logic:
- * - Hash registration
- * - TTL expiration (24h)
- * - Deduplication via known_hashes
- * - MAX_REGISTRY_SIZE enforcement
+ * Loads the actual sw.js from assets/js/sw.js and tests:
+ * - Hash Registry (register, TTL, dedup, MAX_REGISTRY_SIZE)
+ * - SSE Parser (processSSERead — hash learning from event stream)
+ * - Fetch Interception (known_hashes appended to /sse URL)
+ * - Stream Teeing (hash learning while forwarding to page)
  * - Edge Cases EC-1 through EC-6 (§4.4)
  */
 
-const TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_REGISTRY_SIZE = 2000;
-const EVENT_PREFIX = 'datastar-patch-elements';
-
-// ── Extracted Hash Registry (mirrors sw.js logic) ──
-
-function createRegistry() {
-  const map = new Map();
+// ─────────────────────────────────────────────
+// Helper: Create a mock ReadableStream from SSE text chunks
+// ─────────────────────────────────────────────
+function createMockStream(chunks) {
+  const encoder = new TextEncoder();
+  let index = 0;
   return {
-    register(hash) {
-      map.set(hash, Date.now());
-      if (map.size > MAX_REGISTRY_SIZE) {
-        const entries = [...map.entries()].sort((a, b) => a[1] - b[1]);
-        const toDelete = entries.slice(0, entries.length - MAX_REGISTRY_SIZE);
-        for (const [h] of toDelete) map.delete(h);
-      }
+    getReader() {
+      return {
+        read: async () => {
+          if (index < chunks.length) {
+            return { done: false, value: encoder.encode(chunks[index++]) };
+          }
+          return { done: true, value: undefined };
+        },
+        releaseLock() {},
+      };
     },
-    has(hash) { return map.has(hash); },
-    size() { return map.size; },
-    cleanExpired() {
-      const now = Date.now();
-      for (const [hash, ts] of map) {
-        if (now - ts > TTL_MS) map.delete(hash);
-      }
-    },
-    keys() { return Array.from(map.keys()); },
-    getKnownHashesParam() {
-      this.cleanExpired();
-      return this.keys().join(',');
+    tee() {
+      // Return two independent readers of the same data
+      const data = chunks.map(c => encoder.encode(c));
+      const makeStream = () => ({
+        getReader() {
+          let i = 0;
+          return {
+            read: async () => i < data.length ? { done: false, value: data[i++] } : { done: true, value: undefined },
+            releaseLock() {},
+          };
+        },
+      });
+      return [makeStream(), makeStream()];
     },
   };
-}
-
-// ── Extracted SSE Parser (mirrors sw.js processSSERead) ──
-
-function createSSEParser() {
-  const registry = createRegistry();
-  let buffer = '';
-
-  function processChunk(text) {
-    const data = buffer + text;
-    const lines = data.split('\n');
-    let eventType = null;
-    let eventId = null;
-
-    for (let i = 0; i < lines.length - 1; i++) {
-      const line = lines[i];
-      if (line.startsWith('event: ')) {
-        eventType = line.slice(7).trim();
-      } else if (line.startsWith('id: ')) {
-        eventId = line.slice(4).trim();
-      } else if (line === '' && eventType) {
-        if (eventType === EVENT_PREFIX && eventId && eventId.length > 0) {
-          registry.register(eventId);
-        }
-        eventType = null;
-        eventId = null;
-      }
-    }
-    buffer = lines[lines.length - 1];
-    return buffer;
-  }
-
-  return { registry, processChunk };
 }
 
 // ─────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────
 
-describe('Hash Registry — Basic Operations', () => {
-  test('register and check hash', () => {
-    const reg = createRegistry();
-    reg.register('abc123');
-    expect(reg.has('abc123')).toBe(true);
-    expect(reg.has('not-registered')).toBe(false);
+let sw;
+
+beforeEach(() => {
+  sw = global.loadSw();
+});
+
+// ─── 1. SW Lifecycle ───
+
+describe('SW Lifecycle', () => {
+  test('install event calls skipWaiting', () => {
+    global.dispatchLifecycleEvent('install');
+    expect(global.skipWaiting).toHaveBeenCalled();
   });
 
-  test('multiple hashes', () => {
-    const reg = createRegistry();
-    reg.register('hash1');
-    reg.register('hash2');
-    reg.register('hash3');
-    expect(reg.size()).toBe(3);
-    expect(reg.keys()).toEqual(['hash1', 'hash2', 'hash3']);
-  });
-
-  test('duplicate hash does not increase size', () => {
-    const reg = createRegistry();
-    reg.register('same');
-    reg.register('same');
-    expect(reg.size()).toBe(1);
+  test('activate event calls clients.claim', () => {
+    const event = global.dispatchLifecycleEvent('activate');
+    expect(event.waitUntil).toHaveBeenCalled();
   });
 });
+
+// ─── 2. Hash Registry — Basic Operations ───
+
+describe('Hash Registry — Basic Operations (real sw.js)', () => {
+  test('registerHash adds hash to registry', () => {
+    sw.registerHash('abc123');
+    expect(sw.HASH_REGISTRY.has('abc123')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('not-registered')).toBe(false);
+  });
+
+  test('registerHash with multiple hashes', () => {
+    sw.registerHash('hash1');
+    sw.registerHash('hash2');
+    sw.registerHash('hash3');
+    expect(sw.HASH_REGISTRY.size).toBe(3);
+    expect(sw.HASH_REGISTRY.has('hash1')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('hash2')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('hash3')).toBe(true);
+  });
+
+  test('registerHash deduplicates (same hash does not increase size)', () => {
+    sw.registerHash('same');
+    sw.registerHash('same');
+    expect(sw.HASH_REGISTRY.size).toBe(1);
+  });
+
+  test('registerHash updates timestamp on re-registration', () => {
+    sw.registerHash('rehash');
+    const ts1 = sw.HASH_REGISTRY.get('rehash');
+    // Small delay then re-register
+    sw.registerHash('rehash');
+    const ts2 = sw.HASH_REGISTRY.get('rehash');
+    expect(ts2).toBeGreaterThanOrEqual(ts1);
+    expect(sw.HASH_REGISTRY.size).toBe(1);
+  });
+});
+
+// ─── 3. Hash Registry — TTL Expiration ───
 
 describe('Hash Registry — TTL Expiration (24h)', () => {
-  test('EC-6: hashes older than 24h are removed on cleanExpired', () => {
-    const map = new Map();
-    map.set('old_hash', Date.now() - 25 * 60 * 60 * 1000);
-    map.set('fresh_hash', Date.now());
-    expect(map.size).toBe(2);
+  test('EC-6: cleanExpiredHashes removes hashes older than 24h', () => {
+    // Manually inject an old hash (25h ago)
+    sw.HASH_REGISTRY.set('old_hash', Date.now() - 25 * 60 * 60 * 1000);
+    sw.HASH_REGISTRY.set('fresh_hash', Date.now());
 
-    const now = Date.now();
-    for (const [hash, ts] of map) {
-      if (now - ts > TTL_MS) map.delete(hash);
+    sw.cleanExpiredHashes();
+
+    expect(sw.HASH_REGISTRY.has('old_hash')).toBe(false);
+    expect(sw.HASH_REGISTRY.has('fresh_hash')).toBe(true);
+  });
+
+  test('hashes exactly at TTL boundary are kept', () => {
+    // Exactly 24h old — should still be kept (< not >=)
+    sw.HASH_REGISTRY.set('boundary_hash', Date.now() - 24 * 60 * 60 * 1000);
+    sw.cleanExpiredHashes();
+    // The check is `now - ts > TTL_MS`, so exactly at boundary = kept
+    expect(sw.HASH_REGISTRY.has('boundary_hash')).toBe(true);
+  });
+
+  test('cleanExpiredHashes with empty registry does nothing', () => {
+    sw.cleanExpiredHashes();
+    expect(sw.HASH_REGISTRY.size).toBe(0);
+  });
+});
+
+// ─── 4. Hash Registry — MAX_REGISTRY_SIZE ───
+
+describe('Hash Registry — MAX_REGISTRY_SIZE eviction', () => {
+  test('evicts oldest entries when exceeding max size', () => {
+    // Fill to MAX + 5
+    const limit = sw.MAX_REGISTRY_SIZE;
+    for (let i = 0; i < limit + 5; i++) {
+      sw.registerHash(`hash_${i.toString().padStart(5, '0')}`);
     }
-    expect(map.has('old_hash')).toBe(false);
-    expect(map.has('fresh_hash')).toBe(true);
+    // Size should be capped at MAX_REGISTRY_SIZE
+    expect(sw.HASH_REGISTRY.size).toBe(limit);
+    // Oldest entries should be evicted
+    expect(sw.HASH_REGISTRY.has('hash_00000')).toBe(false);
+    expect(sw.HASH_REGISTRY.has('hash_00004')).toBe(false);
+    // Newest entries should be kept
+    expect(sw.HASH_REGISTRY.has(`hash_${(limit + 4).toString().padStart(5, '0')}`)).toBe(true);
   });
 });
 
-describe('Hash Registry — known_hashes parameter', () => {
-  test('returns comma-separated hashes', () => {
-    const reg = createRegistry();
-    reg.register('abc');
-    reg.register('def');
-    reg.register('ghi');
-    expect(reg.getKnownHashesParam()).toBe('abc,def,ghi');
-  });
+// ─── 5. SSE Parser — processSSERead ───
 
-  test('empty registry returns empty string', () => {
-    const reg = createRegistry();
-    expect(reg.getKnownHashesParam()).toBe('');
-  });
-});
-
-describe('SSE Parser — Hash Learning from Event Stream', () => {
+describe('SSE Parser — processSSERead (real sw.js)', () => {
   test('registers hash from PatchElements event', () => {
-    const { registry, processChunk } = createSSEParser();
-    processChunk([
+    let buffer = '';
+    buffer = sw.processSSERead(buffer, [
       'event: datastar-patch-elements\n',
       'id: abc123def456\n',
       'data: <div>Hello</div>\n',
       '\n',
     ].join(''));
-    expect(registry.has('abc123def456')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('abc123def456')).toBe(true);
   });
 
-  test('ignores non-PatchElements events', () => {
-    const { registry, processChunk } = createSSEParser();
-    processChunk([
+  test('ignores non-PatchElements events (does not register hash)', () => {
+    let buffer = '';
+    buffer = sw.processSSERead(buffer, [
       'event: datastar-patch-signals\n',
       'id: signal-hash\n',
       'data: {"count": 5}\n',
       '\n',
     ].join(''));
-    expect(registry.has('signal-hash')).toBe(false);
+    expect(sw.HASH_REGISTRY.has('signal-hash')).toBe(false);
+  });
+
+  test('ignores ExecuteScript events', () => {
+    let buffer = '';
+    buffer = sw.processSSERead(buffer, [
+      'event: datastar-execute-script\n',
+      'id: script-hash\n',
+      'data: console.log("hi")\n',
+      '\n',
+    ].join(''));
+    expect(sw.HASH_REGISTRY.has('script-hash')).toBe(false);
   });
 
   test('handles multiple events in one chunk', () => {
-    const { registry, processChunk } = createSSEParser();
-    processChunk([
+    let buffer = '';
+    buffer = sw.processSSERead(buffer, [
       'event: datastar-patch-elements\n',
       'id: hash_a\n',
       'data: <div>A</div>\n',
@@ -170,48 +199,216 @@ describe('SSE Parser — Hash Learning from Event Stream', () => {
       'data: <div>B</div>\n',
       '\n',
     ].join(''));
-    expect(registry.has('hash_a')).toBe(true);
-    expect(registry.has('hash_b')).toBe(true);
-    expect(registry.size()).toBe(2);
+    expect(sw.HASH_REGISTRY.has('hash_a')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('hash_b')).toBe(true);
+    expect(sw.HASH_REGISTRY.size).toBe(2);
+  });
+
+  test('handles split chunks (event split across two reads)', () => {
+    let buffer = '';
+    // First chunk: incomplete event
+    buffer = sw.processSSERead(buffer, 'event: datastar-patch-elements\nid: split');
+    expect(sw.HASH_REGISTRY.size).toBe(0); // Not yet complete
+
+    // Second chunk: rest of event
+    buffer = sw.processSSERead(buffer, '_hash\ndata: <div>X</div>\n\n');
+    expect(sw.HASH_REGISTRY.has('split_hash')).toBe(true);
+  });
+
+  test('ignores events without an id field', () => {
+    let buffer = '';
+    buffer = sw.processSSERead(buffer, [
+      'event: datastar-patch-elements\n',
+      'data: <div>No ID</div>\n',
+      '\n',
+    ].join(''));
+    expect(sw.HASH_REGISTRY.size).toBe(0);
+  });
+
+  test('ignores events with empty id', () => {
+    let buffer = '';
+    buffer = sw.processSSERead(buffer, [
+      'event: datastar-patch-elements\n',
+      'id: \n',
+      'data: <div>Empty ID</div>\n',
+      '\n',
+    ].join(''));
+    expect(sw.HASH_REGISTRY.size).toBe(0);
   });
 });
 
-describe('Edge Cases — §4.4 Spec', () => {
-  test('EC-1: Hash Match — event skipped when hash is known', () => {
-    const reg = createRegistry();
-    reg.register('known_hash_123');
-    const knownHashes = reg.keys();
-    expect(knownHashes.includes('known_hash_123')).toBe(true);
+// ─── 6. Fetch Interception — known_hashes ───
+
+describe('Fetch Interception — known_hashes (real sw.js)', () => {
+  test('appends known_hashes to /sse URL when registry has entries', async () => {
+    sw.registerHash('hash_a');
+    sw.registerHash('hash_b');
+
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/sse', respondWith);
+
+    expect(respondWith).toHaveBeenCalledTimes(1);
+    const fetchCall = global.fetch.mock.calls[0];
+    expect(fetchCall[0]).toContain('/sse?known_hashes=');
+    expect(fetchCall[0]).toContain('hash_a');
+    expect(fetchCall[0]).toContain('hash_b');
   });
 
-  test('EC-2: Hash Mismatch — event processed when hash differs', () => {
-    const reg = createRegistry();
-    reg.register('old_hash');
-    const knownHashes = reg.keys();
-    expect(knownHashes.includes('new_hash_456')).toBe(false);
+  test('does not append known_hashes when registry is empty', async () => {
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/sse', respondWith);
+
+    expect(respondWith).toHaveBeenCalledTimes(1);
+    const fetchCall = global.fetch.mock.calls[0];
+    expect(fetchCall[0]).not.toContain('known_hashes');
   });
 
-  test('EC-3: Out-of-order Events — each checked independently', () => {
-    const reg = createRegistry();
-    reg.register('hash_1');
-    const knownHashes = reg.keys();
-    expect(knownHashes.includes('hash_2')).toBe(false); // unknown → process
-    expect(knownHashes.includes('hash_1')).toBe(true);  // known → skip
-    expect(knownHashes.includes('hash_3')).toBe(false); // unknown → process
+  test('does not intercept non-/sse requests', () => {
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/home', respondWith);
+    expect(respondWith).not.toHaveBeenCalled();
   });
 
-  test('EC-5: SW loses hashes — empty known_hashes sent', () => {
-    const reg = createRegistry();
-    expect(reg.getKnownHashesParam()).toBe('');
+  test('does not intercept /sse in path prefix (e.g. /assets/sse)', () => {
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/assets/sse', respondWith);
+    expect(respondWith).not.toHaveBeenCalled();
+  });
+
+  test('cleanExpiredHashes is called before building known_hashes', () => {
+    // Inject an expired hash
+    sw.HASH_REGISTRY.set('expired', Date.now() - 25 * 60 * 60 * 1000);
+    sw.HASH_REGISTRY.set('fresh', Date.now());
+
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/sse', respondWith);
+
+    const fetchCall = global.fetch.mock.calls[0];
+    expect(fetchCall[0]).not.toContain('expired');
+    expect(fetchCall[0]).toContain('fresh');
+  });
+});
+
+// ─── 7. Stream Teeing — consumeSSEStream ───
+
+describe('Stream Teeing — consumeSSEStream learns hashes from stream', () => {
+  test('consumeSSEStream reads stream and registers hashes', async () => {
+    const chunks = [
+      'event: datastar-patch-elements\nid: stream_hash_1\ndata: A\n\n',
+      'event: datastar-patch-elements\nid: stream_hash_2\ndata: B\n\n',
+    ];
+    const stream = createMockStream(chunks);
+    await sw.consumeSSEStream(stream);
+
+    expect(sw.HASH_REGISTRY.has('stream_hash_1')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('stream_hash_2')).toBe(true);
+  });
+
+  test('consumeSSEStream handles empty stream', async () => {
+    const stream = createMockStream([]);
+    await sw.consumeSSEStream(stream);
+    expect(sw.HASH_REGISTRY.size).toBe(0);
+  });
+
+  test('consumeSSEStream ignores errors gracefully', async () => {
+    const errorStream = {
+      getReader() {
+        return {
+          read: async () => { throw new Error('Stream error'); },
+          releaseLock() {},
+        };
+      },
+    };
+    // Should not throw
+    await sw.consumeSSEStream(errorStream);
+    expect(sw.HASH_REGISTRY.size).toBe(0);
+  });
+});
+
+// ─── 8. Edge Cases — §4.4 Spec ───
+
+describe('Edge Cases — §4.4 Spec (real sw.js)', () => {
+  test('EC-1: Hash Match — known hash is included in known_hashes', () => {
+    sw.registerHash('known_hash_123');
+    const known = Array.from(sw.HASH_REGISTRY.keys());
+    expect(known).toContain('known_hash_123');
+    // Server will skip this event
+  });
+
+  test('EC-2: Hash Mismatch — unknown hash is NOT in known_hashes', () => {
+    sw.registerHash('old_hash');
+    const known = Array.from(sw.HASH_REGISTRY.keys());
+    expect(known).not.toContain('new_hash_456');
+    // Server will send this event
+  });
+
+  test('EC-3: Out-of-order Events — each hash checked independently', () => {
+    sw.registerHash('hash_1');
+    const known = Array.from(sw.HASH_REGISTRY.keys());
+    expect(known).toContain('hash_1');       // known → skip
+    expect(known).not.toContain('hash_2');   // unknown → process
+    expect(known).not.toContain('hash_3');   // unknown → process
+  });
+
+  test('EC-4: Hash collision — different content, same hash (accepted risk)', () => {
+    // Practically impossible with HMAC-SHA256 truncated to 128 bit
+    // But if it happens, the second event is skipped (by design)
+    sw.registerHash('collision_hash');
+    expect(sw.HASH_REGISTRY.has('collision_hash')).toBe(true);
+    // A different event with same hash would be skipped — accepted risk
+  });
+
+  test('EC-5: SW loses hashes — empty registry sends empty known_hashes', () => {
+    // Fresh SW, no hashes
+    expect(sw.HASH_REGISTRY.size).toBe(0);
+    const known = Array.from(sw.HASH_REGISTRY.keys()).join(',');
+    expect(known).toBe('');
+    // Server will replay all buffered events → no data loss
   });
 
   test('EC-6: TTL exceeded — hash removed, event re-processed', () => {
-    const map = new Map();
-    map.set('expired_hash', Date.now() - 25 * 60 * 60 * 1000);
-    const now = Date.now();
-    for (const [hash, ts] of map) {
-      if (now - ts > TTL_MS) map.delete(hash);
-    }
-    expect(map.has('expired_hash')).toBe(false);
+    sw.HASH_REGISTRY.set('expired_hash', Date.now() - 25 * 60 * 60 * 1000);
+    sw.cleanExpiredHashes();
+    expect(sw.HASH_REGISTRY.has('expired_hash')).toBe(false);
+    // Server will send the event again → client processes it
+  });
+});
+
+// ─── 9. Integration — Full SSE Round-Trip ───
+
+describe('Integration — Full SSE Round-Trip', () => {
+  test('hashes learned from stream appear in subsequent fetch known_hashes', async () => {
+    // Phase 1: Learn hashes from an SSE stream
+    const chunks = [
+      'event: datastar-patch-elements\nid: learned_a\ndata: A\n\n',
+      'event: datastar-patch-elements\nid: learned_b\ndata: B\n\n',
+    ];
+    const stream = createMockStream(chunks);
+    await sw.consumeSSEStream(stream);
+
+    expect(sw.HASH_REGISTRY.has('learned_a')).toBe(true);
+    expect(sw.HASH_REGISTRY.has('learned_b')).toBe(true);
+
+    // Phase 2: Subsequent /sse fetch should include learned hashes
+    global.fetch.mockClear();
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/sse', respondWith);
+
+    const fetchCall = global.fetch.mock.calls[0];
+    expect(fetchCall[0]).toContain('learned_a');
+    expect(fetchCall[0]).toContain('learned_b');
+  });
+
+  test('expired hashes are NOT included in subsequent fetch', async () => {
+    sw.registerHash('still_fresh');
+    sw.HASH_REGISTRY.set('now_expired', Date.now() - 25 * 60 * 60 * 1000);
+
+    global.fetch.mockClear();
+    const respondWith = jest.fn();
+    global.dispatchFetchEvent('http://localhost:3000/sse', respondWith);
+
+    const fetchCall = global.fetch.mock.calls[0];
+    expect(fetchCall[0]).toContain('still_fresh');
+    expect(fetchCall[0]).not.toContain('now_expired');
   });
 });

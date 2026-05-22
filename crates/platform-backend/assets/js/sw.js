@@ -137,3 +137,16 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// ── Test exports (only in test environment) ──
+if (typeof globalThis.__SW_TEST_MODE !== 'undefined') {
+  self.__sw = {
+    HASH_REGISTRY,
+    processSSERead,
+    registerHash,
+    cleanExpiredHashes,
+    consumeSSEStream,
+    TTL_MS,
+    MAX_REGISTRY_SIZE,
+  };
+}
