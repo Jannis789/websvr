@@ -78,12 +78,12 @@ Hier ist ein umfassendes, strukturiertes TODO-List, das sich direkt aus den Vorg
 
 ## Phase 7: Testing & E2E Harness
 
-- [ ] **[Spec §2.12]** Jest-Testumgebung für `sw.js` aufsetzen.
-- [ ] **[Spec §2.12]** Unit Tests für SW Hash Registry schreiben (TTL, Deduplizierung).
+- [x] **[Spec §2.12]** Jest-Testumgebung für `sw.js` aufsetzen.
+- [x] **[Spec §2.12]** Unit Tests für SW Hash Registry schreiben (TTL, Deduplizierung).
 - [x] **[Spec §2.12]** E2E Test-Route `/test` im Backend anlegen (Protected Sub-Router).
 - [x] **[Spec §2.12]** Test-Seite (`test.html`) mit Datastar-Signals für Test-Ergebnisse bauen.
 - [x] **[Spec §2.12]** Backend-Logik für `/test`: Sequentielles Feuern von `BufferedEvents` (Edge Cases: neue, bekannte, out-of-order Events) in den Broadcaster.
-- [ ] **[Spec §4.4]** Edge Cases implementieren & testen: EC-1 (Hash Match), EC-2 (Mismatch), EC-5 (SW verliert Hashes), EC-6 (TTL Überschreitung).
+- [x] **[Spec §4.4]** Edge Cases implementieren & testen: EC-1 (Hash Match), EC-2 (Mismatch), EC-5 (SW verliert Hashes), EC-6 (TTL Überschreitung).
 - [x] **[Spec §2.12]** Score-Berechnung im Frontend umsetzen (z.B. `10/10 Caching-Kombinationen`).
 
 ## Phase 8: Final Review & Restriktionen-Check
