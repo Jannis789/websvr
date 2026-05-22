@@ -33,7 +33,7 @@ Hier ist ein umfassendes, strukturiertes TODO-List, das sich direkt aus den Vorg
 - [x] **[Spec §2.7 / ADR-010]** `UserModel` sicherstellen: Enthält `email: String (UNIQUE)` für Login und `username: String (UNIQUE)` für Anzeige.
 - [x] **[Spec §2.7]** SeaORM Entity `SessionEntity` generieren/erstellen.
 - [x] **[Spec §2.7]** `SessionModel` sicherstellen: Enthält `data: Json` für `StorageMode::Persistent` Daten.
-- [ ] **[Spec §2.7]** Migration ausführen und testen.
+- [x] **[Spec §2.7]** Migration ausführen und testen.
 
 ## Phase 3: HTTP Server, State & Layer-Stack (`platform-backend`)
 
