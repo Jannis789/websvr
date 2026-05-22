@@ -9,7 +9,7 @@ pub async fn login_page(
     State(_state): State<SharedState>,
     _req: Request,
 ) -> Response {
-    log!(Info, "Handler → login_page (public route)");
+    crate::elog!(Info, "Handler → login_page (public route)");
     html_response(include_str!("../../pages/login.html"))
 }
 
@@ -18,7 +18,7 @@ pub async fn register_page(
     State(_state): State<SharedState>,
     _req: Request,
 ) -> Response {
-    log!(Info, "Handler → register_page (public route)");
+    crate::elog!(Info, "Handler → register_page (public route)");
     html_response(include_str!("../../pages/register.html"))
 }
 
@@ -28,7 +28,7 @@ pub async fn home_page(
     req: Request,
 ) -> Response {
     let _ctx = common::extract_context(&req);
-    log!(Info, "Handler → home_page (client_id={})", _ctx.client_id);
+    crate::elog!(Info, "Handler → home_page (client_id={})", _ctx.client_id);
     html_response(include_str!("../../pages/home.html"))
 }
 

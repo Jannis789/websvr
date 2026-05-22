@@ -95,7 +95,7 @@ pub async fn run() {
 
     let bind_addr = format!("{}:{}", "0.0.0.0", 3000u16);
     tracing::info!("Rama Platform server listening on http://{bind_addr}");
-    log!(Ok, "Layer stack: Compression → Auth → Session → ClientContext → Handler");
+    crate::elog!(Ok, "Layer stack: Compression → Auth → Session → ClientContext → Handler");
 
     HttpServer::http1()
         .listen(bind_addr, service)

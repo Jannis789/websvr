@@ -58,7 +58,7 @@ pub fn _emit(level: Level, file: &str, line: u32, msg: &str) {
 }
 
 #[macro_export]
-macro_rules! log {
+macro_rules! elog {
     ($level:ident, $($arg:tt)*) => {{
         let msg = format!($($arg)*);
         $crate::utils::log::_emit(

@@ -42,7 +42,7 @@ where
     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
         async move {
             let client_id = extract_or_generate_client_id(&req);
-            log!(Info, "AuthService → client_id={}", client_id);
+            crate::elog!(Info, "AuthService → client_id={}", client_id);
             let mut req = req;
             let is_new = req.extensions().get::<ClientId>().is_none();
             req.extensions_mut().insert(client_id);
@@ -51,7 +51,7 @@ where
 
             // Set cookie only for new client IDs
             if is_new {
-                log!(Ok, "AuthService → new cookie set for {}", client_id);
+                crate::elog!(Ok, "AuthService → new cookie set for {}", client_id);
                 let cookie = format!(
                     "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
                     platform_core::client_id::CLIENT_ID_COOKIE,

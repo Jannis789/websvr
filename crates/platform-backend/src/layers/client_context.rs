@@ -58,7 +58,7 @@ where
 
             let mut req = req;
             req.extensions_mut().insert(ctx);
-            log!(Ok, "ClientContext → assembled for client_id={}", client_id);
+            crate::elog!(Ok, "ClientContext → assembled for client_id={}", client_id);
 
             Ok(self.inner.serve(req).await.unwrap())
         }
