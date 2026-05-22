@@ -45,6 +45,7 @@ where
             // For now, create a fresh SessionStorage.
             // In a later phase, load persisted data from DB.
             let session = SessionStorage::new(client_id);
+            log!(Info, "SessionStorage → created for client_id={}", client_id);
 
             let mut req = req;
             req.extensions_mut().insert(session);

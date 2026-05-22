@@ -10,6 +10,7 @@ pub async fn test_page(
     req: Request,
 ) -> Response {
     let _ctx = common::extract_context(&req);
+    log!(Info, "Test → test page requested (client_id={})", _ctx.client_id);
     html_response(include_str!("../../pages/test.html"))
 }
 
@@ -28,6 +29,7 @@ pub async fn test_run(
 ) -> Response {
     let ctx = common::extract_context(&req);
     let sse_broadcaster = ctx.sse_broadcaster.clone();
+    log!(Ok, "Test → running hash-sync test sequence");
 
     // Spawn the test sequence in the background; respond immediately with 204
     tokio::spawn(async move {

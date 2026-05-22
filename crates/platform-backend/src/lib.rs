@@ -1,4 +1,5 @@
 // platform-backend — HTTP server, layer stack, handlers, SSE.
+pub mod utils;
 pub mod server;
 pub mod layers;
 pub mod handlers;

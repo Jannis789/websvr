@@ -13,9 +13,11 @@ pub async fn sse_endpoint(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
+    log!(Info, "SSE → endpoint connected (client_id={})", ctx.client_id);
 
     // 1. Parse known_hashes from query string
     let known_hashes = parse_known_hashes(&req);
+    log!(Info, "SSE → known_hashes count={}", known_hashes.len());
 
     // 2. Subscribe to the broadcast channel
     let mut rx = ctx.sse_broadcaster.subscribe();
