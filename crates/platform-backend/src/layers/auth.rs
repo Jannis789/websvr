@@ -41,16 +41,16 @@ where
         req: Request,
     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
         async move {
+            let had_cookie = common::get_cookie_value(&req, platform_core::client_id::CLIENT_ID_COOKIE).is_some();
             let client_id = extract_or_generate_client_id(&req);
-            crate::elog!(Info, "AuthService → client_id={}", client_id);
+            crate::elog!(Info, "AuthService → client_id={} (from_cookie={})", client_id, had_cookie);
             let mut req = req;
-            let is_new = req.extensions().get::<ClientId>().is_none();
             req.extensions_mut().insert(client_id);
 
             let mut response = self.inner.serve(req).await.unwrap();
 
-            // Set cookie only for new client IDs
-            if is_new {
+            // Set cookie only if it wasn't already present
+            if !had_cookie {
                 crate::elog!(Ok, "AuthService → new cookie set for {}", client_id);
                 let cookie = format!(
                     "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
