@@ -46,7 +46,7 @@ Hier ist ein umfassendes, strukturiertes TODO-List, das sich direkt aus den Vorg
 - [x] **[Spec §2.2 / ADR-009]** `ClientContextService` implementieren (via `layer_fn`). Logik: Aggregiert ClientId + SessionStorage + EventEmitter + Arc<SseBroadcaster>, in Extensions injecten.
 - [x] **[ADR-013]** `ClientContextSseExt` Extension Trait in `platform-backend` implementieren. Methode: `emit_patch(data_to_hash, patch: PatchElements, should_cache: bool)` — berechnet HMAC-Hash, erstellt `BufferedEvent`, sendet an `SseBroadcaster` und optional an `EventEmitter`.
 - [x] **[Spec §2.2]** `CompressionLayer` als äußerste Schicht im Sub-Router registrieren.
-- [ ] **[Spec §2.2]** Reihenfolge im Sub-Router testen: `Compression -> Auth -> Session -> Context -> Handler`.
+- [x] **[Spec §2.2]** Reihenfolge im Sub-Router testen: `Compression -> Auth -> Session -> Context -> Handler`.
 - [x] **[Spec §2.4]** `extract_context(&req)` Utility-Funktion in `platform-backend` implementieren (liest `ClientContext` aus `req.extensions()`).
 
 ## Phase 4: SSE, Broadcaster & Hash-Sync (Kritisch)
