@@ -88,23 +88,25 @@ pub async fn asset_css(
     let relative = path.strip_prefix("/assets/css/").unwrap_or(path);
 
     let content = match relative {
-        // ── Top-level entry points ──
-        "home.css" => include_str!("../../assets/css/home.css"),
-        "auth.css" => include_str!("../../assets/css/auth.css"),
-        "test.css" => include_str!("../../assets/css/test.css"),
-        // ── Feature partials (features/) ──
-        "features/_theme.css" => include_str!("../../assets/css/features/_theme.css"),
-        "features/_base.css" => include_str!("../../assets/css/features/_base.css"),
-        "features/_window.css" => include_str!("../../assets/css/features/_window.css"),
-        "features/_sidebar.css" => include_str!("../../assets/css/features/_sidebar.css"),
-        "features/_popup.css" => include_str!("../../assets/css/features/_popup.css"),
-        "features/_switch.css" => include_str!("../../assets/css/features/_switch.css"),
-        "features/_content.css" => include_str!("../../assets/css/features/_content.css"),
-        "features/_buttons.css" => include_str!("../../assets/css/features/_buttons.css"),
-        "features/_forms.css" => include_str!("../../assets/css/features/_forms.css"),
-        "features/_cards.css" => include_str!("../../assets/css/features/_cards.css"),
-        "features/_test.css" => include_str!("../../assets/css/features/_test.css"),
-        "features/_utilities.css" => include_str!("../../assets/css/features/_utilities.css"),
+        // ── Page entry points (pages/) ──
+        "pages/home.css"     => include_str!("../../assets/css/pages/home.css"),
+        "pages/login.css"    => include_str!("../../assets/css/pages/login.css"),
+        "pages/register.css" => include_str!("../../assets/css/pages/register.css"),
+        "pages/test.css"     => include_str!("../../assets/css/pages/test.css"),
+        // ── Common (theme, reset) ──
+        "common/theme.css"   => include_str!("../../assets/css/common/theme.css"),
+        "common/base.css"    => include_str!("../../assets/css/common/base.css"),
+        // ── Features (components) ──
+        "features/window.css"  => include_str!("../../assets/css/features/window.css"),
+        "features/sidebar.css" => include_str!("../../assets/css/features/sidebar.css"),
+        "features/popup.css"   => include_str!("../../assets/css/features/popup.css"),
+        "features/switch.css"  => include_str!("../../assets/css/features/switch.css"),
+        "features/content.css" => include_str!("../../assets/css/features/content.css"),
+        "features/button.css"  => include_str!("../../assets/css/features/button.css"),
+        "features/form.css"    => include_str!("../../assets/css/features/form.css"),
+        "features/card.css"    => include_str!("../../assets/css/features/card.css"),
+        "features/test.css"    => include_str!("../../assets/css/features/test.css"),
+        "features/utility.css" => include_str!("../../assets/css/features/utility.css"),
         _ => {
             let mut resp = Response::new(rama::http::Body::from("Not Found"));
             *resp.status_mut() = StatusCode::NOT_FOUND;

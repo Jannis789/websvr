@@ -96,7 +96,7 @@ exports[`HTML Template Snapshots > snapshot: home.html structure is stable > hom
     "type": null,
   },
   {
-    "href": "/assets/css/home.css",
+    "href": "/assets/css/pages/home.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -160,7 +160,7 @@ exports[`HTML Template Snapshots > snapshot: login.html structure is stable > lo
     "type": null,
   },
   {
-    "href": "/assets/css/auth.css",
+    "href": "/assets/css/pages/login.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -216,7 +216,7 @@ exports[`HTML Template Snapshots > snapshot: register.html structure is stable >
     "type": null,
   },
   {
-    "href": "/assets/css/auth.css",
+    "href": "/assets/css/pages/register.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -280,7 +280,7 @@ exports[`HTML Template Snapshots > snapshot: test.html structure is stable > tes
     "type": null,
   },
   {
-    "href": "/assets/css/test.css",
+    "href": "/assets/css/pages/test.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
