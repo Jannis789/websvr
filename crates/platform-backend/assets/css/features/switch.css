@@ -19,73 +19,80 @@
   position: absolute;
 }
 
+/* Track — inactive: dark gray, active: accent blue */
 .theme-switch .slider {
   position: absolute;
   inset: 0;
-  background-color: var(--bg-hover);
+  background-color: var(--border-color);
   border-radius: 12px;
   cursor: pointer;
   transition: background-color 0.25s ease;
 }
 
-/* Knob */
+/* Knob — always light/bright */
 .theme-switch .slider::after {
   content: "";
   position: absolute;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background-color: var(--fg-muted);
+  background-color: var(--fg-primary);
   left: 3px;
   top: 3px;
-  transition: transform 0.25s ease, background-color 0.25s ease;
+  transition: transform 0.25s ease;
 }
 
-/* Checked state */
+/* Active: blue track, knob slides right */
 .theme-switch input:checked + .slider {
-  background-color: var(--accent-bg);
+  background-color: var(--accent);
 }
 
 .theme-switch input:checked + .slider::after {
-  background-color: var(--accent);
   transform: translateX(18px);
 }
 
-/* Moon icon — left side (visible in dark mode = unchecked) */
+/* Moon icon — left side, visible when dark (unchecked) */
 .switch-icon.icon-moon {
   position: absolute;
   top: 5px;
   left: 4px;
   width: 14px;
   height: 14px;
-  color: var(--fg-primary);
+  color: var(--fg-muted);
   z-index: 1;
   pointer-events: none;
-  opacity: 1;
   transition: opacity 0.2s ease;
 }
 
-/* Sun icon — right side (hidden in dark mode, visible in light = checked) */
+/* Sun icon — right side, visible when light (checked) */
 .switch-icon.icon-sun {
   position: absolute;
   top: 5px;
   right: 4px;
   width: 14px;
   height: 14px;
-  color: var(--accent);
+  color: var(--fg-primary);
   z-index: 1;
   pointer-events: none;
-  opacity: 0.4;
   transition: opacity 0.2s ease;
 }
 
-/* Checked: moon fades, sun becomes prominent */
+/* Unchecked: moon visible, sun hidden behind knob */
+.switch-icon.icon-moon {
+  opacity: 0.6;
+}
+
+.switch-icon.icon-sun {
+  opacity: 0;
+}
+
+/* Checked: moon hidden behind knob, sun visible on blue track */
 .theme-switch input:checked ~ .slider .icon-moon {
-  opacity: 0.3;
+  opacity: 0;
 }
 
 .theme-switch input:checked ~ .slider .icon-sun {
-  opacity: 1;
+  opacity: 0.9;
 }
 
 /* Focus */
