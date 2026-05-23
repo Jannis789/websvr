@@ -6,6 +6,28 @@
 
 ---
 
+## 0. Referenz-Prioritäten & WIP-Hinweis
+
+**ACHTUNG — Work in Progress:**
+Zwischen den Referenz-Dateien existieren Inkonsistenzen, da das Projekt aktiv entwickelt wird.
+Bei Konflikten gilt die Datei mit der hoechsten Prioritaet als Ground Truth.
+
+**Prioritaets-Reihenfolge (hoechste zuerst):**
+
+| Prio | Datei | Inhalt | Status |
+|------|-------|--------|--------|
+| 1 | `references/rama-api.md` | Rama 0.3.0-alpha.4 API Crashkurs, Code-Patterns, Layer, SSE | Ground Truth fuer API |
+| 2 | `references/prompt.md` | Kanonische Systemspezifikation (VISION, Architektur, ADRs) | Spec-Dokument |
+| 3 | `references/architecture.md` | Crate-Struktur, Request-Lifecycle, DB-Schema, CSS | Architektur-Referenz |
+| 4 | `references/todo.md` | Phasen-basierte Roadmap, Implementierungs-Status | Fortschritts-Tracker |
+| 5 | `references/uml-klassendiagramm.md` | UML 2.x Klassendiagramm (Mermaid) | Konzeptionell, nicht exakt |
+| 6 | `docs/REFERENCE.md` | Diese Datei — synthetisierte Konsolidierung | Abgeleitet aus 1-5 |
+
+**Regel:** Wenn `rama-api.md` etwas anders beschreibt als `prompt.md`, gewinnt `rama-api.md`.
+Die Spec (`prompt.md`) beschreibt das Ziel, `rama-api.md` beschreibt wie es mit Rama wirklich funktioniert.
+
+---
+
 ## 1. Tech-Stack
 
 | Schicht | Technologie | Version |
@@ -339,21 +361,48 @@ Singleton via `std::sync::OnceLock`:
 
 ---
 
-## 10. Implementierungs-Regeln (ADR)
+## 10. Architekturentscheidungen (ADRs 001–014)
 
-| # | Regel | Begründung |
-|---|-------|-----------|
-| ❌0 | KEINE Logik in mod.rs | Nur `pub mod` + Re-Exports |
-| ❌1 | KEINE String-Concatenation für UI | `include_str!` + PatchElements |
+Aus `references/prompt.md` — kanonisch, Quelle ist Prio 2.
+
+| ADR | Entscheidung | Begruendung |
+|-----|-------------|-------------|
+| ADR-001 | Rama statt Axum/Actix | Architektur-Vorgabe; Layer-System nativ unterstuetzt |
+| ADR-002 | Datastar SSE-only | Kein alternatives UI-State-System; einziges Reaktivitaetsmedium |
+| ADR-003 | SeaORM + SQLite | Bekannte ORM-API; SQLite fuer Zero-Config-Entwicklung |
+| ADR-004 | ring fuer Kryptographie | HMAC-SHA256 fuer Hash-Sync; deterministisch ueber Server-Restarts |
+| ADR-005 | Service Worker Caching | Hash-basiertes Dedup ohne Custom-Protokoll |
+| ADR-006 | `tokio::sync::broadcast` | Multi-Client-SSE; `mpsc::unbounded` nur fuer 1:1 |
+| ADR-007 | Kein `mod.rs` mit Logik | `mod.rs` nur fuer `pub mod` + Re-Exports; Implementierungen in benannten Dateien |
+| ADR-008 | `Router<State>` Bifurkation | Trennung Public/Protected via `with_sub_router_make_fn`, kein custom RouterService |
+| ADR-009 | `rama::layer::layer_fn` | Keine eigenen Layer-Structs, Layer als Closures um Services gewrapped |
+| ADR-010 | Login via Email | Email = Login-Identifier; Username nur fuer Anzeige |
+| ADR-011 | `204 No Content` fuer SSE-Trigger | GETs, die SSE ausloesen, returnieren sofort 204; UI-Update asynchron via SSE |
+| ADR-012 | E2E Test-Route `/test` | Caching/Hash-Sync zwischen Rust/SW direkt in der App testbar |
+| ADR-013 | `ClientContextSseExt` Extension Trait | Trennt Rama-spezifische SSE-Logik von `platform-core` |
+| ADR-014 | Hash-Trunkierung auf 128 Bit | HMAC-SHA256 Tag auf 16 Bytes kuerzen; effizienter Hash-Sync im SW |
+
+### Implementierungs-Regeln (Verbot-Liste)
+
+Aus `references/prompt.md` — harte Regeln, die NIEMALS verletzt werden duerfen:
+
+| # | Regel | Begruendung |
+|---|-------|-------------|
+| ❌0 | KEINE Logik in `mod.rs` | Nur `pub mod` + Re-Exports |
+| ❌1 | KEINE String-Concatenation fuer UI | `include_str!` + PatchElements |
 | ❌2 | KEINE eigenen Layer-Structs | `layer_fn` nutzen |
 | ❌3 | KEINE undokumentierten Side Effects | Alles via EventEmitter/SSE |
 | ❌4 | KEIN page-spezifisches CSS | Global `common.css` + Custom Properties |
-| ❌5 | KEIN eigenes JS für UI-State | Nur Datastar SSE |
-| ❌6 | KEIN `std::hash::Hash` für Hash-Sync | `ring::hmac` für Determinismus |
+| ❌5 | KEIN eigenes JS fuer UI-State | Nur Datastar SSE |
+| ❌6 | KEIN `std::hash::Hash` fuer Hash-Sync | `ring::hmac` fuer Determinismus |
 | ❌7 | KEINE synchronen Wartezeiten bei SSE | Sofort `204 No Content` |
-| ADR-010 | Login via Email | Email = Login-Identifier, Username = Anzeige |
-| ADR-013 | `ClientContextSseExt` in Backend | Trennt Rama-Abhängigkeit von Core |
-| ADR-014 | Hash auf 128 Bit kürzen | Effizienter Hash-Sync im SW |
+
+### Performance-Regeln
+
+- ❌ Keine Full-DOM-Rebuilds → `PatchElements` mit `data-datastar-selector`
+- ❌ Keine String-Generierung zur Laufzeit fuer statische Seitenbereiche
+- ✅ `PatchSignals` fuer reaktive Updates
+- ✅ `PatchElements` fuer strukturelle Updates
 
 ---
 
