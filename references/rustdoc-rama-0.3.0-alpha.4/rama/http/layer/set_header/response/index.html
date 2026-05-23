@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Set a header on the response."><title>rama::http::layer::set_header::response - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="/-/rustdoc.static/${f}">`).join(""))</script><link rel="stylesheet" href="/-/rustdoc.static/normalize-9960930a.css"><link rel="stylesheet" href="/-/rustdoc.static/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="/-/rustdoc.static/" data-current-crate="rama" data-themes="" data-resource-suffix="-20251226-1.94.0-nightly-1107bbac4" data-rustdoc-version="1.94.0-nightly (1107bbac4 2025-12-26)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="/-/rustdoc.static/storage-e2aeef58.js"></script><script defer src="../sidebar-items-20251226-1.94.0-nightly-1107bbac4.js"></script><script defer src="/-/rustdoc.static/main-dcaacbb5.js"></script><noscript><link rel="stylesheet" href="/-/rustdoc.static/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module response</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../../rama/index.html"><img src="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png" alt="logo"></a><h2><a href="../../../../../rama/index.html">rama</a><span class="version">0.3.0-alpha.4</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module response</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rama::<wbr>http::<wbr>layer::<wbr>set_<wbr>header</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../index.html">rama</a>::<wbr><a href="../../../index.html">http</a>::<wbr><a href="../../index.html">layer</a>::<wbr><a href="../index.html">set_header</a></div><h1>Module <span>response</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="https://docs.rs/rama-http/0.3.0-alpha.4/x86_64-unknown-linux-gnu/src/rama_http/layer/set_header/mod.rs.html#6">Source</a> </span></div><span class="item-info"><div class="stab portability">Available on <strong>crate feature <code>http</code></strong> only.</div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Set a header on the response.</p>
+<p>The header value to be set may be provided as a fixed value when the
+middleware is constructed, or determined dynamically based on the response
+by a closure. See the <a href="trait.MakeHeaderValue.html" title="trait rama::http::layer::set_header::response::MakeHeaderValue"><code>MakeHeaderValue</code></a> trait for details.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<p>Setting a header from a fixed value provided when the middleware is constructed:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_http::layer::set_header::SetResponseHeaderLayer;
+<span class="kw">use </span>rama_http::{Body, Request, Response, header::{<span class="self">self</span>, HeaderValue}};
+<span class="kw">use </span>rama_core::service::service_fn;
+<span class="kw">use </span>rama_core::{Service, Layer};
+<span class="kw">use </span>rama_core::error::BoxError;
+
+<span class="kw">let </span><span class="kw-2">mut </span>svc = (
+    <span class="comment">// Layer that sets `Content-Type: text/html` on responses.
+    //
+    // `if_not_present` will only insert the header if it does not already
+    // have a value.
+    </span>SetResponseHeaderLayer::if_not_present(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(<span class="string">"text/html"</span>),
+    ),
+).into_layer(render_html);
+
+<span class="kw">let </span>request = Request::new(Body::empty());
+
+<span class="kw">let </span>response = svc.serve(request).<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="macro">assert_eq!</span>(response.headers()[<span class="string">"content-type"</span>], <span class="string">"text/html"</span>);</code></pre></div>
+<p>Setting a header based on a value determined dynamically from the response:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_core::error::BoxError;
+<span class="kw">use </span>rama_core::service::service_fn;
+<span class="kw">use </span>rama_core::{Layer, Service};
+<span class="kw">use </span>rama_http::StreamingBody <span class="kw">as _</span>;
+<span class="kw">use </span>rama_http::layer::set_header::SetResponseHeaderLayer;
+<span class="kw">use </span>rama_http::{
+    header::{<span class="self">self</span>, HeaderValue},
+    Body, Request, Response,
+};
+
+<span class="attr">#[tokio::main]
+</span><span class="kw">async fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), BoxError&gt; {
+    <span class="kw">let </span>render_html = service_fn(<span class="kw">async </span>|_request: Request| {
+        Ok::&lt;<span class="kw">_</span>, std::convert::Infallible&gt;(Response::new(Body::from(<span class="string">"1234567890"</span>)))
+    });
+
+    <span class="kw">let </span>svc = (
+        <span class="comment">// Layer that sets `Content-Length` if the body has a known size.
+        // Bodies with streaming responses wont have a known size.
+        //
+        // `overriding` will insert the header and override any previous values it
+        // may have.
+        </span>SetResponseHeaderLayer::overriding_fn(
+            header::CONTENT_LENGTH,
+            <span class="kw">async </span>|response: Response| {
+                <span class="kw">let </span>value = <span class="kw">if let </span><span class="prelude-val">Some</span>(size) = response.body().size_hint().exact() {
+                    <span class="comment">// If the response body has a known size, returning `Some` will
+                    // set the `Content-Length` header to that value.
+                    </span><span class="prelude-val">Some</span>(HeaderValue::try_from(size.to_string()).unwrap())
+                } <span class="kw">else </span>{
+                    <span class="comment">// If the response body doesn't have a known size, return `None`
+                    // to skip setting the header on this response.
+                    </span><span class="prelude-val">None
+                </span>};
+                (response, value)
+            },
+        ),
+    )
+        .into_layer(render_html);
+
+    <span class="kw">let </span>request = Request::new(Body::empty());
+
+    <span class="kw">let </span>response = svc.serve(request).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="macro">assert_eq!</span>(response.headers()[<span class="string">"content-length"</span>], <span class="string">"10"</span>);
+
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>Setting a header based on the incoming Context and response combined.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_core::{extensions::{ExtensionsRef, ExtensionsMut}, service::service_fn, Service};
+<span class="kw">use </span>rama_http::{
+    layer::set_header::{response::BoxMakeHeaderValueFn, SetResponseHeader},
+    Body, HeaderName, HeaderValue, Request, Response,
+    service::web::response::IntoResponse,
+};
+<span class="kw">use </span>std::convert::Infallible;
+
+<span class="attr">#[tokio::main]
+</span><span class="kw">async fn </span>main() {
+    <span class="attr">#[derive(Debug, Clone)]
+    </span><span class="kw">struct </span>RequestID(String);
+
+    <span class="attr">#[derive(Debug, Clone)]
+    </span><span class="kw">struct </span>Success;
+
+    <span class="kw">let </span>svc = SetResponseHeader::overriding_fn(
+        service_fn(<span class="kw">async </span>|| {
+            <span class="kw">let </span><span class="kw-2">mut </span>res = ().into_response();
+            res.extensions_mut().insert(Success);
+            Ok::&lt;<span class="kw">_</span>, Infallible&gt;(res)
+        }),
+        HeaderName::from_static(<span class="string">"x-used-request-id"</span>),
+        <span class="kw">async </span>|req: Request| {
+            <span class="kw">let </span>factory = req.extensions().get::&lt;RequestID&gt;().cloned().map(|id| {
+                BoxMakeHeaderValueFn::new(<span class="kw">async move </span>|res: Response| {
+                    <span class="kw">let </span>header_value = res.extensions().get::&lt;Success&gt;().map(|<span class="kw">_</span>| {
+                        HeaderValue::from_str(id.<span class="number">0</span>.as_str()).unwrap()
+                    });
+                    (res, header_value)
+                })
+            });
+            (req, factory)
+        },
+    );
+
+    <span class="kw">const </span>FAKE_USER_ID: <span class="kw-2">&amp;</span>str = <span class="string">"abc123"</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>req = Request::new(Body::empty());
+    req.extensions_mut().insert(RequestID(FAKE_USER_ID.to_owned()));
+
+    <span class="kw">let </span>res = svc.serve(req).<span class="kw">await</span>.unwrap();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>values = res
+        .headers()
+        .get_all(HeaderName::from_static(<span class="string">"x-used-request-id"</span>))
+        .iter();
+    <span class="macro">assert_eq!</span>(values.next().unwrap(), FAKE_USER_ID);
+    <span class="macro">assert_eq!</span>(values.next(), <span class="prelude-val">None</span>);
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BoxMakeHeaderValueFactoryFn.html" title="struct rama::http::layer::set_header::response::BoxMakeHeaderValueFactoryFn">BoxMake<wbr>Header<wbr>Value<wbr>Factory<wbr>Fn</a></dt><dd>The public wrapper type for [<code>MakeHeaderValueFactoryFn</code>].</dd><dt><a class="struct" href="struct.BoxMakeHeaderValueFn.html" title="struct rama::http::layer::set_header::response::BoxMakeHeaderValueFn">BoxMake<wbr>Header<wbr>Value<wbr>Fn</a></dt><dd>The public wrapper type for [<code>MakeHeaderValueFn</code>].</dd><dt><a class="struct" href="struct.MakeHeaderValueDefault.html" title="struct rama::http::layer::set_header::response::MakeHeaderValueDefault">Make<wbr>Header<wbr>Value<wbr>Default</a></dt><dd>Marker type to allow types which are <a href="trait.MakeHeaderValue.html" title="trait rama::http::layer::set_header::response::MakeHeaderValue"><code>MakeHeaderValue</code></a> and
+also have a <a href="https://doc.rust-lang.org/nightly/core/default/trait.Default.html" title="trait core::default::Default"><code>Default</code></a> way to construct to let them be constructed
+on the fly. Useful alternative for cloning or using a function.</dd><dt><a class="struct" href="struct.SetResponseHeader.html" title="struct rama::http::layer::set_header::response::SetResponseHeader">SetResponse<wbr>Header</a></dt><dd>Middleware that sets a header on the response.</dd><dt><a class="struct" href="struct.SetResponseHeaderLayer.html" title="struct rama::http::layer::set_header::response::SetResponseHeaderLayer">SetResponse<wbr>Header<wbr>Layer</a></dt><dd>Layer that applies <a href="../struct.SetResponseHeader.html" title="struct rama::http::layer::set_header::SetResponseHeader"><code>SetResponseHeader</code></a> which adds a response header.</dd><dt><a class="struct" href="struct.TypedHeaderAsMaker.html" title="struct rama::http::layer::set_header::response::TypedHeaderAsMaker">Typed<wbr>Header<wbr>AsMaker</a></dt><dd>Wrapper used internally as part of making typed headers
+encode header values on the spot, when needed.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.MakeHeaderValue.html" title="trait rama::http::layer::set_header::response::MakeHeaderValue">Make<wbr>Header<wbr>Value</a></dt><dd>Trait for producing header values, created by a <code>MakeHeaderValueFactory</code>.</dd><dt><a class="trait" href="trait.MakeHeaderValueFactory.html" title="trait rama::http::layer::set_header::response::MakeHeaderValueFactory">Make<wbr>Header<wbr>Value<wbr>Factory</a></dt><dd>Trait for preparing a maker (<a href="trait.MakeHeaderValue.html" title="trait rama::http::layer::set_header::response::MakeHeaderValue"><code>MakeHeaderValue</code></a>) that will be used
+to actually create the <a href="../../../struct.HeaderValue.html" title="struct rama::http::HeaderValue"><code>HeaderValue</code></a> when desired.</dd></dl></section></div></main></body></html>

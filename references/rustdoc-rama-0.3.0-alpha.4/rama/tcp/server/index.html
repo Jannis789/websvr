@@ -1,0 +1,35 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="TCP server module for Rama."><title>rama::tcp::server - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="/-/rustdoc.static/${f}">`).join(""))</script><link rel="stylesheet" href="/-/rustdoc.static/normalize-9960930a.css"><link rel="stylesheet" href="/-/rustdoc.static/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="/-/rustdoc.static/" data-current-crate="rama" data-themes="" data-resource-suffix="-20251226-1.94.0-nightly-1107bbac4" data-rustdoc-version="1.94.0-nightly (1107bbac4 2025-12-26)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="/-/rustdoc.static/storage-e2aeef58.js"></script><script defer src="../sidebar-items-20251226-1.94.0-nightly-1107bbac4.js"></script><script defer src="/-/rustdoc.static/main-dcaacbb5.js"></script><noscript><link rel="stylesheet" href="/-/rustdoc.static/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module server</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../rama/index.html"><img src="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png" alt="logo"></a><h2><a href="../../../rama/index.html">rama</a><span class="version">0.3.0-alpha.4</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module server</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rama::<wbr>tcp</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">rama</a>::<wbr><a href="../index.html">tcp</a></div><h1>Module <span>server</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="https://docs.rs/rama-tcp/0.3.0-alpha.4/x86_64-unknown-linux-gnu/src/rama_tcp/lib.rs.html#26">Source</a> </span></div><span class="item-info"><div class="stab portability">Available on <strong>crate feature <code>tcp</code></strong> only.</div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>TCP server module for Rama.</p>
+<p>The TCP server is used to create a <a href="struct.TcpListener.html" title="struct rama::tcp::server::TcpListener"><code>TcpListener</code></a> and accept incoming connections.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_tcp::{TcpStream, server::TcpListener};
+<span class="kw">use </span>rama_core::service::service_fn;
+<span class="kw">use </span>tokio::io::AsyncWriteExt;
+
+<span class="kw">const </span>SRC: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../../../examples/tcp_listener_hello.rs"</span>);
+
+<span class="attr">#[tokio::main]
+</span><span class="kw">async fn </span>main() {
+    TcpListener::bind(<span class="string">"127.0.0.1:9000"</span>)
+        .<span class="kw">await
+        </span>.expect(<span class="string">"bind TCP Listener"</span>)
+        .serve(service_fn(<span class="kw">async </span>|<span class="kw-2">mut </span>stream: TcpStream| {
+            <span class="kw">let </span>resp = [
+                <span class="string">"HTTP/1.1 200 OK"</span>,
+                <span class="string">"Content-Type: text/plain"</span>,
+                <span class="macro">format!</span>(<span class="string">"Content-Length: {}"</span>, SRC.len()).as_str(),
+                <span class="string">""</span>,
+                SRC,
+                <span class="string">""</span>,
+            ]
+            .join(<span class="string">"\r\n"</span>);
+
+            stream
+                .write_all(resp.as_bytes())
+                .<span class="kw">await
+                </span>.expect(<span class="string">"write to stream"</span>);
+
+            Ok::&lt;<span class="kw">_</span>, std::convert::Infallible&gt;(())
+        }))
+        .<span class="kw">await</span>;
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.TcpListener.html" title="struct rama::tcp::server::TcpListener">TcpListener</a></dt><dd>A TCP socket server, listening for incoming connections once served
+using one of the <code>serve</code> methods such as <a href="struct.TcpListener.html#method.serve" title="method rama::tcp::server::TcpListener::serve"><code>TcpListener::serve</code></a>.</dd><dt><a class="struct" href="struct.TcpListenerBuilder.html" title="struct rama::tcp::server::TcpListenerBuilder">TcpListener<wbr>Builder</a></dt><dd>Builder for <code>TcpListener</code>.</dd></dl></section></div></main></body></html>

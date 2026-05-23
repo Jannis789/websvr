@@ -5,9 +5,9 @@ use crate::server::SharedState;
 use crate::common::{self, empty_response};
 use crate::context::ClientContextSseExt;
 
-static HOME_OVERVIEW_HTML: &str = include_str!("../../pages/home_overview.html");
-static HOME_MOVIES_HTML: &str = include_str!("../../pages/home_movies.html");
-static HOME_SERIES_HTML: &str = include_str!("../../pages/home_series.html");
+static HOME_OVERVIEW_HTML: &str = include_str!("../../assets/templates/home_overview.html");
+static HOME_MOVIES_HTML: &str = include_str!("../../assets/templates/home_movies.html");
+static HOME_SERIES_HTML: &str = include_str!("../../assets/templates/home_series.html");
 
 /// GET /home/overview — emit overview HTML via SSE
 pub async fn get_home_overview(

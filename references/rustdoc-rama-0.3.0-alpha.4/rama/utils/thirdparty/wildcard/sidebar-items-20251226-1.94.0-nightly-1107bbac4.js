@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WildcardError","WildcardToken"],"struct":["Wildcard","WildcardBuilder"],"trait":["WildcardSymbol"]};

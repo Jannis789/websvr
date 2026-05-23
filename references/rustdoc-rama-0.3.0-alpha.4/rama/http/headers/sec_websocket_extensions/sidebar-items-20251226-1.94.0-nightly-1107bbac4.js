@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Extension","PerMessageDeflateIdentifier"],"struct":["PerMessageDeflateConfig","SecWebSocketExtensions"]};

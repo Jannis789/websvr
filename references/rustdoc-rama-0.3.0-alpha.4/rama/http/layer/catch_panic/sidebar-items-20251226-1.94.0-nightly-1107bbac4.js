@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CatchPanic","CatchPanicLayer","DefaultResponseForPanic"],"trait":["ResponseForPanic"]};

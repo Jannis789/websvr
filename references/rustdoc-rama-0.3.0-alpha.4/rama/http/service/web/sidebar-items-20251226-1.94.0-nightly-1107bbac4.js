@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["k8s_health","k8s_health_builder"],"mod":["extract","k8s","response"],"struct":["Router","StaticService","WebService"],"trait":["EndpointServiceFn","IntoEndpointService","IntoEndpointServiceWithState"]};

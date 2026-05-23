@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["service_fn"],"mod":["handler"],"struct":["BoxService","MirrorService","RejectError","RejectService"],"trait":["Service"]};

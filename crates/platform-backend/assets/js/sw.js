@@ -23,28 +23,32 @@ self.addEventListener('activate', (event) => {
 // ── Helper: Parse SSE text incrementally ──
 // Processes accumulated SSE text, extracts event IDs for PatchElements events,
 // and registers them. Returns the remaining (incomplete) text.
-let sseBuffer = '';
+//
+// SSE events can be split across network chunks. To handle this, the parser
+// persists its in-progress eventType/eventId state across calls (in module
+// globals pendingEventType, pendingEventId). The buffer holds the
+// incomplete last line; the pending fields hold the event header state.
+let pendingEventType = null; // persisted across calls for split events
+let pendingEventId = null;   // persisted across calls for split events
+
 function processSSERead(buffer, text) {
   const data = buffer + text;
   const lines = data.split('\n');
 
   // The last line might be incomplete; keep it for the next chunk
-  let eventType = null;
-  let eventId = null;
-
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i];
     if (line.startsWith('event: ')) {
-      eventType = line.slice(7).trim();
+      pendingEventType = line.slice(7).trim();
     } else if (line.startsWith('id: ')) {
-      eventId = line.slice(4).trim();
-    } else if (line === '' && eventType) {
+      pendingEventId = line.slice(4).trim();
+    } else if (line === '' && pendingEventType) {
       // End of an event — register if it's a PatchElements event with a hash ID
-      if (eventType === EVENT_PREFIX && eventId && eventId.length > 0) {
-        registerHash(eventId);
+      if (pendingEventType === EVENT_PREFIX && pendingEventId && pendingEventId.length > 0) {
+        registerHash(pendingEventId);
       }
-      eventType = null;
-      eventId = null;
+      pendingEventType = null;
+      pendingEventId = null;
     }
   }
 
@@ -92,6 +96,15 @@ async function consumeSSEStream(stream) {
 
       const chunk = decoder.decode(value, { stream: true });
       buffer = processSSERead(buffer, chunk);
+    }
+
+    // ── Flush: stream ended with a buffered (incomplete) event header.
+    // The last line was kept as `buffer`; the event headers are still in
+    // `pendingEventType`/`pendingEventId`.  Flush them now.
+    if (pendingEventType === EVENT_PREFIX && pendingEventId && pendingEventId.length > 0) {
+      registerHash(pendingEventId);
+      pendingEventType = null;
+      pendingEventId = null;
     }
   } catch (err) {
     // Stream closed or errored — silently ignore

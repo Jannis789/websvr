@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IpNet"],"struct":["IpNetMatcher","Ipv4Net","Ipv6Net"],"trait":["IntoIpNet"]};

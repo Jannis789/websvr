@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NATIVE_NEWLINE"],"fn":["contains_any_ignore_ascii_case","contains_ignore_ascii_case","starts_with_ignore_ascii_case","submatch_any_ignore_ascii_case","submatch_ignore_ascii_case"],"mod":["arcstr","smol_str","utf8"],"struct":["EmptyStrErr","NonEmptyStr"]};

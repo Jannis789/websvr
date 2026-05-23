@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Message","ProtocolError","Role"],"mod":["frame"],"struct":["CloseFrame","PerMessageDeflateConfig","WebSocket","WebSocketConfig","WebSocketContext"]};

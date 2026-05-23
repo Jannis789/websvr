@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Identifier","ProtectedHeaderKey"],"struct":["ProtectedHeader","ProtectedHeaderAcme","ProtectedHeaderCrypto"]};

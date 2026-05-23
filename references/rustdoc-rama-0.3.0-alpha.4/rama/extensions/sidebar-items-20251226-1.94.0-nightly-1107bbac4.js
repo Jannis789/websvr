@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Extensions","InputExtensions"],"trait":["ChainableExtensions","ExtensionsMut","ExtensionsRef"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["try_to_strip_path_prefix_from_uri"],"struct":["Authority","Builder","InvalidUri","InvalidUriParts","Parts","PathAndQuery","Port","Scheme","Uri"]};

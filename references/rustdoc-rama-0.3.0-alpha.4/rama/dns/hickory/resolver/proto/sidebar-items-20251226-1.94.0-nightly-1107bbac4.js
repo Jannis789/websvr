@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ProtoErrorKind"],"mod":["op","rr","runtime","serialize","tcp","udp","xfer"],"struct":["BufDnsStreamHandle","DnsMultiplexer","ForwardData","ForwardNSData","ProtoError","RetryDnsHandle"],"trait":["DnsHandle","DnsStreamHandle"]};

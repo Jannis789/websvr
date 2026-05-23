@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["codec","io","json","rewind"],"struct":["ChainReader","HeapReader","PeekStream","StackReader"],"trait":["Stream"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HttpMatcherKind"],"mod":["uri"],"struct":["DomainMatcher","HeaderMatcher","HttpMatcher","MethodMatcher","PathMatcher","SubdomainTrieMatcher","UriMatcher","UriParams","UriParamsDeserializeError","VersionMatcher"]};

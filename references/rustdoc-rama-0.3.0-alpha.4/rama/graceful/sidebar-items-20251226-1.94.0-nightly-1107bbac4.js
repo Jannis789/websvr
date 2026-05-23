@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["default_signal"],"struct":["Shutdown","ShutdownBuilder","ShutdownGuard","WeakShutdownGuard"]};

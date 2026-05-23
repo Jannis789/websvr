@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Body","Bytes","Frame","Incoming","SizeHint"],"trait":["Buf"]};

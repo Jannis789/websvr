@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DNSClass","RData","RecordType","RrsetRecords"],"mod":["dns_class","domain","rdata","record_data","record_type","resource","serial_number"],"struct":["LowerName","Name","Record","RecordSet","RrKey","SerialNumber"],"trait":["IntoName","IntoRecordSet","RecordData"]};

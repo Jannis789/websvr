@@ -25,13 +25,21 @@ pub async fn sse_endpoint(
     // 3. Generate async SSE stream of Result<Event<String>, ...>
     let stream = stream! {
         // Phase 1: Replay buffered events (iterate, NOT drain!)
-        for event in ctx.event_emitter.get_buffered_events() {
-            if !known_hashes.contains(&event.hash) {
-                if let Ok(sse_event) = build_sse_event(&event) {
-                    yield Ok::<Event<String>, EventBuildError>(sse_event);
-                }
+        let buffered = ctx.event_emitter.get_buffered_events();
+        crate::elog!(Info, "SSE → replay: {} buffered events, {} known hashes", buffered.len(), known_hashes.len());
+        let mut replayed = 0usize;
+        let mut skipped = 0usize;
+        for event in &buffered {
+            if known_hashes.contains(&event.hash) {
+                skipped += 1;
+                continue;
+            }
+            if let Ok(sse_event) = build_sse_event(event) {
+                replayed += 1;
+                yield Ok::<Event<String>, EventBuildError>(sse_event);
             }
         }
+        crate::elog!(Ok, "SSE → Phase 1 complete: {} replayed, {} skipped (known)", replayed, skipped);
 
         // Phase 2: Live events from broadcast channel
         while let Ok(event) = rx.recv().await {

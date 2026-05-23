@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CacheKind","ClientVerifyMode","ServerAuth","ServerCertIssuerKind"],"struct":["DynamicIssuer","NoTlsRejectError","SelfSignedData","ServerAuthData","ServerCertIssuerData","ServerConfig","SniRequest","SniRouter","TlsPeekRouter"],"trait":["DynamicCertIssuer"],"type":["SniPeekStream","TlsPeekStream"]};

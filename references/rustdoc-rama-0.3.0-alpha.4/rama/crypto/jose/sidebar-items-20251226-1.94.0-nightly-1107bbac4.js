@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EMPTY_PAYLOAD","NO_PAYLOAD"],"enum":["JWA","JWKEllipticCurves","JWKType","JWKUse"],"struct":["DecodedJWS","DecodedJWSFlattened","DecodedSignature","EcdsaKey","Empty","Headers","JWK","JWS","JWSBuilder","JWSCompact","JWSFlattened","RsaKey","ToVerifySignature"],"trait":["Signer","Verifier"]};

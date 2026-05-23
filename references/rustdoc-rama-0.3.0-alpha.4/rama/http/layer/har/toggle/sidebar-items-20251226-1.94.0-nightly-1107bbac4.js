@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["mpsc_toggle","mpsc_toggle_for_unix_signal","mpsc_unbounded_toggle","toggle_from_mpsc_recv","toggle_from_mpsc_unbounded_recv"],"trait":["Toggle"]};

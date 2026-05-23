@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["client_root_certs","self_signed_client_auth"],"struct":["AutoTlsStream","ConnectorKindAuto","ConnectorKindSecure","ConnectorKindTunnel","TlsConnector","TlsConnectorData","TlsConnectorDataBuilder","TlsConnectorLayer","TlsStream"]};

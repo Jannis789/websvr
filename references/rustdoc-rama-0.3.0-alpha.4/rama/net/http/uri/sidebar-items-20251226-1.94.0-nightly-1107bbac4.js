@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UriMatchError"],"mod":["match_replace"],"struct":["UriMatchReplaceDomain","UriMatchReplaceFallthrough","UriMatchReplaceRule","UriMatchReplaceRuleset","UriMatchReplaceScheme"],"trait":["UriMatchReplace"]};

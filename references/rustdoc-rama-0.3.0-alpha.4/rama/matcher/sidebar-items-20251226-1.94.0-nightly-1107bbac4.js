@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["match_fn"],"struct":["And","ExtensionMatcher","MatcherRouter","Not","Or"],"trait":["IteratorMatcherExt","MatchFn","Matcher"]};

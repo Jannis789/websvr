@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PROTOCOL_PREFIX","PROTOCOL_SUFFIX","SEPARATOR","TCP4","TCP6","UNKNOWN"],"enum":["Addresses","BinaryParseError","ParseError"],"struct":["Header","IPv4","IPv6"]};

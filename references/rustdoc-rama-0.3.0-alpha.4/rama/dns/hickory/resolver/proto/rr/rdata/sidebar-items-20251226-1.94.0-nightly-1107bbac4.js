@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["a","aaaa","caa","cert","csync","hinfo","https","mx","name","naptr","null","openpgpkey","opt","soa","srv","sshfp","svcb","tlsa","txt"],"struct":["A","AAAA","ANAME","CAA","CERT","CNAME","CSYNC","HINFO","HTTPS","MX","NAPTR","NS","NULL","OPENPGPKEY","OPT","PTR","SOA","SRV","SSHFP","SVCB","TLSA","TXT"]};

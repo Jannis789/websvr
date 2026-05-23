@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["composite","text_map_propagator"],"struct":["TextMapCompositePropagator"],"trait":["Extractor","Injector","TextMapPropagator"]};

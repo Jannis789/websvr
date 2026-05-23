@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PathRejection"],"struct":["MissingPathParams","Path"]};

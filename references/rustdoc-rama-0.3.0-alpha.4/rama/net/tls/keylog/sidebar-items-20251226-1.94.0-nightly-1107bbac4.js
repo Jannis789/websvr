@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["normalize_path","try_new_key_log_file_handle"],"struct":["KeyLogFileHandle"]};

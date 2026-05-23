@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-datastar-signals>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home — Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/dark.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="/assets/css/light.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="/assets/css/common.css">
+  <script src="/assets/js/datastar-core.js"></script>
+  <script>
+    // Register Service Worker for Hash-Sync SSE caching
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+  </script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <h2 class="sidebar-title">Rama</h2>
+      </header>
+
+      <nav class="sidebar-nav">
+        <a
+          href="/home/overview"
+          class="nav-item"
+          data-datastar-get="/home/overview"
+          data-datastar-selector=".content-body"
+        >
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Overview</span>
+        </a>
+
+        <div class="nav-section">
+          <span class="nav-section-title">Library</span>
+
+          <a
+            href="/home/movies"
+            class="nav-item"
+            data-datastar-get="/home/movies"
+            data-datastar-selector=".content-body"
+          >
+            <span class="nav-icon">🎬</span>
+            <span class="nav-label">Movies</span>
+          </a>
+
+          <a
+            href="/home/series"
+            class="nav-item"
+            data-datastar-get="/home/series"
+            data-datastar-selector=".content-body"
+          >
+            <span class="nav-icon">📺</span>
+            <span class="nav-label">Series</span>
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span
+          class="nav-item"
+        >
+          <span class="nav-icon">👤</span>
+          <span class="nav-label" data-signals-user="$user">User</span>
+        </span>
+        <form method="post" action="/logout" style="display:inline">
+          <button type="submit" class="btn btn-ghost btn-logout">
+            <span class="nav-icon">🚪</span>
+            <span class="nav-label">Logout</span>
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+      <header class="content-header">
+        <h1>Overview</h1>
+      </header>
+      <div id="overview-content" class="content-body">
+        <h2>Welcome</h2>
+        <p>Select a section from the sidebar to get started.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Datastar SSE stream connection -->
+  <div
+    data-datastar-get="/sse"
+    data-datastar-sse
+  ></div>
+</body>
+</html>

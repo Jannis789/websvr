@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="asynk-strim"><title>rama::futures::async_stream - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="/-/rustdoc.static/${f}">`).join(""))</script><link rel="stylesheet" href="/-/rustdoc.static/normalize-9960930a.css"><link rel="stylesheet" href="/-/rustdoc.static/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="/-/rustdoc.static/" data-current-crate="rama" data-themes="" data-resource-suffix="-20251226-1.94.0-nightly-1107bbac4" data-rustdoc-version="1.94.0-nightly (1107bbac4 2025-12-26)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="/-/rustdoc.static/storage-e2aeef58.js"></script><script defer src="../../../crates-20251226-1.94.0-nightly-1107bbac4.js"></script><script defer src="/-/rustdoc.static/main-dcaacbb5.js"></script><noscript><link rel="stylesheet" href="/-/rustdoc.static/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate async_stream</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../rama/index.html"><img src="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png" alt="logo"></a><h2><a href="../../../rama/index.html">rama</a><span class="version">0.3.0-alpha.4</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#asynk-strim" title="asynk-strim">asynk-strim</a><ul><li><a href="#-important" title="⚠ Important">⚠ Important</a></li><li><a href="#example" title="Example">Example</a></li><li><a href="#comparisons" title="Comparisons">Comparisons</a></li><li><a href="#acknowledgements" title="Acknowledgements">Acknowledgements</a></li><li><a href="#license" title="License">License</a></li></ul></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rama::<wbr>futures</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">rama</a>::<wbr><a href="../index.html">futures</a></div><h1>Crate <span>async_<wbr>stream</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="https://docs.rs/asynk-strim/0.1.5/x86_64-unknown-linux-gnu/src/asynk_strim/lib.rs.html#1-141">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="asynk-strim"><a class="doc-anchor" href="#asynk-strim">§</a>asynk-strim</h2>
+<p>Like <code>async-stream</code> but without macros. Like <code>async-fn-stream</code> but a little more efficient.</p>
+<p>Features:</p>
+<ul>
+<li>macroless API</li>
+<li>one dependency (besides <code>futures-core</code> which I don’t count since it provides the <code>Stream</code> definition)</li>
+<li><code>no_std</code>-compatible, zero allocations</li>
+</ul>
+<h4 id="-important"><a class="doc-anchor" href="#-important">§</a>⚠ Important</h4>
+<p>This crate adds a wrapper around the wakers that contains data and pointers needed to yield items.
+Crates like <a href="https://embassy.dev"><code>embassy</code></a> use a similar approach and will therefore clash with us.</p>
+<p>If you run into this issue (which will manifest as a runtime panic), you can use the <code>unwrap_waker</code> function.
+This function will wrap a future and remove the waker wrapper.</p>
+<p>While you can’t use the yielder inside the unwrapped future, stuff like <code>embassy</code> should work again.</p>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures_lite::stream;
+<span class="kw">use </span>std::pin::pin;
+
+<span class="kw">let </span>stream = <span class="macro">pin!</span>(asynk_strim::stream_fn(|<span class="kw-2">mut </span>yielder| <span class="kw">async move </span>{
+    yielder.yield_item(<span class="string">"hello world!"</span>).<span class="kw">await</span>;
+    yielder.yield_item(<span class="string">"pretty neato, ain't it?"</span>).<span class="kw">await</span>;
+}));
+
+<span class="kw">let </span><span class="kw-2">mut </span>stream = stream::block_on(stream);
+<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">Some</span>(<span class="string">"hello world!"</span>));
+<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">Some</span>(<span class="string">"pretty neato, ain't it?"</span>));
+<span class="macro">assert_eq!</span>(stream.next(), <span class="prelude-val">None</span>);</code></pre></div><h3 id="comparisons"><a class="doc-anchor" href="#comparisons">§</a>Comparisons</h3><h4 id="async-stream"><a class="doc-anchor" href="#async-stream">§</a><code>async-stream</code></h4>
+<p>In comparison to <code>async-stream</code> we offer the following advantages:</p>
+<ul>
+<li>no macros</li>
+<li>slightly faster performance</li>
+<li><code>no_std</code> support</li>
+</ul>
+<h4 id="async-fn-stream"><a class="doc-anchor" href="#async-fn-stream">§</a><code>async-fn-stream</code></h4>
+<p>In comparison to <code>async-stream</code> we offer the following advantages:</p>
+<ul>
+<li>no allocations</li>
+<li>slightly faster performance</li>
+<li><code>no_std</code> support</li>
+</ul>
+<h3 id="acknowledgements"><a class="doc-anchor" href="#acknowledgements">§</a>Acknowledgements</h3>
+<p>This crate combines approaches from the following crates:</p>
+<ul>
+<li><a href="https://github.com/tokio-rs/async-stream"><code>async-stream</code></a></li>
+<li><a href="https://github.com/dmitryvk/async-fn-stream"><code>async-fn-stream</code></a></li>
+<li>The PR by Sabrina Jewson adding a <a href="https://github.com/tokio-rs/async-stream/pull/74">function-based API to <code>async-stream</code></a></li>
+<li>The experimental PR by Hyeonu Park using <a href="https://github.com/tokio-rs/async-stream/pull/105">the waker-based approach</a></li>
+</ul>
+<h3 id="license"><a class="doc-anchor" href="#license">§</a>License</h3>
+<p>Licensed under tither the MIT or Apache 2.0 license (at your choosing)</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.TryYielder.html" title="struct rama::futures::async_stream::TryYielder">TryYielder</a></dt><dd>Handle to allow you to yield something from the stream</dd><dt><a class="struct" href="struct.Yielder.html" title="struct rama::futures::async_stream::Yielder">Yielder</a></dt><dd>Handle to allow you to yield something from the stream</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.stream_fn.html" title="fn rama::futures::async_stream::stream_fn">stream_<wbr>fn</a></dt><dd>Create a new stream</dd><dt><a class="fn" href="fn.strim_fn.html" title="fn rama::futures::async_stream::strim_fn">strim_<wbr>fn</a></dt><dd>Jokey alias for <a href="fn.stream_fn.html" title="fn rama::futures::async_stream::stream_fn"><code>stream_fn</code></a></dd><dt><a class="fn" href="fn.try_stream_fn.html" title="fn rama::futures::async_stream::try_stream_fn">try_<wbr>stream_<wbr>fn</a></dt><dd>Create a new try stream</dd><dt><a class="fn" href="fn.try_strim_fn.html" title="fn rama::futures::async_stream::try_strim_fn">try_<wbr>strim_<wbr>fn</a></dt><dd>Jokey alias for <a href="fn.try_stream_fn.html" title="fn rama::futures::async_stream::try_stream_fn"><code>try_stream_fn</code></a></dd><dt><a class="fn" href="fn.unwrap_waker.html" title="fn rama::futures::async_stream::unwrap_waker">unwrap_<wbr>waker</a></dt><dd>Unwrap the waker</dd></dl></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_USERNAME_LABEL_SEPARATOR"],"enum":["UsernameLabelState"],"fn":["compose_username","compose_username_with_separator","parse_username","parse_username_with_separator"],"struct":["ComposeError","Composer","ExclusiveUsernameParsers","UsernameLabels","UsernameOpaqueLabelParser"],"trait":["UsernameLabelParser","UsernameLabelWriter"]};

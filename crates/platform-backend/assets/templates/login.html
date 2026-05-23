@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" data-datastar-signals>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/dark.css" data-datastar-attr-media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="/assets/css/light.css" data-datastar-attr-media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="/assets/css/common.css">
+  <script src="/assets/js/datastar-core.js"></script>
+</head>
+<body>
+  <main class="floating-window">
+    <header class="app-header">
+      <h1>Rama Platform</h1>
+      <p class="subtitle">Login to your account</p>
+    </header>
+
+    <form
+      method="post"
+      action="/login"
+      class="auth-form"
+    >
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+          autofocus
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="••••••••"
+          required
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        Login
+      </button>
+
+      <p class="form-footer">
+        Don't have an account?
+        <a href="/register" class="link">Register</a>
+      </p>
+    </form>
+  </main>
+</body>
+</html>

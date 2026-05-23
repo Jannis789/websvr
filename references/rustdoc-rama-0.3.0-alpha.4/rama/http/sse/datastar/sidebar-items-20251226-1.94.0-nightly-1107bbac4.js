@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ElementPatchMode","EventData","EventType"],"mod":["execute_script"],"struct":["EventDataReader","ExecuteScript","PatchElements","PatchElementsReader","PatchSignals","PatchSignalsReader"],"type":["DatastarEvent"]};

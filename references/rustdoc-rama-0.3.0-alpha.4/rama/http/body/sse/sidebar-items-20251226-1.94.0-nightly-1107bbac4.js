@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["datastar","server"],"struct":["Event","EventBuildError","EventDataJsonReader","EventDataMultiLineReader","EventDataStringReader","EventStream","JsonEventData"],"trait":["EventDataLineReader","EventDataRead","EventDataWrite"]};

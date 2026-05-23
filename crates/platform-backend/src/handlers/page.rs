@@ -10,7 +10,7 @@ pub async fn login_page(
     _req: Request,
 ) -> Response {
     crate::elog!(Info, "Handler → login_page (public route)");
-    html_response(include_str!("../../pages/login.html"))
+    html_response(include_str!("../../assets/templates/login.html"))
 }
 
 /// GET /register — registration page
@@ -19,7 +19,7 @@ pub async fn register_page(
     _req: Request,
 ) -> Response {
     crate::elog!(Info, "Handler → register_page (public route)");
-    html_response(include_str!("../../pages/register.html"))
+    html_response(include_str!("../../assets/templates/register.html"))
 }
 
 /// GET /home — main application shell
@@ -29,7 +29,7 @@ pub async fn home_page(
 ) -> Response {
     let _ctx = common::extract_context(&req);
     crate::elog!(Info, "Handler → home_page (client_id={})", _ctx.client_id);
-    html_response(include_str!("../../pages/home.html"))
+    html_response(include_str!("../../assets/templates/home.html"))
 }
 
 // ── Asset handlers (public, no layer stack) ──

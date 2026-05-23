@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-datastar-signals>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E2E Test — Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/dark.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="/assets/css/light.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="/assets/css/common.css">
+  <script src="/assets/js/datastar-core.js"></script>
+  <script>
+    // Register Service Worker for Hash-Sync SSE caching
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+    document.addEventListener('datastar-ready', () => {
+      window.__dsSignals = window.__dsSignals || {};
+    });
+  </script>
+  <style>
+    .test-results { min-height: 200px; padding: 1rem; font-family: monospace; font-size: 0.85rem; }
+    .test-score { padding: 1rem; margin-top: 1rem; border-radius: 8px; text-align: center; font-weight: 700; font-size: 1.1rem; }
+    .test-marker { opacity: 0.7; font-size: 0.8rem; margin: 0.5rem 0; padding: 0.25rem 0.5rem; border-left: 3px solid var(--accent); }
+    .test-phase-summary { margin: 0.5rem 0; padding: 0.5rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main class="floating-window test-harness">
+    <header class="app-header">
+      <h1>E2E Test Harness</h1>
+      <p class="subtitle">Hash-Sync &amp; Caching Verification (§2.12)</p>
+    </header>
+
+    <div class="test-controls">
+      <button
+        class="btn btn-primary"
+        data-datastar-get="/test/run"
+      >
+        ▶ Run Tests
+      </button>
+      <button
+        class="btn btn-secondary"
+        onclick="location.reload()"
+        style="margin-left: 0.5rem;"
+      >
+        🔄 Reload (test SW cache)
+      </button>
+      <p class="text-muted" style="margin-top: 0.5rem;">
+        <strong>Reload</strong> after a test run to test the SW hash cache:
+        known hashes from the first run should skip events on the second run.
+      </p>
+    </div>
+
+    <!-- Test results arrive via SSE as PatchElements -->
+    <div id="test-results" class="test-results">
+      <p class="text-muted">Click "Run Tests" to start the automated verification.</p>
+    </div>
+
+    <div id="test-score" class="test-score" style="display:none">
+      <span id="score-value">—</span>
+    </div>
+
+    <div id="test-detail" class="test-detail" style="display:none; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+      <div>Phase A (fresh): <span id="score-a">—</span></div>
+      <div>Phase C (modified): <span id="score-c">—</span></div>
+      <div>Phase D (out-of-order): <span id="score-d">—</span></div>
+      <div>Events buffered: <span id="score-buffered">—</span></div>
+    </div>
+
+    <!-- SSE stream for test events -->
+    <div
+      data-datastar-get="/sse"
+      data-datastar-sse
+    ></div>
+  </main>
+
+  <!--
+    Score calculation script:
+    Watches for test events patched into #test-results and
+    computes the score from .test-pass and .test-fail elements.
+    Also reports per-phase stats.
+  -->
+  <script>
+    (function() {
+      const resultsEl = document.getElementById('test-results');
+      const scoreEl = document.getElementById('test-score');
+      const scoreValueEl = document.getElementById('score-value');
+      const detailEl = document.getElementById('test-detail');
+
+      if (!resultsEl) return;
+
+      const observer = new MutationObserver(() => {
+        const passCount = resultsEl.querySelectorAll('.test-pass').length;
+        const failCount = resultsEl.querySelectorAll('.test-fail').length;
+        const total = passCount + failCount;
+
+        if (total > 0) {
+          scoreEl.style.display = 'block';
+          detailEl.style.display = 'block';
+          scoreValueEl.textContent = `${passCount}/${total} caching combinations correct`;
+          scoreEl.style.background = failCount === 0
+            ? 'var(--success-bg, #d4edda)'
+            : 'var(--danger-bg, #f8d7da)';
+          scoreEl.style.color = failCount === 0
+            ? 'var(--success, #155724)'
+            : 'var(--danger, #721c24)';
+        }
+
+        // Per-phase stats
+        const phaseA = resultsEl.querySelectorAll('[data-phase="A"].test-pass').length;
+        const phaseC = resultsEl.querySelectorAll('[data-phase="C"].test-pass').length;
+        const phaseD = resultsEl.querySelectorAll('[data-phase="D"].test-pass').length;
+        const markers = resultsEl.querySelectorAll('.test-marker').length;
+
+        const elA = document.getElementById('score-a');
+        const elC = document.getElementById('score-c');
+        const elD = document.getElementById('score-d');
+        const elBuf = document.getElementById('score-buffered');
+        if (elA) elA.textContent = phaseA + '/4';
+        if (elC) elC.textContent = phaseC + '/1';
+        if (elD) elD.textContent = phaseD + '/3';
+        if (elBuf) elBuf.textContent = markers + ' markers';
+      });
+
+      observer.observe(resultsEl, { childList: true, subtree: true });
+    })();
+  </script>
+</body>
+</html>

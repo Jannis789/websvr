@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HandshakeError","ResponseValidateError"],"fn":["validate_http_server_response"],"struct":["AcceptedWebSocketData","ClientWebSocket","HandshakeRequest","NegotiatedHandshakeRequest","WebSocketRequestBuilder","WithService"],"trait":["HttpClientWebSocketExt"]};

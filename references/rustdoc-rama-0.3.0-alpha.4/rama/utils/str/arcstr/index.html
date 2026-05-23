@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Better reference counted strings"><title>rama::utils::str::arcstr - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="/-/rustdoc.static/${f}">`).join(""))</script><link rel="stylesheet" href="/-/rustdoc.static/normalize-9960930a.css"><link rel="stylesheet" href="/-/rustdoc.static/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="/-/rustdoc.static/" data-current-crate="rama" data-themes="" data-resource-suffix="-20251226-1.94.0-nightly-1107bbac4" data-rustdoc-version="1.94.0-nightly (1107bbac4 2025-12-26)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="/-/rustdoc.static/storage-e2aeef58.js"></script><script defer src="../sidebar-items-20251226-1.94.0-nightly-1107bbac4.js"></script><script defer src="/-/rustdoc.static/main-dcaacbb5.js"></script><noscript><link rel="stylesheet" href="/-/rustdoc.static/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module arcstr</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../rama/index.html"><img src="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png" alt="logo"></a><h2><a href="../../../../rama/index.html">rama</a><span class="version">0.3.0-alpha.4</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module arcstr</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#better-reference-counted-strings" title="Better reference counted strings">Better reference counted strings</a><ul><li><a href="#feature-overview" title="Feature overview">Feature overview</a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rama::<wbr>utils::<wbr>str</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">rama</a>::<wbr><a href="../../index.html">utils</a>::<wbr><a href="../index.html">str</a></div><h1>Module <span>arcstr</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="https://docs.rs/rama-utils/0.3.0-alpha.4/x86_64-unknown-linux-gnu/src/rama_utils/str/mod.rs.html#19">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="better-reference-counted-strings"><a class="doc-anchor" href="#better-reference-counted-strings">§</a>Better reference counted strings</h2>
+<blockquote>
+<p>Fork of <a href="https://github.com/thomcc/arcstr/">https://github.com/thomcc/arcstr/</a></p>
+<p>License and version information can be found at
+<a href="https://github.com/plabayo/rama/tree/main/docs/thirdparty/fork">https://github.com/plabayo/rama/tree/main/docs/thirdparty/fork</a>.</p>
+</blockquote>
+<p>This crate defines <a href="struct.ArcStr.html" title="struct rama::utils::str::arcstr::ArcStr"><code>ArcStr</code></a>, a type similar to <code>Arc&lt;str&gt;</code>, but with a
+number of new features and functionality. There’s a list of
+<a href="struct.ArcStr.html#benefits-of-arcstr-over-arcstr">benefits</a> in the <code>ArcStr</code> documentation comment which covers some
+of the reasons you might want to use it over other alternatives.</p>
+<p>Additionally, if the <code>substr</code> feature is enabled (and it is by default), we
+provide a <a href="struct.Substr.html" title="struct rama::utils::str::arcstr::Substr"><code>Substr</code></a> type which is essentially a <code>(ArcStr, Range&lt;usize&gt;)</code>
+with better ergonomics and more functionality, which represents a shared
+slice of a “parent” <code>ArcStr</code> (note that in reality, <code>u32</code> is used for the
+index type, but this is not exposed in the API, and can be transparently
+changed via a cargo feature).</p>
+<h3 id="feature-overview"><a class="doc-anchor" href="#feature-overview">§</a>Feature overview</h3>
+<p>A quick tour of the distinguishing features:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_utils::str::arcstr::{ArcStr, arcstr};
+
+<span class="comment">// Works in const:
+</span><span class="kw">const </span>MY_ARCSTR: ArcStr = <span class="macro">arcstr!</span>(<span class="string">"amazing constant"</span>);
+<span class="macro">assert_eq!</span>(MY_ARCSTR, <span class="string">"amazing constant"</span>);
+
+<span class="comment">// `arcstr!` input can come from `include_str!` too:
+</span><span class="kw">const </span>MY_ARCSTR: ArcStr = <span class="macro">arcstr!</span>(<span class="macro">include_str!</span>(<span class="string">"my-best-files.txt"</span>));</code></pre></div>
+<p>Or, you can define the literals in normal expressions. Note that these
+literals are essentially <a href="struct.ArcStr.html#what-does-zero-cost-literals-mean">“Zero Cost”</a>. Specifically, below we
+not only avoid allocating any heap memory to instantiate <code>wow</code> or any of
+the clones, we also don’t have to perform any atomic reads or writes.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_utils::str::arcstr::{ArcStr, arcstr};
+
+<span class="kw">let </span>wow: ArcStr = <span class="macro">arcstr!</span>(<span class="string">"Wow!"</span>);
+<span class="macro">assert_eq!</span>(<span class="string">"Wow!"</span>, wow);
+<span class="comment">// This line is probably not something you want to do regularly,
+// but causes no extra allocations, nor performs any atomic reads
+// nor writes.
+</span><span class="kw">let </span>wowzers = wow.clone().clone().clone().clone();
+
+<span class="comment">// At some point in the future, we can get a `&amp;'static str` out of one
+// of the literal `ArcStr`s too. Note that this returns `None` for
+// a dynamically allocated `ArcStr`:
+</span><span class="kw">let </span>static_str: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; = ArcStr::as_static(<span class="kw-2">&amp;</span>wowzers);
+<span class="macro">assert_eq!</span>(static_str, <span class="prelude-val">Some</span>(<span class="string">"Wow!"</span>));</code></pre></div>
+<p>Of course, this is in addition to the typical functionality you might find in a
+non-borrowed string type (with the caveat that there is explicitly no way to
+mutate <code>ArcStr</code>).</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ArcStr.html" title="struct rama::utils::str::arcstr::ArcStr">ArcStr</a></dt><dd>A better atomically-reference counted string type.</dd><dt><a class="struct" href="struct.Substr.html" title="struct rama::utils::str::arcstr::Substr">Substr</a></dt><dd>A low-cost string type representing a view into an <a href="struct.ArcStr.html" title="struct rama::utils::str::arcstr::ArcStr"><code>ArcStr</code></a>.</dd></dl></section></div></main></body></html>

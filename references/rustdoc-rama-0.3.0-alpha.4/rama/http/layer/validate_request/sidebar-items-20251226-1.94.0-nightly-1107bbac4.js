@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AcceptHeader","BoxValidateRequestFn","ValidateRequestHeader","ValidateRequestHeaderLayer"],"trait":["ValidateRequest","ValidateRequestFn"]};

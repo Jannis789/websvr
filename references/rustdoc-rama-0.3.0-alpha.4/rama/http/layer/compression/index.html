@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Middleware that compresses response bodies."><title>rama::http::layer::compression - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="/-/rustdoc.static/${f}">`).join(""))</script><link rel="stylesheet" href="/-/rustdoc.static/normalize-9960930a.css"><link rel="stylesheet" href="/-/rustdoc.static/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="/-/rustdoc.static/" data-current-crate="rama" data-themes="" data-resource-suffix="-20251226-1.94.0-nightly-1107bbac4" data-rustdoc-version="1.94.0-nightly (1107bbac4 2025-12-26)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="/-/rustdoc.static/storage-e2aeef58.js"></script><script defer src="../sidebar-items-20251226-1.94.0-nightly-1107bbac4.js"></script><script defer src="/-/rustdoc.static/main-dcaacbb5.js"></script><noscript><link rel="stylesheet" href="/-/rustdoc.static/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module compression</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../../rama/index.html"><img src="https://raw.githubusercontent.com/plabayo/rama/main/docs/img/old_logo.png" alt="logo"></a><h2><a href="../../../../rama/index.html">rama</a><span class="version">0.3.0-alpha.4</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module compression</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rama::<wbr>http::<wbr>layer</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">rama</a>::<wbr><a href="../../index.html">http</a>::<wbr><a href="../index.html">layer</a></div><h1>Module <span>compression</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="https://docs.rs/rama-http/0.3.0-alpha.4/x86_64-unknown-linux-gnu/src/rama_http/layer/mod.rs.html#61">Source</a> </span></div><span class="item-info"><div class="stab portability">Available on <strong>crate features <code>http</code> and <code>compression</code></strong> only.</div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Middleware that compresses response bodies.</p>
+<p>If you require streaming compression (e.g. for SSE etc),
+you most likely want to use the compression middleware from <a href="stream/index.html" title="mod rama::http::layer::compression::stream"><code>stream</code></a> instead.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<p>Example showing how to respond with the compressed contents of a file.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rama_core::bytes::Bytes;
+<span class="kw">use </span>rama_core::futures::stream::StreamExt;
+<span class="kw">use </span>rama_core::error::BoxError;
+<span class="kw">use </span>rama_http::body::Frame;
+<span class="kw">use </span>rama_http::body::util::{BodyExt, StreamBody};
+<span class="kw">use </span>rama_http::body::util::combinators::BoxBody <span class="kw">as </span>InnerBoxBody;
+<span class="kw">use </span>rama_http::layer::compression::CompressionLayer;
+<span class="kw">use </span>rama_http::{Body, Request, Response, header::ACCEPT_ENCODING};
+<span class="kw">use </span>rama_core::service::service_fn;
+<span class="kw">use </span>rama_core::{Service, Layer};
+<span class="kw">use </span>std::convert::Infallible;
+<span class="kw">use </span>tokio::fs::{<span class="self">self</span>, File};
+<span class="kw">use </span>rama_core::stream::io::ReaderStream;
+
+<span class="kw">type </span>BoxBody = InnerBoxBody&lt;Bytes, std::io::Error&gt;;
+
+<span class="kw">async fn </span>handle(req: Request) -&gt; <span class="prelude-ty">Result</span>&lt;Response&lt;BoxBody&gt;, Infallible&gt; {
+    <span class="comment">// Open the file.
+    </span><span class="kw">let </span>file = File::open(<span class="string">"Cargo.toml"</span>).<span class="kw">await</span>.expect(<span class="string">"file missing"</span>);
+    <span class="comment">// Convert the file into a `Stream` of `Bytes`.
+    </span><span class="kw">let </span>stream = ReaderStream::new(file);
+    <span class="comment">// Convert the stream into a stream of data `Frame`s.
+    </span><span class="kw">let </span>stream = stream.map(|res| <span class="kw">match </span>res {
+        <span class="prelude-val">Ok</span>(v) =&gt; <span class="prelude-val">Ok</span>(Frame::data(v)),
+        <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+    });
+    <span class="comment">// Convert the `Stream` into a `Body`.
+    </span><span class="kw">let </span>body = StreamBody::new(stream);
+    <span class="comment">// Erase the type because it's very hard to name in the function signature.
+    </span><span class="kw">let </span>body = BodyExt::boxed(body);
+    <span class="comment">// Create response.
+    </span><span class="prelude-val">Ok</span>(Response::new(body))
+}
+
+<span class="kw">let </span><span class="kw-2">mut </span>service = (
+    <span class="comment">// Compress responses based on the `Accept-Encoding` header.
+    </span>CompressionLayer::new(),
+).into_layer(service_fn(handle));
+
+<span class="comment">// Call the service.
+</span><span class="kw">let </span>request = Request::builder()
+    .header(ACCEPT_ENCODING, <span class="string">"gzip"</span>)
+    .body(Body::default())<span class="question-mark">?</span>;
+
+<span class="kw">let </span>response = service
+    .serve(request)
+    .<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="macro">assert_eq!</span>(response.headers()[<span class="string">"content-encoding"</span>], <span class="string">"gzip"</span>);
+
+<span class="comment">// Read the body
+</span><span class="kw">let </span>bytes = response
+    .into_body()
+    .collect()
+    .<span class="kw">await</span><span class="question-mark">?
+    </span>.to_bytes();
+
+<span class="comment">// The compressed body should be smaller 🤞
+</span><span class="kw">let </span>uncompressed_len = fs::read_to_string(<span class="string">"Cargo.toml"</span>).<span class="kw">await</span><span class="question-mark">?</span>.len();
+<span class="macro">assert!</span>(bytes.len() &lt; uncompressed_len);</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="predicate/index.html" title="mod rama::http::layer::compression::predicate">predicate</a></dt><dd>Predicates for disabling compression of responses.</dd><dt><a class="mod" href="stream/index.html" title="mod rama::http::layer::compression::stream">stream</a></dt><dd>Streaming Compression Support in Rama.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Compression.html" title="struct rama::http::layer::compression::Compression">Compression</a></dt><dd>Compress response bodies of the underlying service.</dd><dt><a class="struct" href="struct.CompressionBody.html" title="struct rama::http::layer::compression::CompressionBody">Compression<wbr>Body</a></dt><dd>Response body of <a href="struct.Compression.html" title="struct rama::http::layer::compression::Compression"><code>Compression</code></a>.</dd><dt><a class="struct" href="struct.CompressionLayer.html" title="struct rama::http::layer::compression::CompressionLayer">Compression<wbr>Layer</a></dt><dd>Compress response bodies of the underlying service.</dd><dt><a class="struct" href="struct.DefaultPredicate.html" title="struct rama::http::layer::compression::DefaultPredicate">Default<wbr>Predicate</a></dt><dd>The default predicate used by <a href="struct.Compression.html" title="struct rama::http::layer::compression::Compression"><code>Compression</code></a> and <a href="struct.CompressionLayer.html" title="struct rama::http::layer::compression::CompressionLayer"><code>CompressionLayer</code></a>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.CompressionLevel.html" title="enum rama::http::layer::compression::CompressionLevel">Compression<wbr>Level</a></dt><dd>Level of compression data should be compressed with.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Predicate.html" title="trait rama::http::layer::compression::Predicate">Predicate</a></dt><dd>Predicate used to determine if a response should be compressed or not.</dd></dl></section></div></main></body></html>

@@ -1,0 +1,15 @@
+{
+  "name": "rama-platform-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "description": "E2E / integration tests for the Rama Platform backend",
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "test:backend": "vitest run --config vitest.config.ts tests/hash-registry.backend.test.ts",
+    "test:integration": "vitest run --config vitest.config.ts tests/hash-registry.integration.test.ts"
+  },
+  "devDependencies": {
+    "msw": "^2.14.6",
+    "vitest": "^4.1.7"
+  }
+}
