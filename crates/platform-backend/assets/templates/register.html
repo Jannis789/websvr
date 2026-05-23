@@ -35,13 +35,12 @@
       <div class="auth-footer">
         <a href="/login" class="auth-link">Already have an account?</a>
         <div class="theme-switch-wrapper">
-        <label class="theme-switch">
-          <input type="checkbox" data-bind:lightMode />
-            <div class="slider">
+          <div class="theme-switch" data-on:click="$lightMode = !$lightMode">
+            <div class="slider" data-class:checked="$lightMode">
               <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
               <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
             </div>
-          </label>
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-/* ===== Theme Switch (GTK/libadwaita style) ===== */
+/* ===== Theme Switch ===== */
 
 .theme-switch-wrapper {
   display: flex;
@@ -10,26 +10,19 @@
   display: inline-block;
   width: 42px;
   height: 24px;
+  cursor: pointer;
 }
 
-.theme-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-
-/* Track — inactive: dark gray, active: accent blue */
+/* Track */
 .theme-switch .slider {
   position: absolute;
   inset: 0;
   background-color: var(--border-color);
   border-radius: 12px;
-  cursor: pointer;
   transition: background-color 0.25s ease;
 }
 
-/* Knob — always light/bright */
+/* Knob */
 .theme-switch .slider::after {
   content: "";
   position: absolute;
@@ -43,15 +36,15 @@
 }
 
 /* Active: blue track, knob slides right */
-.theme-switch input:checked + .slider {
+.theme-switch .slider.checked {
   background-color: var(--accent);
 }
 
-.theme-switch input:checked + .slider::after {
+.theme-switch .slider.checked::after {
   transform: translateX(18px);
 }
 
-/* Moon icon — left side, visible when dark (unchecked) */
+/* Moon — left, visible in dark mode */
 .switch-icon.icon-moon {
   position: absolute;
   top: 5px;
@@ -61,10 +54,11 @@
   color: var(--bg-secondary);
   z-index: 2;
   pointer-events: none;
+  opacity: 0.6;
   transition: opacity 0.2s ease;
 }
 
-/* Sun icon — right side, visible when light (checked) */
+/* Sun — right, hidden in dark mode */
 .switch-icon.icon-sun {
   position: absolute;
   top: 5px;
@@ -74,29 +68,15 @@
   color: var(--bg-secondary);
   z-index: 1;
   pointer-events: none;
+  opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-/* Unchecked: moon visible, sun hidden behind knob */
-.switch-icon.icon-moon {
-  opacity: 0.6;
-}
-
-.switch-icon.icon-sun {
+/* Light mode: moon hidden, sun visible */
+.theme-switch .slider.checked .icon-moon {
   opacity: 0;
 }
 
-/* Checked: moon hidden behind knob, sun visible on blue track */
-.theme-switch input:checked ~ .slider .icon-moon {
-  opacity: 0;
-}
-
-.theme-switch input:checked ~ .slider .icon-sun {
+.theme-switch .slider.checked .icon-sun {
   opacity: 0.9;
-}
-
-/* Focus */
-.theme-switch input:focus-visible + .slider {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
