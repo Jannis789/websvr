@@ -44,7 +44,7 @@
         <div class="popup-overlay"
              data-show="$popupOpen"
              data-on:click="$popupOpen = false"></div>
-        <ul class="popup-menu" data-show="$popupOpen">
+        <ul class="popup-menu" data-class:popup-visible="$popupOpen">
           <li class="popup-item popup-item--danger">
             <form method="post" action="/logout" class="popup-form">
               <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
