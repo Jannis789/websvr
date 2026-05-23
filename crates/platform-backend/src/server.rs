@@ -66,14 +66,13 @@ pub async fn run() {
         .with_get("/test/run", handlers::test::test_run)
         .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json);
 
-    // Apply layer stack only to protected routes
-    let layers = (
-        CompressionLayer::new(),
+    // Apply Auth/Session/ClientContext layers only to protected routes
+    let protected_layers = (
         layer_fn(|inner| AuthService::new(inner)),
         layer_fn(|inner| SessionStorageService::new(inner)),
         layer_fn(|inner| ClientContextService::new(inner, sse_broadcaster.clone())),
     );
-    let protected_service = layers.layer(protected);
+    let protected_service = protected_layers.layer(protected);
 
     // ── Public routes (no layers) ──
     let app = Router::new_with_state(shared_state)
@@ -91,11 +90,11 @@ pub async fn run() {
         .with_sub_service("/", protected_service);
 
     tracing::info!("Rama Platform server listening on http://{bind_addr}");
-    tracing::info!("Public routes: /assets, /login, /register, /sw.js");
-    tracing::info!("Protected routes (layered): /home, /sse, /test, /i18n");
+
+    let service = CompressionLayer::new().layer(app);
 
     HttpServer::http1()
-        .listen(bind_addr, app)
+        .listen(bind_addr, service)
         .await
         .expect("failed to start HTTP server");
 }
