@@ -19,12 +19,21 @@ pub trait ClientContextSseExt {
 impl ClientContextSseExt for ClientContext {
     fn emit_patch(&self, data_to_hash: &str, patch: PatchElements, should_cache: bool) {
         // 1. Compute deterministic HMAC-SHA256 hash (16 bytes / 128 bit)
-        let hash = compute_content_hash(data_to_hash, &crypto::hmac_secret());
+        let hash = compute_content_hash(data_to_hash, crypto::hmac_secret());
 
         // 2. Serialise the PatchElements payload to its SSE wire format
         let mut buf = Vec::new();
-        patch.write_data(&mut buf).expect("PatchElements serialization should not fail");
-        let payload = String::from_utf8(buf).expect("PatchElements SSE data should be valid UTF-8");
+        if patch.write_data(&mut buf).is_err() {
+            tracing::error!("Failed to serialize PatchElements for hash {}", hash);
+            return;
+        }
+        let payload = match String::from_utf8(buf) {
+            Ok(s) => s,
+            Err(_) => {
+                tracing::error!("PatchElements produced non-UTF-8 output for hash {}", hash);
+                return;
+            }
+        };
 
         // 3. Wrap in BufferedEvent
         let event = BufferedEvent {

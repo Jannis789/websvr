@@ -52,6 +52,7 @@ pub async fn run() {
     use crate::handlers;
 
     let shared_state = SharedState::init().await;
+    let bind_addr = format!("{}:{}", shared_state.config.host, shared_state.config.port);
     let sse_broadcaster = shared_state.sse_broadcaster.clone();
 
     let app = Router::new_with_state(shared_state)
@@ -93,9 +94,8 @@ pub async fn run() {
     );
     let service = layers.layer(app);
 
-    let bind_addr = format!("{}:{}", "0.0.0.0", 3000u16);
     tracing::info!("Rama Platform server listening on http://{bind_addr}");
-    crate::elog!(Ok, "Layer stack: Compression → Auth → Session → ClientContext → Handler");
+    tracing::info!("Layer stack: Compression → Auth → Session → ClientContext → Handler");
 
     HttpServer::http1()
         .listen(bind_addr, service)

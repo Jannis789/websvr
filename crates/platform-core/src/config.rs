@@ -21,6 +21,19 @@ impl Config {
     }
 
     fn from_env() -> Config {
+        let hmac_secret = std::env::var("HMAC_SECRET")
+            .unwrap_or_else(|_| {
+                #[cfg(debug_assertions)]
+                {
+                    eprintln!("[WARN] HMAC_SECRET not set — using insecure default. Set HMAC_SECRET env var for production.");
+                    "default-dev-secret-change-in-production".to_string()
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    panic!("HMAC_SECRET environment variable must be set in production builds");
+                }
+            });
+
         Config {
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://platform.db?mode=rwc".to_string()),
@@ -40,8 +53,7 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(1),
-            hmac_secret: std::env::var("HMAC_SECRET")
-                .unwrap_or_else(|_| "default-dev-secret-change-in-production".to_string()),
+            hmac_secret,
         }
     }
 }

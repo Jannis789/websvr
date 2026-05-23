@@ -34,6 +34,7 @@ impl PasswordUtil {
     }
 
     /// Verify a password against a stored `salt.hash` string.
+    /// Uses constant-time comparison to prevent timing attacks.
     pub fn verify_password(password: &str, stored: &str) -> bool {
         let parts: Vec<&str> = stored.splitn(2, '.').collect();
         if parts.len() != 2 {
@@ -46,9 +47,19 @@ impl PasswordUtil {
         };
 
         let expected = Self::hash_password(password, &salt);
-        // Constant-time comparison via the hash string equality
-        // (ring's verify is constant-time, but we use HMAC so string cmp is ok)
-        expected == stored
+
+        // Constant-time comparison of the raw hash bytes.
+        // Manual implementation to avoid deprecated ring::constant_time.
+        // XOR all bytes, then check if the accumulator is zero.
+        let expected_hash = expected.split('.').nth(1).unwrap_or("");
+        let stored_hash = parts[1];
+        if expected_hash.len() != stored_hash.len() {
+            return false;
+        }
+        let cmp = expected_hash.bytes()
+            .zip(stored_hash.bytes())
+            .fold(0u8, |acc, (a, b)| acc | (a ^ b));
+        cmp == 0
     }
 }
 

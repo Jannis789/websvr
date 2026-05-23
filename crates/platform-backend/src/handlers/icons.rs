@@ -27,9 +27,19 @@ pub async fn icon_handler(
     resp
 }
 
+/// Sanitize icon name: only alphanumeric and hyphen characters.
+/// Prevents injection of arbitrary content into the SVG.
+fn sanitize_icon_name(name: &str) -> String {
+    name.chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .take(16)
+        .collect()
+}
+
 fn placeholder_svg(name: &str) -> String {
+    let safe_name = sanitize_icon_name(name);
+    let label: String = safe_name.chars().take(2).collect();
     format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="8" fill="currentColor">{}</text></svg>"#,
-        name.chars().take(2).collect::<String>()
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="8" fill="currentColor">{label}</text></svg>"#
     )
 }

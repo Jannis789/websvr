@@ -42,10 +42,11 @@ where
                 .copied()
                 .expect("ClientId must be injected by AuthService");
 
-            // For now, create a fresh SessionStorage.
-            // In a later phase, load persisted data from DB.
+            // TODO: Load persisted session from DB via SharedState.db
+            // Currently creates a fresh SessionStorage per request.
+            // Full implementation needs SharedState access through the layer chain.
             let session = SessionStorage::new(client_id);
-            crate::elog!(Info, "SessionStorage → created for client_id={}", client_id);
+            tracing::debug!("SessionStorage → created for client_id={}", client_id);
 
             let mut req = req;
             req.extensions_mut().insert(session);

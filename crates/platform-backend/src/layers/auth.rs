@@ -2,7 +2,7 @@ use rama::service::Service;
 use rama::http::Request;
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
 use rama::http::response::Response;
-use platform_core::ClientId;
+use platform_core::{ClientId, Config};
 use std::convert::Infallible;
 use std::future::Future;
 
@@ -43,7 +43,7 @@ where
         async move {
             let had_cookie = common::get_cookie_value(&req, platform_core::client_id::CLIENT_ID_COOKIE).is_some();
             let client_id = extract_or_generate_client_id(&req);
-            crate::elog!(Info, "AuthService → client_id={} (from_cookie={})", client_id, had_cookie);
+            tracing::debug!("AuthService → client_id={} (from_cookie={})", client_id, had_cookie);
             let mut req = req;
             req.extensions_mut().insert(client_id);
 
@@ -51,12 +51,14 @@ where
 
             // Set cookie only if it wasn't already present
             if !had_cookie {
-                crate::elog!(Ok, "AuthService → new cookie set for {}", client_id);
+                let ttl_days = Config::global().client_id_ttl_days;
+                let max_age = ttl_days as u64 * 24 * 60 * 60;
+                tracing::debug!("AuthService → new cookie set for {} (TTL={}d)", client_id, ttl_days);
                 let cookie = format!(
                     "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
                     platform_core::client_id::CLIENT_ID_COOKIE,
                     client_id,
-                    30 * 24 * 60 * 60 // 30 days
+                    max_age,
                 );
                 response.headers_mut().insert(
                     header::SET_COOKIE,

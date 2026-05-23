@@ -15,7 +15,7 @@ pub async fn get_home_overview(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
-    crate::elog!(Info, "Handler → get_home_overview (client_id={})", ctx.client_id);
+    tracing::debug!("Handler → get_home_overview (client_id={})", ctx.client_id);
 
     let patch = PatchElements::new(HOME_OVERVIEW_HTML.try_into().unwrap());
     ctx.emit_patch(HOME_OVERVIEW_HTML, patch, true);
@@ -29,7 +29,7 @@ pub async fn get_home_movies(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
-    crate::elog!(Info, "Handler → get_home_movies (client_id={})", ctx.client_id);
+    tracing::debug!("Handler → get_home_movies (client_id={})", ctx.client_id);
 
     let patch = PatchElements::new(HOME_MOVIES_HTML.try_into().unwrap());
     ctx.emit_patch(HOME_MOVIES_HTML, patch, true);
@@ -43,7 +43,7 @@ pub async fn get_home_series(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
-    crate::elog!(Info, "Handler → get_home_series (client_id={})", ctx.client_id);
+    tracing::debug!("Handler → get_home_series (client_id={})", ctx.client_id);
 
     let patch = PatchElements::new(HOME_SERIES_HTML.try_into().unwrap());
     ctx.emit_patch(HOME_SERIES_HTML, patch, true);

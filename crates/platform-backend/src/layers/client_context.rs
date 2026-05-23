@@ -66,8 +66,12 @@ where
 
             // Reuse or create a per-client EventEmitter so buffered events
             // survive across requests.  This is essential for Phase 1 replay.
+            // Gracefully recover from poisoned mutex (e.g. after a panic).
             let event_emitter = {
-                let mut emitters = self.emitters.lock().expect("emitters lock poisoned");
+                let mut emitters = match self.emitters.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
                 emitters.entry(client_id).or_insert_with(EventEmitter::new).clone()
             };
 
@@ -80,7 +84,7 @@ where
 
             let mut req = req;
             req.extensions_mut().insert(ctx);
-            crate::elog!(Ok, "ClientContext → assembled for client_id={}", client_id);
+            tracing::debug!("ClientContext → assembled for client_id={}", client_id);
 
             Ok(self.inner.serve(req).await.unwrap())
         }

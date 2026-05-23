@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rama::http::{Request, Response};
 use rama::http::service::web::response::{Sse, IntoResponse};
 use rama::http::sse::{Event, EventBuildError};
@@ -13,11 +15,11 @@ pub async fn sse_endpoint(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
-    crate::elog!(Info, "SSE → endpoint connected (client_id={})", ctx.client_id);
+    tracing::debug!("SSE → endpoint connected (client_id={})", ctx.client_id);
 
     // 1. Parse known_hashes from query string
     let known_hashes = parse_known_hashes(&req);
-    crate::elog!(Info, "SSE → known_hashes count={}", known_hashes.len());
+    tracing::debug!("SSE → known_hashes count={}", known_hashes.len());
 
     // 2. Subscribe to the broadcast channel
     let mut rx = ctx.sse_broadcaster.subscribe();
@@ -26,7 +28,7 @@ pub async fn sse_endpoint(
     let stream = stream! {
         // Phase 1: Replay buffered events (iterate, NOT drain!)
         let buffered = ctx.event_emitter.get_buffered_events();
-        crate::elog!(Info, "SSE → replay: {} buffered events, {} known hashes", buffered.len(), known_hashes.len());
+        tracing::debug!("SSE → replay: {} buffered events, {} known hashes", buffered.len(), known_hashes.len());
         let mut replayed = 0usize;
         let mut skipped = 0usize;
         for event in &buffered {
@@ -39,7 +41,7 @@ pub async fn sse_endpoint(
                 yield Ok::<Event<String>, EventBuildError>(sse_event);
             }
         }
-        crate::elog!(Ok, "SSE → Phase 1 complete: {} replayed, {} skipped (known)", replayed, skipped);
+        tracing::debug!("SSE → Phase 1 complete: {} replayed, {} skipped (known)", replayed, skipped);
 
         // Phase 2: Live events from broadcast channel
         while let Ok(event) = rx.recv().await {
@@ -56,14 +58,22 @@ pub async fn sse_endpoint(
 }
 
 /// Parse known_hashes from the request query string.
-fn parse_known_hashes(req: &Request) -> Vec<String> {
+/// Returns a HashSet for O(1) lookup instead of O(n) Vec scan.
+fn parse_known_hashes(req: &Request) -> HashSet<String> {
     let query = req.uri().query().unwrap_or("");
     query
         .split('&')
         .find_map(|pair| {
             let mut parts = pair.splitn(2, '=');
             if parts.next()? == "known_hashes" {
-                Some(parts.next()?.split(',').map(|s| s.to_string()).collect())
+                // URL-decode the value to handle encoded commas (%2C)
+                let raw = parts.next().unwrap_or("");
+                let decoded = raw.replace("%2C", ",").replace("%2c", ",");
+                Some(
+                    decoded.split(',')
+                        .map(|s| s.to_string())
+                        .collect()
+                )
             } else {
                 None
             }
