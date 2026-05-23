@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-datastar-signals>
+<html lang="en" data-signals>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,13 +34,13 @@
     <div class="test-controls">
       <button
         class="btn btn-primary"
-        data-datastar-get="/test/run"
+        data-on-click="@get('/test/run')"
       >
         ▶ Run Tests
       </button>
       <button
         class="btn btn-secondary"
-        onclick="location.reload()"
+        data-on-click="location.reload()"
         style="margin-left: 0.5rem;"
       >
         🔄 Reload (test SW cache)
@@ -67,11 +67,8 @@
       <div>Events buffered: <span id="score-buffered">—</span></div>
     </div>
 
-    <!-- SSE stream for test events -->
-    <div
-      data-datastar-get="/sse"
-      data-datastar-sse
-    ></div>
+    <!-- Persistent SSE stream for test events -->
+    <div data-on-load="@get('/sse')"></div>
   </main>
 
   <!--

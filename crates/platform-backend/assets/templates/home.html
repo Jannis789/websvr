@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-datastar-signals>
+<html lang="en" data-signals>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,8 +27,7 @@
         <a
           href="/home/overview"
           class="nav-item"
-          data-datastar-get="/home/overview"
-          data-datastar-selector=".content-body"
+          data-on-click="@get('/home/overview', {selector: '.content-body'})"
         >
           <span class="nav-icon">🏠</span>
           <span class="nav-label">Overview</span>
@@ -40,8 +39,7 @@
           <a
             href="/home/movies"
             class="nav-item"
-            data-datastar-get="/home/movies"
-            data-datastar-selector=".content-body"
+            data-on-click="@get('/home/movies', {selector: '.content-body'})"
           >
             <span class="nav-icon">🎬</span>
             <span class="nav-label">Movies</span>
@@ -50,8 +48,7 @@
           <a
             href="/home/series"
             class="nav-item"
-            data-datastar-get="/home/series"
-            data-datastar-selector=".content-body"
+            data-on-click="@get('/home/series', {selector: '.content-body'})"
           >
             <span class="nav-icon">📺</span>
             <span class="nav-label">Series</span>
@@ -60,9 +57,7 @@
       </nav>
 
       <div class="sidebar-footer">
-        <span
-          class="nav-item"
-        >
+        <span class="nav-item">
           <span class="nav-icon">👤</span>
           <span class="nav-label" data-signals-user="$user">User</span>
         </span>
@@ -87,10 +82,7 @@
     </main>
   </div>
 
-  <!-- Datastar SSE stream connection -->
-  <div
-    data-datastar-get="/sse"
-    data-datastar-sse
-  ></div>
+  <!-- Persistent SSE stream for real-time updates -->
+  <div data-on-load="@get('/sse')"></div>
 </body>
 </html>

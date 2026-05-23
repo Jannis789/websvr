@@ -61,7 +61,7 @@ exports[`HTML Template Snapshots > snapshot: home.html structure is stable > hom
   {
     "class": undefined,
     "dataAttrs": {
-      "datastarGet": "/sse",
+      "onLoad": "@get('/sse')",
     },
     "id": undefined,
     "tag": "div",
