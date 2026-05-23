@@ -65,9 +65,9 @@ body.light-mode {
   --bg-sidebar-active: rgba(46, 125, 233, 0.12);
 
   /* Foreground */
-  --fg-primary: #565f89;
-  --fg-secondary: #6a7399;
-  --fg-muted: #a9b1d6;
+  --fg-primary: #343b58;
+  --fg-secondary: #4b526a;
+  --fg-muted: #787c99;
 
   /* Borders */
   --border-color: #a9b1d6;
