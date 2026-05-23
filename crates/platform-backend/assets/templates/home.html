@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,7 @@
     }
   </script>
 </head>
-<body>
+<body data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
 
   <div class="app-layout">
 
@@ -59,7 +59,7 @@
         </button>
       </div>
 
-      <!-- Popup: outside sidebar-footer for correct positioning -->
+      <!-- Popup: siblings of footer, positioned relative to sidebar -->
       <div class="popup-overlay"
            data-show="$popupOpen"
            data-on:click="$popupOpen = false"></div>
@@ -69,8 +69,8 @@
           Sicherheit
         </li>
         <li class="popup-item popup-item--danger">
-          <form method="post" action="/logout">
-            <button type="submit" class="btn btn-logout" data-on:click="$popupOpen = false">
+          <form method="post" action="/logout" class="popup-form">
+            <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
               <span class="icon icon-exit" role="img" aria-hidden="true"></span>
               Abmelden
             </button>

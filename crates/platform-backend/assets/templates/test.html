@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" data-signals="{activePage:'test',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,11 +12,10 @@
     }
   </script>
 </head>
-<body>
+<body data-signals="{activePage:'test',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
 
   <div class="app-layout">
 
-    <!-- ═══ Sidebar ═══ -->
     <aside class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-header">
@@ -49,8 +48,8 @@
            data-on:click="$popupOpen = false"></div>
       <ul class="popup-menu" data-show="$popupOpen">
         <li class="popup-item popup-item--danger">
-          <form method="post" action="/logout">
-            <button type="submit" class="btn btn-logout" data-on:click="$popupOpen = false">
+          <form method="post" action="/logout" class="popup-form">
+            <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
               <span class="icon icon-exit" role="img" aria-hidden="true"></span>
               Abmelden
             </button>
@@ -59,7 +58,6 @@
       </ul>
     </aside>
 
-    <!-- ═══ Main Content ═══ -->
     <main class="main-container">
       <header class="main-header">
         <div class="header-title">E2E Test Harness</div>
@@ -76,24 +74,15 @@
 
       <div class="content-body">
         <div class="test-controls">
-          <button class="btn btn-primary"
-                  data-on:click="@get('/test/run')">
-            Run Tests
-          </button>
-          <button class="btn btn-secondary"
-                  data-on:click="location.reload()"
-                  style="margin-left: 0.5rem;">
-            Reload
-          </button>
+          <button class="btn btn-primary" data-on:click="@get('/test/run')">Run Tests</button>
+          <button class="btn btn-secondary" data-on:click="location.reload()" style="margin-left: 0.5rem;">Reload</button>
           <p class="text-muted" style="margin-top: 0.5rem;">
             <strong>Reload</strong> after a test run to test the SW hash cache.
           </p>
         </div>
-
         <div id="test-results" class="test-results">
           <p class="text-muted">Click "Run Tests" to start.</p>
         </div>
-
         <div id="test-score" class="test-score" data-show="false">
           <span id="score-value">—</span>
         </div>

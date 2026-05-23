@@ -49,7 +49,7 @@
 }
 
 /* ── Light Mode Override ── */
-html.light-mode {
+body.light-mode {
   /* Background hierarchy */
   --bg-primary: #d5d6db;
   --bg-secondary: #e0e1e6;

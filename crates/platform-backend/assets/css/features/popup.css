@@ -7,17 +7,17 @@
   z-index: 90;
 }
 
-/* Popup anchored to bottom-right of sidebar */
+/* Popup anchored to bottom of sidebar */
 .popup-menu {
   position: absolute;
-  bottom: 60px;
+  bottom: 56px;
   left: 12px;
   right: 12px;
   background-color: var(--bg-popup);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  padding: 6px;
+  padding: 4px;
   z-index: 100;
   list-style: none;
   display: flex;
@@ -28,8 +28,8 @@
 .popup-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 500;
@@ -39,12 +39,11 @@
   background: none;
   width: 100%;
   text-align: left;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .popup-item:hover {
   background-color: var(--bg-hover);
-  color: var(--fg-primary);
 }
 
 .popup-item .icon {
@@ -60,8 +59,8 @@
 .popup-item--danger {
   color: var(--danger);
   border-top: 1px solid var(--border-color);
-  margin-top: 4px;
-  padding-top: 8px;
+  margin-top: 2px;
+  padding-top: 6px;
 }
 
 .popup-item--danger .icon {
@@ -72,21 +71,30 @@
   background-color: var(--danger-bg);
 }
 
-/* Logout button inside popup */
-.btn-logout {
+/* Form inside popup item — reset all inherited spacing */
+.popup-form {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.popup-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0;
+  margin: 0;
   font: inherit;
   color: inherit;
   background: none;
   border: none;
   cursor: pointer;
   width: 100%;
+  text-align: left;
 }
 
-.btn-logout .icon {
+.popup-btn .icon {
   width: 16px;
   height: 16px;
   color: var(--danger);
