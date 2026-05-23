@@ -58,7 +58,7 @@ pub async fn run() {
     let app = Router::new_with_state(shared_state)
         // ── Static assets (CSS, JS, SVGs, fonts — all from assets/) ──
         .with_dir("/assets", std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
-        // ── Public routes ──
+        // ── Public routes (no layer stack) ──
         .with_get("/login", handlers::page::login_page)
         .with_get("/register", handlers::page::register_page)
         .with_post("/login", handlers::auth::login)
@@ -79,8 +79,9 @@ pub async fn run() {
                 .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json)
         });
 
-    // Build layer stack as tuple and apply to the entire app.
-    // Layer order (outermost first): Compression → Auth → SessionStorage → ClientContext
+    // Layer stack applied globally (Rama Router has no per-sub-router .layer()).
+    // AuthService is lightweight (cookie read/generate only), so overhead on
+    // public routes is negligible.
     let layers = (
         CompressionLayer::new(),
         layer_fn(|inner| AuthService::new(inner)),
