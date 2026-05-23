@@ -34,13 +34,13 @@
     <div class="test-controls">
       <button
         class="btn btn-primary"
-        data-on-click="@get('/test/run')"
+        data-on:click="@get('/test/run')"
       >
         ▶ Run Tests
       </button>
       <button
         class="btn btn-secondary"
-        data-on-click="location.reload()"
+        data-on:click="location.reload()"
         style="margin-left: 0.5rem;"
       >
         🔄 Reload (test SW cache)
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Persistent SSE stream for test events -->
-    <div data-on-load="@get('/sse')"></div>
+    <div data-init="@get('/sse')"></div>
   </main>
 
   <!--

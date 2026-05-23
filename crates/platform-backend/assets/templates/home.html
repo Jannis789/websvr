@@ -25,7 +25,7 @@
       <nav class="sidebar-nav">
         <button
           class="nav-item"
-          data-on-click="@get('/home/overview', {selector: '.content-body'})"
+          data-on:click="@get('/home/overview', {selector: '.content-body'})"
         >
           <span class="nav-icon">🏠</span>
           <span class="nav-label">Overview</span>
@@ -36,7 +36,7 @@
 
           <button
             class="nav-item"
-            data-on-click="@get('/home/movies', {selector: '.content-body'})"
+            data-on:click="@get('/home/movies', {selector: '.content-body'})"
           >
             <span class="nav-icon">🎬</span>
             <span class="nav-label">Movies</span>
@@ -44,7 +44,7 @@
 
           <button
             class="nav-item"
-            data-on-click="@get('/home/series', {selector: '.content-body'})"
+            data-on:click="@get('/home/series', {selector: '.content-body'})"
           >
             <span class="nav-icon">📺</span>
             <span class="nav-label">Series</span>
@@ -79,6 +79,6 @@
   </div>
 
   <!-- Persistent SSE stream for real-time updates -->
-  <div data-on-load="@get('/sse')"></div>
+  <div data-init="@get('/sse')"></div>
 </body>
 </html>
