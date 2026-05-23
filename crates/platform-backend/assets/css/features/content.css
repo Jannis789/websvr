@@ -17,7 +17,7 @@
 .header-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-active);
+  color: var(--fg-primary);
   flex: 1;
   text-align: center;
 }
