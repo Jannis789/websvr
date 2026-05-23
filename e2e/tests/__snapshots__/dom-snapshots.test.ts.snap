@@ -125,7 +125,7 @@ exports[`HTML Template Snapshots > snapshot: home.html structure is stable > hom
 exports[`HTML Template Snapshots > snapshot: login.html structure is stable > login.html <body> structure 1`] = `
 [
   {
-    "class": "floating-window",
+    "class": "auth-container",
     "dataAttrs": undefined,
     "id": undefined,
     "tag": "div",
@@ -181,7 +181,7 @@ exports[`HTML Template Snapshots > snapshot: login.html structure is stable > lo
 exports[`HTML Template Snapshots > snapshot: register.html structure is stable > register.html <body> structure 1`] = `
 [
   {
-    "class": "floating-window",
+    "class": "auth-container",
     "dataAttrs": undefined,
     "id": undefined,
     "tag": "div",
@@ -242,14 +242,6 @@ exports[`HTML Template Snapshots > snapshot: test.html structure is stable > tes
     "id": undefined,
     "tag": "div",
   },
-  {
-    "class": undefined,
-    "dataAttrs": {
-      "init": "@get('/sse')",
-    },
-    "id": undefined,
-    "tag": "div",
-  },
 ]
 `;
 
@@ -294,14 +286,6 @@ exports[`HTML Template Snapshots > snapshot: test.html structure is stable > tes
     "src": "/assets/js/datastar-core.js",
     "tag": "script",
     "type": "module",
-  },
-  {
-    "href": null,
-    "id": undefined,
-    "rel": null,
-    "src": null,
-    "tag": "script",
-    "type": null,
   },
 ]
 `;

@@ -1,50 +1,51 @@
-     1|     1|<!DOCTYPE html>
-     2|     2|<html lang="de">
-     3|     3|<head>
-     4|     4|  <meta charset="UTF-8">
-     5|     5|  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     6|     6|  <title>Register — Rama Platform</title>
-     7|     7|  <link rel="stylesheet" href="/assets/css/pages/register.css">
-     8|     8|  <script type="module" src="/assets/js/datastar-core.js"></script>
-     9|     9|</head>
-    10|    10|<body data-signals="{lightMode:false}" data-class:light-mode="$lightMode">
-    11|    11|
-    12|    12|  <div class="floating-window">
-    13|    13|    <div class="app-header">
-    14|    14|      <h1>Register</h1>
-    15|    15|      <p class="subtitle">Create a new account</p>
-    16|    16|    </div>
-    17|    17|
-    18|    18|    <form method="post" action="/register" class="auth-form">
-    19|    19|      <div class="form-group">
-    20|    20|        <label for="username">Username</label>
-    21|    21|        <input type="text" id="username" name="username" required placeholder="johndoe">
-    22|    22|      </div>
-    23|    23|      <div class="form-group">
-    24|    24|        <label for="email">Email</label>
-    25|    25|        <input type="email" id="email" name="email" required placeholder="user@example.com">
-    26|    26|      </div>
-    27|    27|      <div class="form-group">
-    28|    28|        <label for="password">Password</label>
-    29|    29|        <input type="password" id="password" name="password" required placeholder="Choose a password">
-    30|    30|      </div>
-    31|    31|      <button type="submit" class="btn btn-primary btn-block">Register</button>
-    32|    32|    </form>
-    33|    33|
-    34|    34|    <div class="auth-footer">
-    35|    35|      <a href="/login" class="auth-link">Already have an account?</a>
-    36|    36|      <div class="theme-switch-wrapper">
-    37|    37|        <label class="theme-switch" data-on:click="$lightMode = !$lightMode">
-    38|    38|          <input type="checkbox" />
-    39|    39|          <div class="slider">
-    40|    40|            <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
-    41|    41|            <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
-    42|    42|          </div>
-    43|    43|        </label>
-    44|    44|      </div>
-    45|    45|    </div>
-    46|    46|  </div>
-    47|    47|
-    48|    48|</body>
-    49|    49|</html>
-    50|    50|
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/pages/register.css">
+  <script type="module" src="/assets/js/datastar-core.js"></script>
+</head>
+<body data-signals="{lightMode:false}" data-class:light-mode="$lightMode">
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <span class="icon icon-display" role="img" aria-hidden="true"></span>
+        <h1>Rama Platform</h1>
+      </div>
+
+      <form method="post" action="/register" class="auth-form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required />
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required />
+        </div>
+        <button type="submit" class="auth-submit">Register</button>
+      </form>
+
+      <div class="auth-footer">
+        <a href="/login" class="auth-link">Already have an account?</a>
+        <div class="theme-switch-wrapper">
+          <label class="theme-switch" data-on:click="$lightMode = !$lightMode">
+            <input type="checkbox" />
+            <div class="slider">
+              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
+              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,109 +1,108 @@
-     1|     1|<!DOCTYPE html>
-     2|     2|<html lang="de">
-     3|     3|<head>
-     4|     4|  <meta charset="UTF-8">
-     5|     5|  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     6|     6|  <title>Rama Platform</title>
-     7|     7|  <link rel="stylesheet" href="/assets/css/pages/home.css">
-     8|     8|  <script type="module" src="/assets/js/datastar-core.js"></script>
-     9|     9|  <script>
-    10|    10|    if ('serviceWorker' in navigator) {
-    11|    11|      navigator.serviceWorker.register('/sw.js', { scope: '/' });
-    12|    12|    }
-    13|    13|  </script>
-    14|    14|</head>
-    15|    15|<body data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
-    16|    16|
-    17|    17|  <div class="app-layout">
-    18|    18|
-    19|    19|    <!-- ═══ Sidebar ═══ -->
-    20|    20|    <aside class="sidebar">
-    21|    21|      <div class="sidebar-top">
-    22|    22|        <div class="sidebar-header">
-    23|    23|          <span class="icon icon-display" role="img" aria-hidden="true"></span>
-    24|    24|          <span class="sidebar-title">Rama</span>
-    25|    25|        </div>
-    26|    26|
-    27|    27|        <ul class="sidebar-menu">
-    28|    28|          <li class="menu-item"
-    29|    29|              data-class:active="$activePage === 'overview'"
-    30|    30|              data-on:click="$activePage = 'overview'; @get('/home/overview', {selector:'.content-body'})">
-    31|    31|            <span class="icon icon-view-grid" role="img" aria-hidden="true"></span>
-    32|    32|            <span class="nav-label">Overview</span>
-    33|    33|          </li>
-    34|    34|          <li class="menu-item"
-    35|    35|              data-class:active="$activePage === 'movies'"
-    36|    36|              data-on:click="$activePage = 'movies'; @get('/home/movies', {selector:'.content-body'})">
-    37|    37|            <span class="icon icon-video" role="img" aria-hidden="true"></span>
-    38|    38|            <span class="nav-label">Movies</span>
-    39|    39|          </li>
-    40|    40|          <li class="menu-item"
-    41|    41|              data-class:active="$activePage === 'series'"
-    42|    42|              data-on:click="$activePage = 'series'; @get('/home/series', {selector:'.content-body'})">
-    43|    43|            <span class="icon icon-tv" role="img" aria-hidden="true"></span>
-    44|    44|            <span class="nav-label">Series</span>
-    45|    45|          </li>
-    46|    46|        </ul>
-    47|    47|      </div>
-    48|    48|
-    49|    49|      <!-- ═══ Sidebar Footer ═══ -->
-    50|    50|      <div class="sidebar-footer">
-    51|    51|        <div class="user-profile">
-    52|    52|          <span class="avatar icon icon-person" role="img" aria-hidden="true"></span>
-    53|    53|          <span class="username">John Doe</span>
-    54|    54|        </div>
-    55|    55|        <button class="settings-btn"
-    56|    56|                data-class:active="$popupOpen"
-    57|    57|                data-on:click="$popupOpen = !$popupOpen">
-    58|    58|          <span class="icon icon-open-menu" role="img" aria-hidden="true"></span>
-    59|    59|        </button>
-    60|    60|        <div class="popup-overlay"
-    61|    61|             data-show="$popupOpen"
-    62|    62|             data-on:click="$popupOpen = false"></div>
-    63|    63|        <ul class="popup-menu" data-class:popup-visible="$popupOpen">
-    64|    64|          <li class="popup-item" data-on:click="$popupOpen = false">
-    65|    65|            <span class="icon icon-shield" role="img" aria-hidden="true"></span>
-    66|    66|            Sicherheit
-    67|    67|          </li>
-    68|    68|          <li class="popup-item popup-item--danger">
-    69|    69|            <form method="post" action="/logout" class="popup-form">
-    70|    70|              <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
-    71|    71|                <span class="icon icon-exit" role="img" aria-hidden="true"></span>
-    72|    72|                Abmelden
-    73|    73|              </button>
-    74|    74|            </form>
-    75|    75|          </li>
-    76|    76|        </ul>
-    77|    77|      </div>
-    78|    78|    </aside>
-    79|    79|
-    80|    80|    <!-- ═══ Main Content ═══ -->
-    81|    81|    <main class="main-container">
-    82|    82|      <header class="main-header">
-    83|    83|        <div class="header-title">Rama Platform</div>
-    84|    84|        <div class="theme-switch-wrapper">
-    85|    85|          <label class="theme-switch" data-on:click="$lightMode = !$lightMode">
-    86|    86|            <input type="checkbox" />
-    87|    87|            <div class="slider">
-    88|    88|              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
-    89|    89|              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
-    90|    90|            </div>
-    91|    91|          </label>
-    92|    92|        </div>
-    93|    93|      </header>
-    94|    94|
-    95|    95|      <div class="content-body">
-    96|    96|        <div class="placeholder-state">
-    97|    97|          <span class="icon icon-go-home placeholder-icon" role="img" aria-hidden="true"></span>
-    98|    98|          <p>Select a section from the sidebar.</p>
-    99|    99|        </div>
-   100|   100|      </div>
-   101|   101|    </main>
-   102|   102|  </div>
-   103|   103|
-   104|   104|  <!-- Persistent SSE stream -->
-   105|   105|  <div data-init="@get('/sse')"></div>
-   106|   106|
-   107|   107|</body>
-   108|   108|</html>
-   109|   109|
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/pages/home.css">
+  <script type="module" src="/assets/js/datastar-core.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+  </script>
+</head>
+<body data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
+
+  <div class="app-layout">
+
+    <!-- ═══ Sidebar ═══ -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <span class="icon icon-display" role="img" aria-hidden="true"></span>
+          <span class="sidebar-title">Rama</span>
+        </div>
+
+        <ul class="sidebar-menu">
+          <li class="menu-item"
+              data-class:active="$activePage === 'overview'"
+              data-on:click="$activePage = 'overview'; @get('/home/overview', {selector:'.content-body'})">
+            <span class="icon icon-view-grid" role="img" aria-hidden="true"></span>
+            <span class="nav-label">Overview</span>
+          </li>
+          <li class="menu-item"
+              data-class:active="$activePage === 'movies'"
+              data-on:click="$activePage = 'movies'; @get('/home/movies', {selector:'.content-body'})">
+            <span class="icon icon-video" role="img" aria-hidden="true"></span>
+            <span class="nav-label">Movies</span>
+          </li>
+          <li class="menu-item"
+              data-class:active="$activePage === 'series'"
+              data-on:click="$activePage = 'series'; @get('/home/series', {selector:'.content-body'})">
+            <span class="icon icon-tv" role="img" aria-hidden="true"></span>
+            <span class="nav-label">Series</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- ═══ Sidebar Footer ═══ -->
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <span class="avatar icon icon-person" role="img" aria-hidden="true"></span>
+          <span class="username">John Doe</span>
+        </div>
+        <button class="settings-btn"
+                data-class:active="$popupOpen"
+                data-on:click="$popupOpen = !$popupOpen">
+          <span class="icon icon-open-menu" role="img" aria-hidden="true"></span>
+        </button>
+        <div class="popup-overlay"
+             data-show="$popupOpen"
+             data-on:click="$popupOpen = false"></div>
+        <ul class="popup-menu" data-class:popup-visible="$popupOpen">
+          <li class="popup-item" data-on:click="$popupOpen = false">
+            <span class="icon icon-shield" role="img" aria-hidden="true"></span>
+            Sicherheit
+          </li>
+          <li class="popup-item popup-item--danger">
+            <form method="post" action="/logout" class="popup-form">
+              <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
+                <span class="icon icon-exit" role="img" aria-hidden="true"></span>
+                Abmelden
+              </button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- ═══ Main Content ═══ -->
+    <main class="main-container">
+      <header class="main-header">
+        <div class="header-title">Rama Platform</div>
+        <div class="theme-switch-wrapper">
+          <label class="theme-switch" data-on:click="$lightMode = !$lightMode">
+            <input type="checkbox" />
+            <div class="slider">
+              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
+              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
+            </div>
+          </label>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <div class="placeholder-state">
+          <span class="icon icon-go-home placeholder-icon" role="img" aria-hidden="true"></span>
+          <p>Select a section from the sidebar.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Persistent SSE stream -->
+  <div data-init="@get('/sse')"></div>
+
+</body>
+</html>

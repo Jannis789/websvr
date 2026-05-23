@@ -1,96 +1,83 @@
-     1|     1|<!DOCTYPE html>
-     2|     2|<html lang="de">
-     3|     3|<head>
-     4|     4|  <meta charset="UTF-8">
-     5|     5|  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     6|     6|  <title>E2E Test — Rama Platform</title>
-     7|     7|  <link rel="stylesheet" href="/assets/css/pages/test.css">
-     8|     8|  <script type="module" src="/assets/js/datastar-core.js"></script>
-     9|     9|  <script>
-    10|    10|    if ('serviceWorker' in navigator) {
-    11|    11|      navigator.serviceWorker.register('/sw.js', { scope: '/' });
-    12|    12|    }
-    13|    13|  </script>
-    14|    14|</head>
-    15|    15|<body data-signals="{activePage:'test',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
-    16|    16|
-    17|    17|  <div class="app-layout">
-    18|    18|
-    19|    19|    <aside class="sidebar">
-    20|    20|      <div class="sidebar-top">
-    21|    21|        <div class="sidebar-header">
-    22|    22|          <span class="icon icon-display" role="img" aria-hidden="true"></span>
-    23|    23|          <span class="sidebar-title">Rama</span>
-    24|    24|        </div>
-    25|    25|
-    26|    26|        <ul class="sidebar-menu">
-    27|    27|          <li class="menu-item active">
-    28|    28|            <span class="icon icon-multimedia" role="img" aria-hidden="true"></span>
-    29|    29|            <span class="nav-label">Test Harness</span>
-    30|    30|          </li>
-    31|    31|        </ul>
-    32|    32|      </div>
-    33|    33|
-    34|    34|      <div class="sidebar-footer">
-    35|    35|        <div class="user-profile">
-    36|    36|          <span class="avatar icon icon-person" role="img" aria-hidden="true"></span>
-    37|    37|          <span class="username">John Doe</span>
-    38|    38|        </div>
-    39|    39|        <button class="settings-btn"
-    40|    40|                data-class:active="$popupOpen"
-    41|    41|                data-on:click="$popupOpen = !$popupOpen">
-    42|    42|          <span class="icon icon-open-menu" role="img" aria-hidden="true"></span>
-    43|    43|        </button>
-    44|    44|        <div class="popup-overlay"
-    45|    45|             data-show="$popupOpen"
-    46|    46|             data-on:click="$popupOpen = false"></div>
-    47|    47|        <ul class="popup-menu" data-class:popup-visible="$popupOpen">
-    48|    48|          <li class="popup-item popup-item--danger">
-    49|    49|            <form method="post" action="/logout" class="popup-form">
-    50|    50|              <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
-    51|    51|                <span class="icon icon-exit" role="img" aria-hidden="true"></span>
-    52|    52|                Abmelden
-    53|    53|              </button>
-    54|    54|            </form>
-    55|    55|          </li>
-    56|    56|        </ul>
-    57|    57|      </div>
-    58|    58|    </aside>
-    59|    59|
-    60|    60|    <main class="main-container">
-    61|    61|      <header class="main-header">
-    62|    62|        <div class="header-title">E2E Test Harness</div>
-    63|    63|        <div class="theme-switch-wrapper">
-    64|    64|          <label class="theme-switch" data-on:click="$lightMode = !$lightMode">
-    65|    65|            <input type="checkbox" />
-    66|    66|            <div class="slider">
-    67|    67|              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
-    68|    68|              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
-    69|    69|            </div>
-    70|    70|          </label>
-    71|    71|        </div>
-    72|    72|      </header>
-    73|    73|
-    74|    74|      <div class="content-body">
-    75|    75|        <div class="test-controls">
-    76|    76|          <button class="btn btn-primary" data-on:click="@get('/test/run')">Run Tests</button>
-    77|    77|          <button class="btn btn-secondary" data-on:click="location.reload()" style="margin-left: 0.5rem;">Reload</button>
-    78|    78|          <p class="text-muted" style="margin-top: 0.5rem;">
-    79|    79|            <strong>Reload</strong> after a test run to test the SW hash cache.
-    80|    80|          </p>
-    81|    81|        </div>
-    82|    82|        <div id="test-results" class="test-results">
-    83|    83|          <p class="text-muted">Click "Run Tests" to start.</p>
-    84|    84|        </div>
-    85|    85|        <div id="test-score" class="test-score" data-show="false">
-    86|    86|          <span id="score-value">—</span>
-    87|    87|        </div>
-    88|    88|      </div>
-    89|    89|    </main>
-    90|    90|  </div>
-    91|    91|
-    92|    92|  <div data-init="@get('/sse')"></div>
-    93|    93|
-    94|    94|</body>
-    95|    95|</html>
-    96|    96|
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E2E Test — Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/pages/test.css">
+  <script type="module" src="/assets/js/datastar-core.js"></script>
+</head>
+<body data-signals="{activePage:'test',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
+
+  <div class="app-layout">
+
+    <!-- ═══ Sidebar ═══ -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <span class="icon icon-display" role="img" aria-hidden="true"></span>
+          <span class="sidebar-title">Rama</span>
+        </div>
+
+        <ul class="sidebar-menu">
+          <li class="menu-item active"
+              data-class:active="$activePage === 'test'"
+              data-on:click="$activePage = 'test'">
+            <span class="icon icon-view-grid" role="img" aria-hidden="true"></span>
+            <span class="nav-label">Test</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- ═══ Sidebar Footer ═══ -->
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <span class="avatar icon icon-person" role="img" aria-hidden="true"></span>
+          <span class="username">E2E User</span>
+        </div>
+        <button class="settings-btn"
+                data-class:active="$popupOpen"
+                data-on:click="$popupOpen = !$popupOpen">
+          <span class="icon icon-open-menu" role="img" aria-hidden="true"></span>
+        </button>
+        <div class="popup-overlay"
+             data-show="$popupOpen"
+             data-on:click="$popupOpen = false"></div>
+        <ul class="popup-menu" data-class:popup-visible="$popupOpen">
+          <li class="popup-item popup-item--danger">
+            <form method="post" action="/logout" class="popup-form">
+              <button type="submit" class="popup-btn" data-on:click="$popupOpen = false">
+                <span class="icon icon-exit" role="img" aria-hidden="true"></span>
+                Abmelden
+              </button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </aside>
+
+    <main class="main-container">
+      <header class="main-header">
+        <div class="header-title">E2E Test Harness</div>
+        <div class="theme-switch-wrapper">
+          <label class="theme-switch" data-on:click="$lightMode = !$lightMode">
+            <input type="checkbox" />
+            <div class="slider">
+              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
+              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
+            </div>
+          </label>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <div class="placeholder-state">
+          <span class="icon icon-view-grid placeholder-icon" role="img" aria-hidden="true"></span>
+          <p>E2E Test Page</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+</body>
+</html>
