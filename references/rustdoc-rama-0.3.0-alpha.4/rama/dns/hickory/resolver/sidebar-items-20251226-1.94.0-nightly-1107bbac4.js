@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ResolveErrorKind"],"fn":["version"],"mod":["caching_client","config","dns_lru","lookup","lookup_ip","name_server","proto","system_conf"],"struct":["Hosts","Name","ResolveError","Resolver","ResolverBuilder"],"trait":["IntoName"],"type":["TokioResolver"]};

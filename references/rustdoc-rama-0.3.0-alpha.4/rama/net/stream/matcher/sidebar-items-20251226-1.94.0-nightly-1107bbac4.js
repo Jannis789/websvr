@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["ip"],"struct":["IpNetMatcher","LoopbackMatcher","PortMatcher","PrivateIpNetMatcher","SocketAddressMatcher","SocketMatcher"]};

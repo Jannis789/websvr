@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["PolicyResult"],"mod":["managed"],"struct":["ManagedPolicy","Retry","RetryBody","RetryError","RetryLayer"],"trait":["Policy"]};

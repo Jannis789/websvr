@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ClientAuth","ClientHelloExtension","ECHClientHello","ServerVerifyMode"],"fn":["extract_sni_from_client_hello_handshake","extract_sni_from_client_hello_record","merge_client_hello_lists","parse_client_hello"],"struct":["ClientAuthData","ClientConfig","ClientHello","NegotiatedTlsParameters","ProxyClientConfig"]};

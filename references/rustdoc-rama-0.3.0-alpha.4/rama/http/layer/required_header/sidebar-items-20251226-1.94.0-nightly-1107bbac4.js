@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["request","response"],"struct":["AddRequiredRequestHeaders","AddRequiredRequestHeadersLayer","AddRequiredResponseHeaders","AddRequiredResponseHeadersLayer"]};

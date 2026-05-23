@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Host"],"mod":["ip"],"struct":["Authority","Domain","DomainAddress","DomainParentMatch","DomainTrie","HostWithOptPort","HostWithPort","ProxyAddress","SocketAddress"],"trait":["AsDomainRef","IntoDomain"]};

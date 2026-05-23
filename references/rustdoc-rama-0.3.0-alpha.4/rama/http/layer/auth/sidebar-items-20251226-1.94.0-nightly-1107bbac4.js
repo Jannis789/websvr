@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["add_authorization","validate_authorization"],"struct":["AddAuthorization","AddAuthorizationLayer","HttpAuthorizer"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["HeaderValueErr"],"fn":["request_uri"],"trait":["HeaderValueGetter"]};

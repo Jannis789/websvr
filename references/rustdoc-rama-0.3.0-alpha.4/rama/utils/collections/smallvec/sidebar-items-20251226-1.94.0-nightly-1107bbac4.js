@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["CollectionAllocErr"],"macro":["smallvec","smallvec_inline"],"mod":["alloc"],"struct":["Drain","IntoIter","SmallVec"],"trait":["Array","ToSmallVec"]};

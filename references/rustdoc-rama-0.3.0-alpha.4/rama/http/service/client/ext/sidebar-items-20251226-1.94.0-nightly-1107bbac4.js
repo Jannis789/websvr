@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["RequestBuilder"],"trait":["HttpClientExt","IntoHeaderName","IntoHeaderValue","IntoUrl"]};

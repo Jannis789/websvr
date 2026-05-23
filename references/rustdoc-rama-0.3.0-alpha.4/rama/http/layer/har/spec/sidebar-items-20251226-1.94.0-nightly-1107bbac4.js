@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["HttpVersion"],"struct":["Browser","Cache","CacheState","Content","Cookie","Creator","Entry","Header","Log","LogFile","Page","PageTimings","PostData","PostParam","QueryStringPair","Request","Response","Timings"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["global_dns_resolver","init_global_dns_resolver","try_init_global_dns_resolver"],"mod":["chain","hickory"],"struct":["BoxDnsResolver","DenyAllDns","DnsDeniedError","DnsOverwrite","GlobalDnsResolver","HickoryDns","InMemoryDns"],"trait":["DnsResolver"]};

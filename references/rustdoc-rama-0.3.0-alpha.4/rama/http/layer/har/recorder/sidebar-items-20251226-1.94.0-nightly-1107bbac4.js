@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["FileRecorder","HarFilePath","LogMetaInfo"],"trait":["Recorder"]};

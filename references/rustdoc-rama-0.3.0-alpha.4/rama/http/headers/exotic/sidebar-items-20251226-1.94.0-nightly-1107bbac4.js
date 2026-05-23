@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["x_clacks_overhead"],"struct":["XClacksOverhead"]};

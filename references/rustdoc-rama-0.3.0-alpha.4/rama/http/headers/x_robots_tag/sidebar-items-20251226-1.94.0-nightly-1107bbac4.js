@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MaxImagePreviewSetting"],"fn":["robots_tag_parse_iter"],"struct":["CustomRule","DirectiveDateTime","RobotsTag","XRobotsTag"]};

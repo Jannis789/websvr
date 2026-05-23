@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["PolicyOutput"],"mod":["policy"],"struct":["Limit","LimitLayer"],"trait":["Policy"]};

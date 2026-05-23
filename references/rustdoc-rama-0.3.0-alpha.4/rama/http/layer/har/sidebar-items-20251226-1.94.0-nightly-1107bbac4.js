@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["extensions","layer","recorder","service","spec","toggle"]};

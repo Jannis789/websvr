@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["HttpProxyError"],"struct":["HttpProxyAddressLayer","HttpProxyAddressService","HttpProxyConnectResponseHeaders","HttpProxyConnector","HttpProxyConnectorLayer","MaybeHttpProxiedConnection","SetProxyAuthHttpHeaderLayer","SetProxyAuthHttpHeaderService"]};

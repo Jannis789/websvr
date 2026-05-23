@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"derive":["FromRef"],"trait":["FromRef","RamaFrom","RamaInto","RamaTryFrom","RamaTryInto"]};

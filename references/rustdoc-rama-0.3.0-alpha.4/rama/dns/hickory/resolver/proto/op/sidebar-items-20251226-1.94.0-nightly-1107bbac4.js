@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MessageType","OpCode","ResponseCode"],"mod":["header","message","op_code","query","response_code","update_message"],"struct":["Edns","EdnsFlags","Header","LowerQuery","Message","MessageParts","Query"],"trait":["MessageFinalizer","UpdateMessage"],"type":["MessageVerifier"]};

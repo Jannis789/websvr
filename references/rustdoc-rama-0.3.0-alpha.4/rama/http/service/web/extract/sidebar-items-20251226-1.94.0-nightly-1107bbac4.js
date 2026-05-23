@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["authority","body","datastar","extension","host","path","query","typed_header"],"struct":["Authority","Body","Bytes","Csv","Extension","Form","Host","Json","Path","Query","State","Text","TypedHeader"],"trait":["FromPartsStateRefPair","FromRequest","OptionalFromPartsStateRefPair","OptionalFromRequest"]};

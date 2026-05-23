@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["UnixConnector","UnixStreamConnectorCloneFactory","UnixTarget"],"trait":["UnixStreamConnector","UnixStreamConnectorFactory"]};

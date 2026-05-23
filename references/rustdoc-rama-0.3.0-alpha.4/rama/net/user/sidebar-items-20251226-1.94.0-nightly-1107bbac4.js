@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ProxyCredential","UserId"],"mod":["authority","credentials","layer"],"struct":["Basic","Bearer"]};

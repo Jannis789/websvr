@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["CsvRejection","FormRejection","JsonRejection","TextRejection"],"struct":["Body","Bytes","BytesRejection","Csv","FailedToDeserializeCsv","FailedToDeserializeForm","FailedToDeserializeJson","Form","InvalidCsvContentType","InvalidFormContentType","InvalidJsonContentType","InvalidTextContentType","InvalidUtf8Text","Json","Text"],"type":["JsonLines"]};

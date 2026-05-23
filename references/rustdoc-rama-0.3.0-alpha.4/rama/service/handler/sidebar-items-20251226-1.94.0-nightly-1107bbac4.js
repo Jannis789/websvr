@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["service_fn"],"struct":["ServiceFn"],"trait":["Factory"]};

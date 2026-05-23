@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DecoderError","Header","NeedMore"],"struct":["Decoder","Encoder"]};

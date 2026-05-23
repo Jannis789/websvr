@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["SetSensitiveHeadersLayer","SetSensitiveRequestHeaders","SetSensitiveRequestHeadersLayer","SetSensitiveResponseHeaders","SetSensitiveResponseHeadersLayer"],"type":["SetSensitiveHeaders"]};

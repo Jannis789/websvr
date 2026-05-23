@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["ext"],"struct":["RequestBuilder"],"trait":["HttpClientExt","IntoUrl"]};

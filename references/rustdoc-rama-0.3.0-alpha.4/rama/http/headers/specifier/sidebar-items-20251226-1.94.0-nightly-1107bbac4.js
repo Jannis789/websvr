@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["sort_quality_values_non_empty_smallvec","sort_quality_values_non_empty_vec"],"struct":["Quality","QualityValue"]};

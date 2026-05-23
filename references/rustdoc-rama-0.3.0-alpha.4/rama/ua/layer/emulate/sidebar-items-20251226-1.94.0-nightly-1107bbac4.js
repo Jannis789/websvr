@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["UserAgentSelectFallback"],"struct":["SelectedUserAgentProfile","UserAgentEmulateHttpConnectModifier","UserAgentEmulateHttpConnectModifierLayer","UserAgentEmulateHttpRequestModifier","UserAgentEmulateHttpRequestModifierLayer","UserAgentEmulateLayer","UserAgentEmulateService"],"trait":["UserAgentProvider"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ConnectionResult","ReuseStrategy"],"mod":["http","metrics"],"struct":["ActiveSlot","LeasedConnection","LruDropPool","NoPool","PoolSlot","PooledConnector","PooledConnectorLayer"],"trait":["ConnID","Pool","ReqToConnID"],"type":["FiFoReuseLruDropPool"]};

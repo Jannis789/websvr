@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["core","layer"],"struct":["LayerAdapter","LayerAdapterService","ServiceAdapter","SharedServiceAdapter","TowerAdapterService"]};

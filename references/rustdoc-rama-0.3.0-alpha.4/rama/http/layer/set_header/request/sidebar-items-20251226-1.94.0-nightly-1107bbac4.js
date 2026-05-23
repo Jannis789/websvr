@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BoxMakeHeaderValueFn","MakeHeaderValueDefault","SetRequestHeader","SetRequestHeaderLayer","TypedHeaderAsMaker"],"trait":["MakeHeaderValue"]};

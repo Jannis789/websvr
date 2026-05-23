@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["parse_ber","parse_der"],"macro":["oid"],"mod":["ber","der","error","num_bigint","oid","rusticata_macros"],"struct":["Oid"],"type":["IResult"]};

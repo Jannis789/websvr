@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["extract_header_config"],"struct":["HeaderConfigLayer","HeaderConfigService"]};

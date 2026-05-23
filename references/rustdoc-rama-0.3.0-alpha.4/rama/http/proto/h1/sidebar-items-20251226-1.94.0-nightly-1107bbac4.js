@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["headers"],"struct":["Http1HeaderMap","Http1HeaderName"],"trait":["IntoHttp1HeaderName","TryIntoHttp1HeaderName"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["redirect","sse"],"struct":["AppendHeaders","Css","Csv","DatastarScript","ErrorResponse","Form","Headers","Html","Json","OctetStream","Redirect","ResponseParts","Script","Sse","StaticResponseFactory","TryIntoHeaderError"],"trait":["IntoResponse","IntoResponseParts"],"type":["Result"]};

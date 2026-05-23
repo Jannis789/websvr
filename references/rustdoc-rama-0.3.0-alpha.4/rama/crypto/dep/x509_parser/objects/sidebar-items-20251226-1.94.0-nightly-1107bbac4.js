@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["oid2abbrev","oid2description","oid2sn","oid_registry"]};

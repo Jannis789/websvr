@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BoxMakeHeaderValueFactoryFn","BoxMakeHeaderValueFn","MakeHeaderValueDefault","SetResponseHeader","SetResponseHeaderLayer","TypedHeaderAsMaker"],"trait":["MakeHeaderValue","MakeHeaderValueFactory"]};

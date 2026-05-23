@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["handle_upgrade","pending"],"struct":["OnUpgrade","Parts","Pending","Upgraded"]};

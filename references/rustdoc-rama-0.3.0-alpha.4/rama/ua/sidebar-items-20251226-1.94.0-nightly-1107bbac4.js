@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DeviceKind","HttpAgent","PlatformKind","TlsAgent","UserAgentKind"],"mod":["layer","profile"],"struct":["UserAgent","UserAgentInfo","UserAgentOverwrites"]};

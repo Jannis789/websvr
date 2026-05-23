@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["layer","service"],"trait":["Layer","Service"]};

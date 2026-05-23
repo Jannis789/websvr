@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["GenericConnection","GenericConnector","NameServer","NameServerPool"],"trait":["ConnectionProvider"],"type":["GenericNameServer","GenericNameServerPool","TokioConnectionProvider"]};

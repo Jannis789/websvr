@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Binder","DefaultAcceptorFactory"],"trait":["Acceptor","Socks5Binder","Socks5BinderSeal"],"type":["DefaultBinder"]};

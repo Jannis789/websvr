@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["k8s_health","k8s_health_builder"],"struct":["K8sHealthServiceBuilder"],"trait":["ToK8sService"]};

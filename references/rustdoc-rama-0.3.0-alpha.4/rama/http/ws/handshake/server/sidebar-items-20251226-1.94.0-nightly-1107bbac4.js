@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ECHO_SERVICE_SUB_PROTOCOL_DEFAULT","ECHO_SERVICE_SUB_PROTOCOL_LOWER","ECHO_SERVICE_SUB_PROTOCOL_UPPER"],"enum":["RequestValidateError"],"fn":["validate_http_client_request"],"struct":["ClientRequestData","ServerWebSocket","WebSocketAcceptor","WebSocketAcceptorService","WebSocketEchoService","WebSocketMatcher"]};

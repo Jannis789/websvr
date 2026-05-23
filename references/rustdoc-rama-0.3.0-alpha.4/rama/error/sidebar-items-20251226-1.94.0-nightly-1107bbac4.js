@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["OpaqueError"],"trait":["ErrorContext","ErrorExt"],"type":["BoxError"]};

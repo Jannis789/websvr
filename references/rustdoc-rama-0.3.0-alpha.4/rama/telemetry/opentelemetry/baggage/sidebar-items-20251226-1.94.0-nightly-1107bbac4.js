@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Baggage","BaggageMetadata","Iter","KeyValueMetadata"],"trait":["BaggageExt"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Always","And","DefaultPredicate","DefaultStreamPredicate","NotForContentType","SizeAbove"],"trait":["Predicate"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["adapt_request_version","adapt_response_version"],"struct":["RequestVersionAdapter","RequestVersionAdapterLayer","ResponseVersionAdapter","ResponseVersionAdapterLayer"]};

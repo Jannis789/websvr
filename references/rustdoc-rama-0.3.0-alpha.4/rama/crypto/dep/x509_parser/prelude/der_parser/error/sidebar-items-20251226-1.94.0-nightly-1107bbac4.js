@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DerConstraint","Error"],"type":["BerError","BerResult","DerResult"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Encoding"],"fn":["parse_accept_encoding_headers"],"struct":["AcceptEncoding"],"trait":["SupportedEncodings"]};

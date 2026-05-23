@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["builder","proxy"],"struct":["EasyHttpConnectorBuilder","EasyHttpWebClient","HttpClientService","HttpConnector","HttpConnectorLayer","MaybeProxiedConnection","ProxyConnector","ProxyConnectorLayer"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["bind_udp","bind_udp_with_address","bind_udp_with_device","bind_udp_with_socket"],"struct":["UdpFramed","UdpSocket"]};

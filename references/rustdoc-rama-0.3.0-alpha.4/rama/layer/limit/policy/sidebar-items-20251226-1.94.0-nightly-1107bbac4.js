@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["PolicyOutput"],"struct":["ConcurrentCounter","ConcurrentPolicy","LimitReached","PolicyResult","UnlimitedPolicy"],"trait":["ConcurrentTracker","Policy"]};

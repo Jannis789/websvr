@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["LOCATION_HEADER","REPLAY_NONCE_HEADER"],"enum":["AccountStatus","AuthorizationStatus","ChallengeStatus","ChallengeType","OrderStatus","Problem"],"struct":["Account","Authorization","Challenge","Directory","DirectoryMeta","Order","OrdersList","RawProblemResponse"]};

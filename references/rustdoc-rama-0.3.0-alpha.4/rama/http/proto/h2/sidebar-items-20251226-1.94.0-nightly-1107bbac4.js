@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["PseudoHeader"],"mod":["ext","frame","hpack"],"struct":["InvalidPseudoHeaderStr","PseudoHeaderOrder","PseudoHeaderOrderIter"]};

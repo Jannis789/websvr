@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BmpString","Ia5String","PrintableString","TeletexString","UniversalString"]};

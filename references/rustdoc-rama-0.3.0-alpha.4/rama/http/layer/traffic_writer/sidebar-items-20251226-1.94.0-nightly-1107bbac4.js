@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BidirectionalMessage","WriterMode"],"struct":["BidirectionalWriter","DoNotWriteRequest","DoNotWriteResponse","RequestWriterLayer","RequestWriterService","ResponseWriterLayer","ResponseWriterService"],"trait":["RequestWriter","ResponseWriter"]};

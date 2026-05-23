@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["HeaderResult"],"mod":["v1","v2"],"trait":["PartialResult"]};

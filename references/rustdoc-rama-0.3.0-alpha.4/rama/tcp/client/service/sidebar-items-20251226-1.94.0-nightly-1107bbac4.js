@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CreatedTcpStreamConnector","Forwarder","TcpConnector","TcpStreamConnectorCloneFactory"],"trait":["TcpStreamConnectorFactory"],"type":["DefaultForwarder"]};

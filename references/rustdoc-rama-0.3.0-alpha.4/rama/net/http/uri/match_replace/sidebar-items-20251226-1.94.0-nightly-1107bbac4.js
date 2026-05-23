@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["UriMatchError"],"struct":["UriMatchReplaceDomain","UriMatchReplaceFallthrough","UriMatchReplaceNever","UriMatchReplaceRule","UriMatchReplaceRuleset","UriMatchReplaceScheme"],"trait":["TryIntoPattern","TryIntoUriFmt","UriMatchReplace"]};

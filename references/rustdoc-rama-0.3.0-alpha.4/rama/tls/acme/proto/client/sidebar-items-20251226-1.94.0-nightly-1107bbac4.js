@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CreateAccountOptions","FinalizePayload","KeyAuthorization","NewOrderPayload"]};

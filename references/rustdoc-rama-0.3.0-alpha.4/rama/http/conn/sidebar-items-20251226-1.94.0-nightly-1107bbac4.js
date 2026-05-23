@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["H2ClientContextParams","Http1ClientContextParams","TargetHttpVersion"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["CrossOriginKind","ReferrerPolicy","ScriptAttribute","ScriptType"],"struct":["ExecuteScript"]};

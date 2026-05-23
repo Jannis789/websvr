@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["sse","util"],"struct":["Body","BodyDataStream","BodyLimit","Frame","InfiniteReader","SizeHint","ZipBomb"],"trait":["BodyExtractExt","StreamingBody"]};
