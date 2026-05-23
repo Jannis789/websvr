@@ -13,35 +13,36 @@
   cursor: pointer;
 }
 
-/* Track */
+/* Track — inactive */
 .theme-switch .slider {
   position: absolute;
   inset: 0;
-  background-color: var(--border-color);
+  background-color: #4b4f64;
   border-radius: 12px;
   transition: background-color 0.25s ease;
 }
 
-/* Knob */
+/* Knob — inactive */
 .theme-switch .slider::after {
   content: "";
   position: absolute;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background-color: var(--fg-primary);
+  background-color: #d2d3d7;
   left: 3px;
   top: 3px;
-  transition: transform 0.25s ease;
+  transition: transform 0.25s ease, background-color 0.25s ease;
 }
 
-/* Active: blue track, knob slides right */
+/* Active: blue track, white knob slides right */
 .theme-switch .slider.checked {
-  background-color: var(--accent);
+  background-color: #7aa2f7;
 }
 
 .theme-switch .slider.checked::after {
   transform: translateX(18px);
+  background-color: #fff;
 }
 
 /* Moon — left, visible in dark mode */
