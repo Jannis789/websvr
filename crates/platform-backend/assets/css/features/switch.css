@@ -51,7 +51,7 @@
   left: 4px;
   width: 14px;
   height: 14px;
-  color: var(--bg-secondary);
+  color: #1a1b26;
   z-index: 2;
   pointer-events: none;
   opacity: 0.6;
@@ -65,7 +65,7 @@
   right: 4px;
   width: 14px;
   height: 14px;
-  color: var(--bg-secondary);
+  color: #1a1b26;
   z-index: 1;
   pointer-events: none;
   opacity: 0;
