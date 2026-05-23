@@ -21,7 +21,7 @@
       <div class="sidebar-top">
         <div class="sidebar-header">
           <div class="logo-placeholder">
-            <div class="logo-icon"></div>
+            <img src="/icons/display.svg" class="logo-icon" alt="">
             <span>Rama</span>
           </div>
         </div>
@@ -30,20 +30,20 @@
           <li class="menu-item"
               data-class:active="$activePage === 'overview'"
               data-on:click="$activePage = 'overview'; @get('/home/overview', {selector:'.content-body'})">
-            <div class="dot-icon"></div>
-            Overview
+            <img src="/icons/view-grid.svg" class="nav-icon" alt="">
+            <span class="nav-label">Overview</span>
           </li>
           <li class="menu-item"
               data-class:active="$activePage === 'movies'"
               data-on:click="$activePage = 'movies'; @get('/home/movies', {selector:'.content-body'})">
-            <div class="dot-icon"></div>
-            Movies
+            <img src="/icons/video.svg" class="nav-icon" alt="">
+            <span class="nav-label">Movies</span>
           </li>
           <li class="menu-item"
               data-class:active="$activePage === 'series'"
               data-on:click="$activePage = 'series'; @get('/home/series', {selector:'.content-body'})">
-            <div class="dot-icon"></div>
-            Series
+            <img src="/icons/tv.svg" class="nav-icon" alt="">
+            <span class="nav-label">Series</span>
           </li>
         </ul>
       </div>
@@ -51,14 +51,16 @@
       <!-- ═══ Sidebar Footer ═══ -->
       <div class="sidebar-footer">
         <div class="user-profile">
-          <div class="avatar">JD</div>
+          <div class="avatar">
+            <img src="/icons/person.svg" alt="">
+          </div>
           <div class="username">John Doe</div>
         </div>
 
         <button class="settings-btn"
                 data-class:active="$popupOpen"
                 data-on:click="$popupOpen = !$popupOpen">
-          <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 9.87c-.12.22-.07.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          <img src="/icons/open-menu.svg" alt="Menu">
         </button>
 
         <!-- Popup overlay (closes on click) -->
@@ -67,11 +69,16 @@
              data-on:click="$popupOpen = false"></div>
 
         <ul class="popup-menu" data-show="$popupOpen">
-          <li class="popup-item" data-on:click="$popupOpen = false">Konto verwalten</li>
-          <li class="popup-item" data-on:click="$popupOpen = false">Sicherheit</li>
-          <li class="popup-item popup-item--danger" data-on:click="$popupOpen = false">
+          <li class="popup-item" data-on:click="$popupOpen = false">
+            <img src="/icons/shield.svg" class="popup-icon" alt="">
+            Sicherheit
+          </li>
+          <li class="popup-item popup-item--danger">
             <form method="post" action="/logout" style="display:inline">
-              <button type="submit" class="btn btn-ghost" style="padding:0;width:100%;text-align:left">Abmelden</button>
+              <button type="submit" class="btn btn-ghost btn-logout" data-on:click="$popupOpen = false">
+                <img src="/icons/exit.svg" class="popup-icon" alt="">
+                Abmelden
+              </button>
             </form>
           </li>
         </ul>
@@ -87,20 +94,18 @@
           <label class="theme-switch">
             <input type="checkbox" data-bind:lightMode />
             <div class="slider">
-              <svg class="switch-icon switch-icon--moon" viewBox="0 0 24 24">
-                <path d="M10 2c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10c0-1.48-.33-2.88-.9-4.14-1.48 1.86-3.75 3.08-6.3 3.08-4.42 0-8-3.58-8-8 0-2.55 1.22-4.82 3.08-6.3-.26-.06-.52-.08-.78-.08z"/>
-              </svg>
-              <svg class="switch-icon switch-icon--sun" viewBox="0 0 24 24">
-                <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-5c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1s-1-.45-1-1V3c0-.55.45-1 1-1zm0 14c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1s-1-.45-1-1v-2c0-.55.45-1 1-1zM5.22 6.64l1.42-1.42c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41L6.64 8.05c-.39.39-1.02.39-1.41 0-.39-.39-.39-1.02 0-1.41zm10.72 10.72l1.42-1.42c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41l-1.42 1.42c-.39.39-1.02.39-1.41 0-.39-.39-.39-1.02 0-1.41zM2 12c0-.55.45-1 1-1h2c0 .55-.45 1-1 1H3c-.55 0-1-.45-1-1zm14 0c0-.55.45-1 1-1h2c.55 0 1 .45 1 1s-.45 1-1 1h-2c-.55 0-1-.45-1-1zM6.64 15.95l1.42 1.42c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0l-1.42-1.42c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0zm10.72-10.72l1.42 1.42c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0l-1.42-1.42c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0z"/>
-              </svg>
+              <img src="/icons/moon.svg" class="switch-icon switch-icon--moon" alt="">
+              <img src="/icons/sun.svg" class="switch-icon switch-icon--sun" alt="">
             </div>
           </label>
         </div>
       </header>
 
       <div class="content-body">
-        <h2>Welcome</h2>
-        <p>Select a section from the sidebar to get started.</p>
+        <div class="placeholder-state">
+          <img src="/icons/go-home.svg" class="placeholder-icon" alt="">
+          <p>Select a section from the sidebar.</p>
+        </div>
       </div>
     </main>
   </div>

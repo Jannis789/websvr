@@ -58,7 +58,7 @@
   transform: translateX(22px);
 }
 
-/* Icon positioning inside the slider */
+/* Icon images inside the slider */
 .switch-icon {
   position: absolute;
   width: 12px;
@@ -71,12 +71,11 @@
 }
 
 .switch-icon--moon {
-  fill: var(--switch-icon-color);
+  opacity: 1;
 }
 
-/* Moon visible by default (dark mode), sun hidden */
+/* Moon visible by default (dark mode) */
 .switch-icon--sun {
-  fill: var(--switch-icon-color);
   opacity: 0;
 }
 

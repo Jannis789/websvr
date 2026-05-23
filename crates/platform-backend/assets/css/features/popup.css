@@ -30,9 +30,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--fg-primary);
   text-decoration: none;
@@ -46,13 +46,27 @@
 
 .popup-item:hover {
   background-color: var(--bg-hover);
+  color: var(--text-active);
 }
 
-.popup-item.danger {
+.popup-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+.popup-item:hover .popup-icon {
+  opacity: 1;
+}
+
+.popup-item--danger {
   color: var(--danger);
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
+  padding-top: 8px;
 }
 
-.popup-item.danger:hover {
+.popup-item--danger:hover {
   background-color: var(--danger-bg);
 }
 
