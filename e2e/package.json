@@ -5,10 +5,13 @@
   "description": "E2E / integration tests for the Rama Platform backend",
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
+    "test:dom": "vitest run --config vitest.dom.config.ts",
     "test:backend": "vitest run --config vitest.config.ts tests/hash-registry.backend.test.ts",
-    "test:integration": "vitest run --config vitest.config.ts tests/hash-registry.integration.test.ts"
+    "test:integration": "vitest run --config vitest.config.ts tests/hash-registry.integration.test.ts",
+    "test:all": "npm run test && npm run test:dom"
   },
   "devDependencies": {
+    "happy-dom": "^20.9.0",
     "msw": "^2.14.6",
     "vitest": "^4.1.7"
   }
