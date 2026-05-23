@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="/assets/css/common.css">
   <script type="module" src="/assets/js/datastar-core.js"></script>
   <script>
-    // Register Service Worker for Hash-Sync SSE caching
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js', { scope: '/' });
     }
@@ -24,42 +23,39 @@
       </header>
 
       <nav class="sidebar-nav">
-        <a
-          href="/home/overview"
+        <button
           class="nav-item"
           data-on-click="@get('/home/overview', {selector: '.content-body'})"
         >
           <span class="nav-icon">🏠</span>
           <span class="nav-label">Overview</span>
-        </a>
+        </button>
 
         <div class="nav-section">
           <span class="nav-section-title">Library</span>
 
-          <a
-            href="/home/movies"
+          <button
             class="nav-item"
             data-on-click="@get('/home/movies', {selector: '.content-body'})"
           >
             <span class="nav-icon">🎬</span>
             <span class="nav-label">Movies</span>
-          </a>
+          </button>
 
-          <a
-            href="/home/series"
+          <button
             class="nav-item"
             data-on-click="@get('/home/series', {selector: '.content-body'})"
           >
             <span class="nav-icon">📺</span>
             <span class="nav-label">Series</span>
-          </a>
+          </button>
         </div>
       </nav>
 
       <div class="sidebar-footer">
         <span class="nav-item">
           <span class="nav-icon">👤</span>
-          <span class="nav-label" data-signals-user="$user">User</span>
+          <span class="nav-label">User</span>
         </span>
         <form method="post" action="/logout" style="display:inline">
           <button type="submit" class="btn btn-ghost btn-logout">
@@ -71,11 +67,11 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="main-content" id="main-content">
+    <main class="main-content">
       <header class="content-header">
         <h1>Overview</h1>
       </header>
-      <div id="overview-content" class="content-body">
+      <div class="content-body">
         <h2>Welcome</h2>
         <p>Select a section from the sidebar to get started.</p>
       </div>
