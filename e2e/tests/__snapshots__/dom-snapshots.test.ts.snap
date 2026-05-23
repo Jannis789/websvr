@@ -96,23 +96,7 @@ exports[`HTML Template Snapshots > snapshot: home.html structure is stable > hom
     "type": null,
   },
   {
-    "href": "/assets/css/dark.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/light.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/common.css",
+    "href": "/assets/css/home.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -144,7 +128,7 @@ exports[`HTML Template Snapshots > snapshot: login.html structure is stable > lo
     "class": "floating-window",
     "dataAttrs": undefined,
     "id": undefined,
-    "tag": "main",
+    "tag": "div",
   },
 ]
 `;
@@ -176,23 +160,7 @@ exports[`HTML Template Snapshots > snapshot: login.html structure is stable > lo
     "type": null,
   },
   {
-    "href": "/assets/css/dark.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/light.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/common.css",
+    "href": "/assets/css/auth.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -216,7 +184,7 @@ exports[`HTML Template Snapshots > snapshot: register.html structure is stable >
     "class": "floating-window",
     "dataAttrs": undefined,
     "id": undefined,
-    "tag": "main",
+    "tag": "div",
   },
 ]
 `;
@@ -248,23 +216,7 @@ exports[`HTML Template Snapshots > snapshot: register.html structure is stable >
     "type": null,
   },
   {
-    "href": "/assets/css/dark.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/light.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/common.css",
+    "href": "/assets/css/auth.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -285,16 +237,18 @@ exports[`HTML Template Snapshots > snapshot: register.html structure is stable >
 exports[`HTML Template Snapshots > snapshot: test.html structure is stable > test.html <body> structure 1`] = `
 [
   {
-    "class": "floating-window test-harness",
+    "class": "app-layout",
     "dataAttrs": undefined,
     "id": undefined,
-    "tag": "main",
+    "tag": "div",
   },
   {
     "class": undefined,
-    "dataAttrs": undefined,
+    "dataAttrs": {
+      "init": "@get('/sse')",
+    },
     "id": undefined,
-    "tag": "script",
+    "tag": "div",
   },
 ]
 `;
@@ -326,23 +280,7 @@ exports[`HTML Template Snapshots > snapshot: test.html structure is stable > tes
     "type": null,
   },
   {
-    "href": "/assets/css/dark.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/light.css",
-    "id": undefined,
-    "rel": "stylesheet",
-    "src": null,
-    "tag": "link",
-    "type": null,
-  },
-  {
-    "href": "/assets/css/common.css",
+    "href": "/assets/css/test.css",
     "id": undefined,
     "rel": "stylesheet",
     "src": null,
@@ -363,14 +301,6 @@ exports[`HTML Template Snapshots > snapshot: test.html structure is stable > tes
     "rel": null,
     "src": null,
     "tag": "script",
-    "type": null,
-  },
-  {
-    "href": null,
-    "id": undefined,
-    "rel": null,
-    "src": null,
-    "tag": "style",
     "type": null,
   },
 ]

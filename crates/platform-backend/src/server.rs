@@ -66,10 +66,28 @@ pub async fn run() {
         .with_get("/sw.js", handlers::page::service_worker)
         // Serve Datastar core script
         .with_get("/assets/js/datastar-core.js", handlers::page::asset_datastar_core)
-        // Serve static CSS
+        // Serve static CSS (legacy — kept for backwards compatibility)
         .with_get("/assets/css/dark.css", handlers::page::asset_dark_css)
         .with_get("/assets/css/light.css", handlers::page::asset_light_css)
         .with_get("/assets/css/common.css", handlers::page::asset_common_css)
+        // Generic CSS asset handler — serves all CSS under assets/css/
+        // Top-level entry points
+        .with_get("/assets/css/home.css", handlers::page::asset_css)
+        .with_get("/assets/css/auth.css", handlers::page::asset_css)
+        .with_get("/assets/css/test.css", handlers::page::asset_css)
+        // Feature partials (features/)
+        .with_get("/assets/css/features/_theme.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_base.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_window.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_sidebar.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_popup.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_switch.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_content.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_buttons.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_forms.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_cards.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_test.css", handlers::page::asset_css)
+        .with_get("/assets/css/features/_utilities.css", handlers::page::asset_css)
         // ── Protected routes ──
         .with_sub_router_make_fn("/", |sub_router| {
             sub_router

@@ -1,73 +1,65 @@
 <!DOCTYPE html>
-<html lang="en" data-signals>
+<html lang="de" data-signals data-class:light-mode="$lightMode">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Register — Rama Platform</title>
-  <link rel="stylesheet" href="/assets/css/dark.css" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="/assets/css/light.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="/assets/css/common.css">
+  <link rel="stylesheet" href="/assets/css/auth.css">
   <script type="module" src="/assets/js/datastar-core.js"></script>
 </head>
 <body>
-  <main class="floating-window">
-    <header class="app-header">
+
+  <div class="floating-window">
+    <div class="app-header">
       <h1>Rama Platform</h1>
       <p class="subtitle">Create a new account</p>
-    </header>
+    </div>
 
-    <form
-      method="post"
-      action="/register"
-      class="auth-form"
-    >
+    <form method="post" action="/register" class="auth-form">
       <div class="form-group">
         <label for="username">Username</label>
-        <input
-          id="username"
-          name="username"
-          type="text"
-          placeholder="Display name"
-          required
-          autocomplete="username"
-          autofocus
-        >
+        <input id="username" name="username" type="text"
+               placeholder="Display name" required
+               autocomplete="username" autofocus>
       </div>
 
       <div class="form-group">
         <label for="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          placeholder="you@example.com"
-          required
-          autocomplete="email"
-        >
+        <input id="email" name="email" type="email"
+               placeholder="you@example.com" required
+               autocomplete="email">
       </div>
 
       <div class="form-group">
         <label for="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          placeholder="••••••••"
-          required
-          minlength="8"
-          autocomplete="new-password"
-        >
+        <input id="password" name="password" type="password"
+               placeholder="••••••••" required minlength="8"
+               autocomplete="new-password">
       </div>
 
-      <button type="submit" class="btn btn-primary">
-        Create Account
-      </button>
+      <button type="submit" class="btn btn-primary">Create Account</button>
 
       <p class="form-footer">
         Already have an account?
         <a href="/login" class="link">Login</a>
       </p>
     </form>
-  </main>
+
+    <!-- Theme toggle in bottom right -->
+    <div style="position:absolute;bottom:16px;right:16px;">
+      <label class="theme-switch">
+        <input type="checkbox" data-bind:lightMode />
+        <div class="slider">
+          <svg class="switch-icon switch-icon--moon" viewBox="0 0 24 24">
+            <path d="M10 2c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10c0-1.48-.33-2.88-.9-4.14-1.48 1.86-3.75 3.08-6.3 3.08-4.42 0-8-3.58-8-8 0-2.55 1.22-4.82 3.08-6.3-.26-.06-.52-.08-.78-.08z"/>
+          </svg>
+          <svg class="switch-icon switch-icon--sun" viewBox="0 0 24 24">
+            <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-5c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1s-1-.45-1-1V3c0-.55.45-1 1-1zm0 14c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1s-1-.45-1-1v-2c0-.55.45-1 1-1zM5.22 6.64l1.42-1.42c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41L6.64 8.05c-.39.39-1.02.39-1.41 0-.39-.39-.39-1.02 0-1.41zm10.72 10.72l1.42-1.42c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41l-1.42 1.42c-.39.39-1.02.39-1.41 0-.39-.39-.39-1.02 0-1.41zM2 12c0-.55.45-1 1-1h2c0 .55-.45 1-1 1H3c-.55 0-1-.45-1-1zm14 0c0-.55.45-1 1-1h2c.55 0 1 .45 1 1s-.45 1-1 1h-2c-.55 0-1-.45-1-1zM6.64 15.95l1.42 1.42c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0l-1.42-1.42c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0zm10.72-10.72l1.42 1.42c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0l-1.42-1.42c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0z"/>
+          </svg>
+        </div>
+      </label>
+    </div>
+  </div>
+
 </body>
 </html>
