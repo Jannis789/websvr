@@ -11,31 +11,13 @@ static HOME_MOVIES_HTML: &str = include_str!("../../assets/templates/home_movies
 static HOME_SERIES_HTML: &str = include_str!("../../assets/templates/home_series.html");
 
 /// GET /home/overview — SSE response with PatchElements
-///
-/// Datastar's `@get('/home/overview')` sends an HTTP GET with
-/// `Accept: text/event-stream`. We respond with an SSE stream
-/// containing a single PatchElements event that patches
-/// `.content-body` with the overview HTML.
 pub async fn get_home_overview(
     State(_state): State<SharedState>,
     req: Request,
 ) -> Response {
     let _ctx = common::extract_context(&req);
     tracing::debug!("Handler → get_home_overview (client_id={})", _ctx.client_id);
-
-    let patch = PatchElements::new(HOME_OVERVIEW_HTML.try_into().unwrap())
-        .with_selector(".content-body".try_into().unwrap());
-
-    let stream = stream! {
-        match patch.try_into_sse_event() {
-            Ok(event) => yield Ok::<_, rama::http::sse::EventBuildError>(event),
-            Err(e) => {
-                tracing::error!("Failed to build PatchElements SSE event: {e}");
-            }
-        }
-    };
-
-    Sse::new(stream).into_response()
+    render_fragment(HOME_OVERVIEW_HTML)
 }
 
 /// GET /home/movies — SSE response with PatchElements
@@ -45,20 +27,7 @@ pub async fn get_home_movies(
 ) -> Response {
     let _ctx = common::extract_context(&req);
     tracing::debug!("Handler → get_home_movies (client_id={})", _ctx.client_id);
-
-    let patch = PatchElements::new(HOME_MOVIES_HTML.try_into().unwrap())
-        .with_selector(".content-body".try_into().unwrap());
-
-    let stream = stream! {
-        match patch.try_into_sse_event() {
-            Ok(event) => yield Ok::<_, rama::http::sse::EventBuildError>(event),
-            Err(e) => {
-                tracing::error!("Failed to build PatchElements SSE event: {e}");
-            }
-        }
-    };
-
-    Sse::new(stream).into_response()
+    render_fragment(HOME_MOVIES_HTML)
 }
 
 /// GET /home/series — SSE response with PatchElements
@@ -68,8 +37,11 @@ pub async fn get_home_series(
 ) -> Response {
     let _ctx = common::extract_context(&req);
     tracing::debug!("Handler → get_home_series (client_id={})", _ctx.client_id);
+    render_fragment(HOME_SERIES_HTML)
+}
 
-    let patch = PatchElements::new(HOME_SERIES_HTML.try_into().unwrap())
+fn render_fragment(html: &str) -> Response {
+    let patch = PatchElements::new(html.try_into().unwrap())
         .with_selector(".content-body".try_into().unwrap());
 
     let stream = stream! {

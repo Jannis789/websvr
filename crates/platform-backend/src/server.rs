@@ -56,40 +56,16 @@ pub async fn run() {
     let sse_broadcaster = shared_state.sse_broadcaster.clone();
 
     let app = Router::new_with_state(shared_state)
-        // ── Public routes (no layer stack) ──
+        // ── Static assets (CSS, JS, SVGs, fonts — all from assets/) ──
+        .with_dir("/assets", std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
+        // ── Public routes ──
         .with_get("/login", handlers::page::login_page)
         .with_get("/register", handlers::page::register_page)
         .with_post("/login", handlers::auth::login)
         .with_post("/register", handlers::auth::register)
         .with_post("/logout", handlers::auth::logout)
-        // Serve Service Worker at root (required by SW spec)
-        .with_get("/sw.js", handlers::page::service_worker)
-        // Serve Datastar core script
-        .with_get("/assets/js/datastar-core.js", handlers::page::asset_datastar_core)
-        // Serve static CSS (legacy — kept for backwards compatibility)
-        .with_get("/assets/css/dark.css", handlers::page::asset_dark_css)
-        .with_get("/assets/css/light.css", handlers::page::asset_light_css)
-        .with_get("/assets/css/common.css", handlers::page::asset_common_css)
-        // CSS assets — generic handler serves all files via URI dispatch
-        // Page entry points
-        .with_get("/assets/css/pages/home.css", handlers::page::asset_css)
-        .with_get("/assets/css/pages/login.css", handlers::page::asset_css)
-        .with_get("/assets/css/pages/register.css", handlers::page::asset_css)
-        .with_get("/assets/css/pages/test.css", handlers::page::asset_css)
-        // Common
-        .with_get("/assets/css/common/theme.css", handlers::page::asset_css)
-        .with_get("/assets/css/common/base.css", handlers::page::asset_css)
-        // Features
-        .with_get("/assets/css/features/window.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/sidebar.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/popup.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/switch.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/content.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/button.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/form.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/card.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/test.css", handlers::page::asset_css)
-        .with_get("/assets/css/features/utility.css", handlers::page::asset_css)
+        // Service Worker must be at root scope per SW spec
+        .with_file("/sw.js", std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/js/sw.js"), "application/javascript".parse().unwrap())
         // ── Protected routes ──
         .with_sub_router_make_fn("/", |sub_router| {
             sub_router
@@ -101,7 +77,6 @@ pub async fn run() {
                 .with_get("/test", handlers::test::test_page)
                 .with_get("/test/run", handlers::test::test_run)
                 .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json)
-                .with_get("/icons/{name}.svg", handlers::icons::icon_handler)
         });
 
     // Build layer stack as tuple and apply to the entire app.
