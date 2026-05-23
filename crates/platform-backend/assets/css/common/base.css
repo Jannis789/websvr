@@ -48,9 +48,15 @@ body {
   color: var(--fg-primary);
 }
 
+/* ── Logo ── */
+.logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
 /* ── Icon name → SVG file mapping ── */
 .icon-dark-mode   { -webkit-mask-image: url("/assets/icons/dark-mode.svg");   mask-image: url("/assets/icons/dark-mode.svg"); }
-.icon-display      { -webkit-mask-image: url("/assets/icons/display.svg");     mask-image: url("/assets/icons/display.svg"); }
 .icon-exit         { -webkit-mask-image: url("/assets/icons/exit.svg");        mask-image: url("/assets/icons/exit.svg"); }
 .icon-go-home      { -webkit-mask-image: url("/assets/icons/go-home.svg");    mask-image: url("/assets/icons/go-home.svg"); }
 .icon-moon         { -webkit-mask-image: url("/assets/icons/moon.svg");        mask-image: url("/assets/icons/moon.svg"); }

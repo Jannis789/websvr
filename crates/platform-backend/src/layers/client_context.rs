@@ -10,8 +10,6 @@ use platform_core::{ClientId, SessionStorage, ClientContext, SseBroadcaster, Eve
 use std::convert::Infallible;
 use std::future::Future;
 
-use crate::common;
-
 /// Service that assembles the full `ClientContext` from:
 ///   - `ClientId` (injected by `ValidateRequestHeaderLayer::custom_fn`)
 ///   - `SessionStorage` (injected by `SessionStorageService`)

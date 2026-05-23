@@ -1,0 +1,61 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Neutral, clean background -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff" />
+      <stop offset="100%" stop-color="#eee" />
+    </linearGradient>
+
+    <!--Dark, elegant CD finish (so that the light is reflected)  -->
+    <linearGradient id="cdDarkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3cd" />
+      <stop offset="100%" stop-color="#306" />
+    </linearGradient>
+
+    <!-- ClipPath, so that the animation is only visible on the CD -->
+    <clipPath id="cdClip">
+      <circle cx="64" cy="64" r="50" />
+    </clipPath>
+
+    <!-- Soft shadow for depth -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+      <feOffset dx="0" dy="4" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.2" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="128" height="128" rx="16" fill="url(#bgGradient)" />
+
+  <!-- Main group with shadows -->
+  <g filter="url(#dropShadow)">
+    
+    <!-- CD Body -->
+    <circle cx="64" cy="64" r="50" fill="url(#cdDarkGradient)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+    <!-- The "hourglass-like" reflection animation -->
+    <g fill="white" fill-opacity="0.2" clip-path="url(#cdClip)">
+      <!-- Upper triangle -->
+      <polygon points="44,14 84,14 64,64" />
+      <!-- Lower triangle -->
+      <polygon points="44,114 84,114 64,64" />
+      
+      <!-- Rotation around the center -->
+      <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="6s" repeatCount="indefinite" />
+    </g>
+
+    <!-- Play button background (slightly transparent for glass effect) -->
+    <circle cx="64" cy="64" r="24" fill="#fff" />
+
+    <!-- Play triangle (rounded) -->
+    <!-- stroke-linejoin="round" ensures rounded corners -->
+    <polygon points="59,55 59,73 75,64" fill="#306" stroke="#306" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+</svg>
