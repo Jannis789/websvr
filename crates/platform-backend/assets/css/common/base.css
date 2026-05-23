@@ -23,6 +23,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 10px;
   background-color: var(--bg-outer, var(--bg-primary));
   overflow: hidden;
   transition: background-color 0.25s ease;
