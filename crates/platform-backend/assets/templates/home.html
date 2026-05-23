@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" data-signals="activePage:'overview',popupOpen:false" data-class:light-mode="$lightMode">
+<html lang="de" data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,29 +20,27 @@
     <aside class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-header">
-          <div class="logo-placeholder">
-            <img src="/icons/display.svg" class="logo-icon" alt="">
-            <span>Rama</span>
-          </div>
+          <span class="icon icon-display" role="img" aria-hidden="true"></span>
+          <span class="sidebar-title">Rama</span>
         </div>
 
         <ul class="sidebar-menu">
           <li class="menu-item"
               data-class:active="$activePage === 'overview'"
               data-on:click="$activePage = 'overview'; @get('/home/overview', {selector:'.content-body'})">
-            <img src="/icons/view-grid.svg" class="nav-icon" alt="">
+            <span class="icon icon-view-grid" role="img" aria-hidden="true"></span>
             <span class="nav-label">Overview</span>
           </li>
           <li class="menu-item"
               data-class:active="$activePage === 'movies'"
               data-on:click="$activePage = 'movies'; @get('/home/movies', {selector:'.content-body'})">
-            <img src="/icons/video.svg" class="nav-icon" alt="">
+            <span class="icon icon-video" role="img" aria-hidden="true"></span>
             <span class="nav-label">Movies</span>
           </li>
           <li class="menu-item"
               data-class:active="$activePage === 'series'"
               data-on:click="$activePage = 'series'; @get('/home/series', {selector:'.content-body'})">
-            <img src="/icons/tv.svg" class="nav-icon" alt="">
+            <span class="icon icon-tv" role="img" aria-hidden="true"></span>
             <span class="nav-label">Series</span>
           </li>
         </ul>
@@ -51,51 +49,46 @@
       <!-- ═══ Sidebar Footer ═══ -->
       <div class="sidebar-footer">
         <div class="user-profile">
-          <div class="avatar">
-            <img src="/icons/person.svg" alt="">
-          </div>
-          <div class="username">John Doe</div>
+          <span class="avatar icon icon-person" role="img" aria-hidden="true"></span>
+          <span class="username">John Doe</span>
         </div>
-
         <button class="settings-btn"
                 data-class:active="$popupOpen"
                 data-on:click="$popupOpen = !$popupOpen">
-          <img src="/icons/open-menu.svg" alt="Menu">
+          <span class="icon icon-open-menu" role="img" aria-hidden="true"></span>
         </button>
-
-        <!-- Popup overlay (closes on click) -->
-        <div class="popup-overlay"
-             data-show="$popupOpen"
-             data-on:click="$popupOpen = false"></div>
-
-        <ul class="popup-menu" data-show="$popupOpen">
-          <li class="popup-item" data-on:click="$popupOpen = false">
-            <img src="/icons/shield.svg" class="popup-icon" alt="">
-            Sicherheit
-          </li>
-          <li class="popup-item popup-item--danger">
-            <form method="post" action="/logout" style="display:inline">
-              <button type="submit" class="btn btn-ghost btn-logout" data-on:click="$popupOpen = false">
-                <img src="/icons/exit.svg" class="popup-icon" alt="">
-                Abmelden
-              </button>
-            </form>
-          </li>
-        </ul>
       </div>
+
+      <!-- Popup: outside sidebar-footer for correct positioning -->
+      <div class="popup-overlay"
+           data-show="$popupOpen"
+           data-on:click="$popupOpen = false"></div>
+      <ul class="popup-menu" data-show="$popupOpen">
+        <li class="popup-item" data-on:click="$popupOpen = false">
+          <span class="icon icon-shield" role="img" aria-hidden="true"></span>
+          Sicherheit
+        </li>
+        <li class="popup-item popup-item--danger">
+          <form method="post" action="/logout">
+            <button type="submit" class="btn btn-logout" data-on:click="$popupOpen = false">
+              <span class="icon icon-exit" role="img" aria-hidden="true"></span>
+              Abmelden
+            </button>
+          </form>
+        </li>
+      </ul>
     </aside>
 
     <!-- ═══ Main Content ═══ -->
     <main class="main-container">
       <header class="main-header">
-        <div class="header-title with-switch">Rama Platform</div>
-
+        <div class="header-title">Rama Platform</div>
         <div class="theme-switch-wrapper">
           <label class="theme-switch">
             <input type="checkbox" data-bind:lightMode />
             <div class="slider">
-              <img src="/icons/moon.svg" class="switch-icon switch-icon--moon" alt="">
-              <img src="/icons/sun.svg" class="switch-icon switch-icon--sun" alt="">
+              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
+              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
             </div>
           </label>
         </div>
@@ -103,7 +96,7 @@
 
       <div class="content-body">
         <div class="placeholder-state">
-          <img src="/icons/go-home.svg" class="placeholder-icon" alt="">
+          <span class="icon icon-go-home placeholder-icon" role="img" aria-hidden="true"></span>
           <p>Select a section from the sidebar.</p>
         </div>
       </div>

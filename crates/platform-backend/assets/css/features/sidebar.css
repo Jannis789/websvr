@@ -7,8 +7,8 @@
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  transition: background-color 0.3s, border-color 0.3s;
   position: relative;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .sidebar-top {
@@ -18,25 +18,23 @@
 }
 
 .sidebar-header {
-  padding: 14px 20px;
-  display: flex;
-  align-items: center;
-  height: 56px;
-}
-
-.logo-placeholder {
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   gap: 12px;
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--text-active);
+  height: 56px;
 }
 
-.logo-icon {
-  width: 20px;
-  height: 20px;
-  opacity: 0.6;
+.sidebar-header .icon {
+  width: 22px;
+  height: 22px;
+  color: var(--fg-muted);
+}
+
+.sidebar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--fg-primary);
 }
 
 /* ── Sidebar Menu ── */
@@ -45,26 +43,25 @@
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
-/* ── Navigation Items ── */
+/* ── Menu Items ── */
 .menu-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--fg-primary);
-  text-decoration: none;
-  transition: background-color 0.15s ease, color 0.15s ease;
   cursor: pointer;
   border: none;
   background: none;
   width: 100%;
   text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .menu-item:hover {
@@ -73,19 +70,22 @@
 
 .menu-item.active {
   background-color: var(--bg-sidebar-active);
-  color: var(--text-active);
+  color: var(--accent-fg);
   font-weight: 600;
 }
 
-.nav-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  opacity: 0.6;
+.menu-item .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--fg-muted);
 }
 
-.menu-item.active .nav-icon {
-  opacity: 1;
+.menu-item.active .icon {
+  color: var(--accent-fg);
+}
+
+.menu-item:hover .icon {
+  color: var(--fg-primary);
 }
 
 .nav-label {
@@ -95,45 +95,34 @@
 
 /* ── Sidebar Footer ── */
 .sidebar-footer {
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-color);
   background-color: var(--bg-footer);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: relative;
   transition: background-color 0.3s, border-color 0.3s;
 }
 
 .user-profile {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.avatar {
-  width: 34px;
-  height: 34px;
+.avatar.icon {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background-color: var(--bg-hover);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.avatar img {
-  width: 20px;
-  height: 20px;
-  opacity: 0.7;
+  /* mask is already applied via .icon-person */
 }
 
 .username {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
-  color: var(--text-active);
-  max-width: 110px;
+  color: var(--fg-primary);
+  max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -145,21 +134,25 @@
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--fg-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.2s;
+  padding: 0;
 }
 
 .settings-btn:hover,
 .settings-btn.active {
   background-color: var(--bg-hover);
-  color: var(--text-active);
 }
 
-.settings-btn img {
-  width: 18px;
-  height: 18px;
+.settings-btn .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--fg-muted);
+}
+
+.settings-btn:hover .icon {
+  color: var(--fg-primary);
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" data-signals="activePage:'test',popupOpen:false" data-class:light-mode="$lightMode">
+<html lang="de" data-signals="{activePage:'test',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,15 +20,13 @@
     <aside class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-header">
-          <div class="logo-placeholder">
-            <img src="/icons/display.svg" class="logo-icon" alt="">
-            <span>Rama</span>
-          </div>
+          <span class="icon icon-display" role="img" aria-hidden="true"></span>
+          <span class="sidebar-title">Rama</span>
         </div>
 
         <ul class="sidebar-menu">
           <li class="menu-item active">
-            <img src="/icons/multimedia.svg" class="nav-icon" alt="">
+            <span class="icon icon-multimedia" role="img" aria-hidden="true"></span>
             <span class="nav-label">Test Harness</span>
           </li>
         </ul>
@@ -36,46 +34,41 @@
 
       <div class="sidebar-footer">
         <div class="user-profile">
-          <div class="avatar">
-            <img src="/icons/person.svg" alt="">
-          </div>
-          <div class="username">John Doe</div>
+          <span class="avatar icon icon-person" role="img" aria-hidden="true"></span>
+          <span class="username">John Doe</span>
         </div>
-
         <button class="settings-btn"
                 data-class:active="$popupOpen"
                 data-on:click="$popupOpen = !$popupOpen">
-          <img src="/icons/open-menu.svg" alt="Menu">
+          <span class="icon icon-open-menu" role="img" aria-hidden="true"></span>
         </button>
-
-        <div class="popup-overlay"
-             data-show="$popupOpen"
-             data-on:click="$popupOpen = false"></div>
-
-        <ul class="popup-menu" data-show="$popupOpen">
-          <li class="popup-item popup-item--danger">
-            <form method="post" action="/logout" style="display:inline">
-              <button type="submit" class="btn btn-ghost btn-logout" data-on:click="$popupOpen = false">
-                <img src="/icons/exit.svg" class="popup-icon" alt="">
-                Abmelden
-              </button>
-            </form>
-          </li>
-        </ul>
       </div>
+
+      <div class="popup-overlay"
+           data-show="$popupOpen"
+           data-on:click="$popupOpen = false"></div>
+      <ul class="popup-menu" data-show="$popupOpen">
+        <li class="popup-item popup-item--danger">
+          <form method="post" action="/logout">
+            <button type="submit" class="btn btn-logout" data-on:click="$popupOpen = false">
+              <span class="icon icon-exit" role="img" aria-hidden="true"></span>
+              Abmelden
+            </button>
+          </form>
+        </li>
+      </ul>
     </aside>
 
     <!-- ═══ Main Content ═══ -->
     <main class="main-container">
       <header class="main-header">
-        <div class="header-title with-switch">E2E Test Harness</div>
-
+        <div class="header-title">E2E Test Harness</div>
         <div class="theme-switch-wrapper">
           <label class="theme-switch">
             <input type="checkbox" data-bind:lightMode />
             <div class="slider">
-              <img src="/icons/moon.svg" class="switch-icon switch-icon--moon" alt="">
-              <img src="/icons/sun.svg" class="switch-icon switch-icon--sun" alt="">
+              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
+              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
             </div>
           </label>
         </div>
@@ -90,7 +83,7 @@
           <button class="btn btn-secondary"
                   data-on:click="location.reload()"
                   style="margin-left: 0.5rem;">
-            Reload (test SW cache)
+            Reload
           </button>
           <p class="text-muted" style="margin-top: 0.5rem;">
             <strong>Reload</strong> after a test run to test the SW hash cache.
@@ -98,7 +91,7 @@
         </div>
 
         <div id="test-results" class="test-results">
-          <p class="text-muted">Click "Run Tests" to start the automated verification.</p>
+          <p class="text-muted">Click "Run Tests" to start.</p>
         </div>
 
         <div id="test-score" class="test-score" data-show="false">
@@ -108,7 +101,6 @@
     </main>
   </div>
 
-  <!-- Persistent SSE stream -->
   <div data-init="@get('/sse')"></div>
 
 </body>

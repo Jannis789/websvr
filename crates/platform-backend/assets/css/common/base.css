@@ -27,3 +27,41 @@ body {
   overflow: hidden;
   transition: background-color 0.25s ease;
 }
+
+/* ===== Icon System (mask-image for GNOME SVGs) ===== */
+/* GNOME Icon Development Kit SVGs use stroke="rgb(0,0,0)" fill="none".
+   mask-image renders the SVG shape, background-color tints it.
+   This makes icons respect theme colors without modifying SVGs. */
+
+.icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  flex-shrink: 0;
+  color: var(--fg-primary);
+}
+
+/* ── Icon name → SVG file mapping ── */
+.icon-dark-mode   { -webkit-mask-image: url("/icons/dark-mode.svg");   mask-image: url("/icons/dark-mode.svg"); }
+.icon-display      { -webkit-mask-image: url("/icons/display.svg");     mask-image: url("/icons/display.svg"); }
+.icon-exit         { -webkit-mask-image: url("/icons/exit.svg");        mask-image: url("/icons/exit.svg"); }
+.icon-go-home      { -webkit-mask-image: url("/icons/go-home.svg");    mask-image: url("/icons/go-home.svg"); }
+.icon-moon         { -webkit-mask-image: url("/icons/moon.svg");        mask-image: url("/icons/moon.svg"); }
+.icon-multimedia   { -webkit-mask-image: url("/icons/multimedia.svg");  mask-image: url("/icons/multimedia.svg"); }
+.icon-open-menu    { -webkit-mask-image: url("/icons/open-menu.svg");   mask-image: url("/icons/open-menu.svg"); }
+.icon-person       { -webkit-mask-image: url("/icons/person.svg");      mask-image: url("/icons/person.svg"); }
+.icon-shield       { -webkit-mask-image: url("/icons/shield.svg");      mask-image: url("/icons/shield.svg"); }
+.icon-star         { -webkit-mask-image: url("/icons/star.svg");        mask-image: url("/icons/star.svg"); }
+.icon-sun          { -webkit-mask-image: url("/icons/sun.svg");         mask-image: url("/icons/sun.svg"); }
+.icon-tv           { -webkit-mask-image: url("/icons/tv.svg");          mask-image: url("/icons/tv.svg"); }
+.icon-video        { -webkit-mask-image: url("/icons/video.svg");       mask-image: url("/icons/video.svg"); }
+.icon-view-grid    { -webkit-mask-image: url("/icons/view-grid.svg");   mask-image: url("/icons/view-grid.svg"); }
+.icon-view-list    { -webkit-mask-image: url("/icons/view-list.svg");   mask-image: url("/icons/view-list.svg"); }
+.icon-wrench       { -webkit-mask-image: url("/icons/wrench.svg");      mask-image: url("/icons/wrench.svg"); }
