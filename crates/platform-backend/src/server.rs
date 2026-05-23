@@ -55,10 +55,31 @@ pub async fn run() {
     let bind_addr = format!("{}:{}", shared_state.config.host, shared_state.config.port);
     let sse_broadcaster = shared_state.sse_broadcaster.clone();
 
+    // ── Protected sub-router with its own layer stack ──
+    let protected = Router::new_with_state(shared_state.clone())
+        .with_get("/home", handlers::page::home_page)
+        .with_get("/home/overview", handlers::navigate::get_home_overview)
+        .with_get("/home/movies", handlers::navigate::get_home_movies)
+        .with_get("/home/series", handlers::navigate::get_home_series)
+        .with_get("/sse", handlers::sse_handler::sse_endpoint)
+        .with_get("/test", handlers::test::test_page)
+        .with_get("/test/run", handlers::test::test_run)
+        .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json);
+
+    // Apply layer stack only to protected routes
+    let layers = (
+        CompressionLayer::new(),
+        layer_fn(|inner| AuthService::new(inner)),
+        layer_fn(|inner| SessionStorageService::new(inner)),
+        layer_fn(|inner| ClientContextService::new(inner, sse_broadcaster.clone())),
+    );
+    let protected_service = layers.layer(protected);
+
+    // ── Public routes (no layers) ──
     let app = Router::new_with_state(shared_state)
-        // ── Static assets (CSS, JS, SVGs, fonts — all from assets/) ──
+        // Static assets
         .with_dir("/assets", std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
-        // ── Public routes (no layer stack) ──
+        // Public pages
         .with_get("/login", handlers::page::login_page)
         .with_get("/register", handlers::page::register_page)
         .with_post("/login", handlers::auth::login)
@@ -66,35 +87,15 @@ pub async fn run() {
         .with_post("/logout", handlers::auth::logout)
         // Service Worker must be at root scope per SW spec
         .with_file("/sw.js", std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/js/sw.js"), "application/javascript".parse().unwrap())
-        // ── Protected routes ──
-        .with_sub_router_make_fn("/", |sub_router| {
-            sub_router
-                .with_get("/home", handlers::page::home_page)
-                .with_get("/home/overview", handlers::navigate::get_home_overview)
-                .with_get("/home/movies", handlers::navigate::get_home_movies)
-                .with_get("/home/series", handlers::navigate::get_home_series)
-                .with_get("/sse", handlers::sse_handler::sse_endpoint)
-                .with_get("/test", handlers::test::test_page)
-                .with_get("/test/run", handlers::test::test_run)
-                .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json)
-        });
-
-    // Layer stack applied globally (Rama Router has no per-sub-router .layer()).
-    // AuthService is lightweight (cookie read/generate only), so overhead on
-    // public routes is negligible.
-    let layers = (
-        CompressionLayer::new(),
-        layer_fn(|inner| AuthService::new(inner)),
-        layer_fn(|inner| SessionStorageService::new(inner)),
-        layer_fn(|inner| ClientContextService::new(inner, sse_broadcaster.clone())),
-    );
-    let service = layers.layer(app);
+        // Protected routes with layer stack
+        .with_sub_service("/", protected_service);
 
     tracing::info!("Rama Platform server listening on http://{bind_addr}");
-    tracing::info!("Layer stack: Compression → Auth → Session → ClientContext → Handler");
+    tracing::info!("Public routes: /assets, /login, /register, /sw.js");
+    tracing::info!("Protected routes (layered): /home, /sse, /test, /i18n");
 
     HttpServer::http1()
-        .listen(bind_addr, service)
+        .listen(bind_addr, app)
         .await
         .expect("failed to start HTTP server");
 }
