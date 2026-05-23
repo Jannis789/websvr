@@ -3,25 +3,23 @@ use std::collections::HashMap;
 
 use rama::service::Service;
 use rama::http::Request;
-use rama::extensions::{ExtensionsMut, ExtensionsRef};
+use rama::http::header;
 use rama::http::response::Response;
-use platform_core::{ClientId, SessionStorage, ClientContext, SseBroadcaster, EventEmitter};
+use rama::extensions::{ExtensionsMut, ExtensionsRef};
+use platform_core::{ClientId, SessionStorage, ClientContext, SseBroadcaster, EventEmitter, Config};
 use std::convert::Infallible;
 use std::future::Future;
 
-/// Service that aggregates `ClientId` and `SessionStorage` into a
-/// `ClientContext` and injects it into `req.extensions()`.
+use crate::common;
+
+/// Service that assembles the full `ClientContext` from:
+///   - `ClientId` (injected by `ValidateRequestHeaderLayer::custom_fn`)
+///   - `SessionStorage` (injected by `SessionStorageService`)
+///   - Per-client `EventEmitter` (reused across requests)
+///   - `Arc<SseBroadcaster>` (shared from `SharedState`)
 ///
-/// Also attaches the `Arc<SseBroadcaster>` (from `SharedState`) so
-/// handlers can emit SSE events directly from the context.
-///
-/// Maintains a per-client `EventEmitter` map so that all requests
-/// from the same client share the same event buffer.  This is critical
-/// for Phase 1 (replay) of the SSE endpoint.
-///
-/// **Memory note:** The `emitters` HashMap grows unboundedly with unique
-/// ClientId entries.  TODO: Add TTL-based eviction for entries not accessed
-/// in > 30 minutes (e.g., via `retain()` on every Nth request).
+/// Also handles `Set-Cookie` for new clients — if the `platform_cid`
+/// cookie was not present on the request, the response gets one.
 ///
 /// Wrapped as a layer via `rama::layer::layer_fn`.
 #[derive(Debug, Clone)]
@@ -57,16 +55,20 @@ where
             let client_id = req.extensions()
                 .get::<ClientId>()
                 .copied()
-                .expect("ClientId must be injected by AuthService");
+                .expect("ClientId must be injected by ValidateRequestHeaderLayer");
 
             let session = req.extensions()
                 .get::<SessionStorage>()
                 .cloned()
                 .expect("SessionStorage must be injected by SessionStorageService");
 
-            // Reuse or create a per-client EventEmitter so buffered events
-            // survive across requests.  This is essential for Phase 1 replay.
-            // Gracefully recover from poisoned mutex (e.g. after a panic).
+            // Check if cookie was already present (set by ValidateRequestLayer)
+            let had_cookie = req.extensions()
+                .get::<CookieWasPresent>()
+                .map(|c| c.0)
+                .unwrap_or(true);
+
+            // Reuse or create a per-client EventEmitter
             let event_emitter = {
                 let mut emitters = match self.emitters.lock() {
                     Ok(guard) => guard,
@@ -86,7 +88,31 @@ where
             req.extensions_mut().insert(ctx);
             tracing::debug!("ClientContext → assembled for client_id={}", client_id);
 
-            Ok(self.inner.serve(req).await.unwrap())
+            let mut response = self.inner.serve(req).await.unwrap();
+
+            // Set cookie only for new clients (no existing cookie)
+            if !had_cookie {
+                let ttl_days = Config::global().client_id_ttl_days;
+                let max_age = ttl_days as u64 * 24 * 60 * 60;
+                tracing::debug!("ClientContext → new cookie for {} (TTL={}d)", client_id, ttl_days);
+                let cookie = format!(
+                    "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+                    platform_core::client_id::CLIENT_ID_COOKIE,
+                    client_id,
+                    max_age,
+                );
+                response.headers_mut().insert(
+                    header::SET_COOKIE,
+                    cookie.parse().unwrap(),
+                );
+            }
+
+            Ok(response)
         }
     }
 }
+
+/// Marker extension injected by the ValidateRequest closure to signal
+/// whether the cookie was already present (so we don't re-set it).
+#[derive(Debug, Clone)]
+pub struct CookieWasPresent(pub bool);

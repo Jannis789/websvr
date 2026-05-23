@@ -1,7 +1,16 @@
 use std::sync::Arc;
 
-use platform_core::{Config, I18n, SseBroadcaster};
+use platform_core::{ClientId, Config, I18n, SseBroadcaster};
 use sea_orm::DatabaseConnection;
+use rama::http::layer::compression::CompressionLayer;
+use rama::http::layer::validate_request::ValidateRequestHeaderLayer;
+use rama::layer::layer_fn;
+use rama::Layer;
+use rama::extensions::{ExtensionsMut, ExtensionsRef};
+
+use crate::common;
+use crate::layers::session_storage::SessionStorageService;
+use crate::layers::client_context::{ClientContextService, CookieWasPresent};
 
 #[derive(Debug, Clone)]
 pub struct SharedState {
@@ -42,13 +51,6 @@ impl SharedState {
 pub async fn run() {
     use rama::http::server::HttpServer;
     use rama::http::service::web::Router;
-    use rama::http::layer::compression::CompressionLayer;
-    use rama::layer::layer_fn;
-    use rama::Layer;
-
-    use crate::layers::auth::AuthService;
-    use crate::layers::session_storage::SessionStorageService;
-    use crate::layers::client_context::ClientContextService;
     use crate::handlers;
 
     let shared_state = SharedState::init().await;
@@ -66,9 +68,19 @@ pub async fn run() {
         .with_get("/test/run", handlers::test::test_run)
         .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json);
 
-    // Apply Auth/Session/ClientContext layers only to protected routes
+    // Apply layers only to protected routes
+    // Layer 1: ValidateRequest — extract/generate ClientId from cookie (Rama built-in)
+    // Layer 2: SessionStorage — load or create session
+    // Layer 3: ClientContext — assemble context + set cookie for new clients
     let protected_layers = (
-        layer_fn(|inner| AuthService::new(inner)),
+        ValidateRequestHeaderLayer::custom_fn(|mut req: rama::http::Request| async move {
+            let had_cookie = common::get_cookie_value(&req, platform_core::client_id::CLIENT_ID_COOKIE).is_some();
+            let client_id = extract_or_generate_client_id(&req);
+            tracing::debug!("ValidateRequest → client_id={} (from_cookie={})", client_id, had_cookie);
+            req.extensions_mut().insert(client_id);
+            req.extensions_mut().insert(CookieWasPresent(had_cookie));
+            Ok(req)
+        }),
         layer_fn(|inner| SessionStorageService::new(inner)),
         layer_fn(|inner| ClientContextService::new(inner, sse_broadcaster.clone())),
     );
@@ -97,4 +109,16 @@ pub async fn run() {
         .listen(bind_addr, service)
         .await
         .expect("failed to start HTTP server");
+}
+
+fn extract_or_generate_client_id(req: &rama::http::Request) -> ClientId {
+    if let Some(cid) = req.extensions().get::<ClientId>() {
+        return *cid;
+    }
+    if let Some(cookie_str) = common::get_cookie_value(req, platform_core::client_id::CLIENT_ID_COOKIE) {
+        if let Some(cid) = ClientId::parse(&cookie_str) {
+            return cid;
+        }
+    }
+    ClientId::generate()
 }
