@@ -5,7 +5,7 @@ use rama::http::header;
 use crate::server::SharedState;
 use serde::Deserialize;
 use crate::utils::request::extract_context;
-use crate::utils::response::{empty_response, redirect, html_response};
+use crate::utils::response::redirect;
 
 /// Maximum allowed body size for login/register forms (10 KiB).
 const MAX_BODY_SIZE: usize = 10 * 1024;
@@ -44,12 +44,24 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     }
 }
 
-/// Build an SSE response that merges the `error` signal.
-/// Datastar processes this as a single SSE event.
+/// SSE response that merges the `error` signal on the client.
 fn error_sse(message: &str) -> Response {
     let body = format!(
         "event: datastar-merge-signals\ndata: {{\"error\":\"{}\"}}\n\n",
-        message.replace('"', "\\\"")
+        message.replace('\\', "\\\\").replace('"', "\\\"")
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(body.into())
+        .unwrap()
+}
+
+/// SSE response that executes a client-side redirect via script.
+fn redirect_sse(url: &str) -> Response {
+    let body = format!(
+        "event: datastar-execute-script\ndata: window.location.href = '{}'\n\n",
+        url.replace('\'', "\\'")
     );
     Response::builder()
         .status(StatusCode::OK)
@@ -97,14 +109,7 @@ pub async fn login(
     }
     elog!(Info, "Session → authenticated for {}", ctx.client_id);
 
-    // Success: redirect to /home
-    let mut resp = redirect("/home");
-    // Tell Datastar this is a redirect it should follow
-    resp.headers_mut().insert(
-        header::CONTENT_TYPE,
-        "text/event-stream".parse().unwrap(),
-    );
-    resp
+    redirect_sse("/home")
 }
 
 /// POST /register — create new user account
@@ -144,7 +149,7 @@ pub async fn register(
     let _ = (state, password);
 
     elog!(Info, "Registration placeholder — redirecting to login");
-    redirect("/login")
+    redirect_sse("/login")
 }
 
 /// POST /logout — clear session and redirect to login
