@@ -1,5 +1,5 @@
 {
-  description = "Rust + Aider + Z.AI Coding Env";
+  description = "Rust Coding Env";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,12 +17,14 @@
           rustfmt
           clippy
           ripgrep
-          aider-chat
           git
+          zlib
+          pkg-config
+          openssl
         ];
 
         shellHook = ''
-          echo "🚀 Rust + Aider + Z.AI Shell geladen"
+          echo "🚀 Rust Shell geladen"
 
           # ❗ WICHTIG: richtiger Coding Endpoint
           export OPENAI_API_BASE="https://api.z.ai/api/coding/paas/v4"
@@ -34,8 +36,6 @@
           else
             echo "❌ .api_key fehlt!"
           fi
-
-          echo "👉 Nutze: aider --model openai/glm-5.1"
         '';
       };
     };

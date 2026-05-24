@@ -17,23 +17,26 @@ pub trait ClientContextSseExt {
 }
 
 impl ClientContextSseExt for ClientContext {
-    fn emit_patch(&self, data_to_hash: &str, patch: PatchElements, should_cache: bool) {
-        // 1. Compute deterministic HMAC-SHA256 hash (16 bytes / 128 bit)
-        let hash = compute_content_hash(data_to_hash, crypto::hmac_secret());
-
-        // 2. Serialise the PatchElements payload to its SSE wire format
+    fn emit_patch(&self, _data_to_hash: &str, patch: PatchElements, should_cache: bool) {
+        // 1. Serialise the PatchElements payload to its SSE wire format FIRST
         let mut buf = Vec::new();
         if patch.write_data(&mut buf).is_err() {
-            tracing::error!("Failed to serialize PatchElements for hash {}", hash);
+            tracing::error!("Failed to serialize PatchElements");
             return;
         }
         let payload = match String::from_utf8(buf) {
             Ok(s) => s,
             Err(_) => {
-                tracing::error!("PatchElements produced non-UTF-8 output for hash {}", hash);
+                tracing::error!("PatchElements produced non-UTF-8 output");
                 return;
             }
         };
+
+        // 2. Compute deterministic HMAC-SHA256 hash from the FULL payload
+        //    (selector + mode + elements), not just the HTML content.
+        //    This ensures the hash changes when the event format changes
+        //    (e.g. adding mode:inner), forcing the SW to invalidate its cache.
+        let hash = compute_content_hash(&payload, crypto::hmac_secret());
 
         // 3. Wrap in BufferedEvent
         let event = BufferedEvent {

@@ -47,7 +47,7 @@ pub async fn home_page(
                 .footer(SIDEBAR_FOOTER)
         )
         .header(MAIN_HEADER)
-        .content(CONTENT_OVERVIEW)
+        .content_cached(CONTENT_OVERVIEW)
         .emit(&ctx);
 
     html_response(SHELL)

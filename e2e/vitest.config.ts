@@ -5,6 +5,7 @@ export default defineConfig({
     include: [
       'tests/**/*.integration.test.ts',
       'tests/**/*.backend.test.ts',
+      'tests/**/*.e2e.test.ts',
     ],
     globals: true,
     testTimeout: 60_000,

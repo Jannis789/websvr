@@ -14,6 +14,7 @@ const MAX_REGISTRY_SIZE = 2000;
 const EVENT_PREFIX = 'datastar-patch-elements';
 
 self.addEventListener('install', (event) => {
+  HASH_REGISTRY.clear();
   self.skipWaiting();
 });
 
@@ -66,6 +67,13 @@ function processSSERead(buffer, text) {
 function registerHash(hash, payload, eventType) {
   if (payload === undefined) payload = '';
   if (eventType === undefined) eventType = EVENT_PREFIX;
+
+  // Never cache navigation-dependent content-body events.
+  // The server sends the correct initial content on page load;
+  // replaying a stale content-body (e.g. "series" from a previous
+  // navigation) would overwrite the correct initial state.
+  if (payload.includes('selector #content-body')) return;
+
   HASH_REGISTRY.set(hash, { payload, eventType, timestamp: Date.now() });
 
   // Limit registry size (keep latest MAX_REGISTRY_SIZE)
@@ -105,7 +113,7 @@ function buildCachedEventsStream() {
     }
     parts.push(''); // empty line = event boundary
   }
-  return parts.join('\n');
+  return parts.join('\n') + '\n';
 }
 
 // ── Helper: Read SSE stream incrementally ──
@@ -179,12 +187,12 @@ self.addEventListener('fetch', (event) => {
               function pump() {
                 reader.read().then(({ done, value }) => {
                   if (done) {
-                    controller.close();
+                    try { controller.close(); } catch (_) {}
                     return;
                   }
                   controller.enqueue(value);
                   pump();
-                }).catch(() => controller.close());
+                }).catch(() => { try { controller.close(); } catch (_) {} });
               }
               pump();
             }
