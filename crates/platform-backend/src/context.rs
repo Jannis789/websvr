@@ -1,6 +1,7 @@
 use platform_core::{ClientContext, BufferedEvent, compute_content_hash};
 use rama::http::body::sse::datastar::PatchElements;
 use rama::http::body::sse::EventDataWrite;
+use crate::elog;
 use crate::crypto;
 
 /// Extension trait that adds Rama-specific SSE methods to `ClientContext`.
@@ -21,13 +22,13 @@ impl ClientContextSseExt for ClientContext {
         // 1. Serialise the PatchElements payload to its SSE wire format FIRST
         let mut buf = Vec::new();
         if patch.write_data(&mut buf).is_err() {
-            tracing::error!("Failed to serialize PatchElements");
+            elog!(Error, "Failed to serialize PatchElements");
             return;
         }
         let payload = match String::from_utf8(buf) {
             Ok(s) => s,
             Err(_) => {
-                tracing::error!("PatchElements produced non-UTF-8 output");
+                elog!(Error, "PatchElements produced non-UTF-8 output");
                 return;
             }
         };

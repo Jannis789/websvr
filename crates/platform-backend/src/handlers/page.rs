@@ -1,3 +1,4 @@
+use crate::elog;
 use rama::http::Request;
 use rama::http::service::web::extract::State;
 use crate::server::SharedState;
@@ -18,7 +19,7 @@ pub async fn login_page(
     State(_state): State<SharedState>,
     _req: Request,
 ) -> common::Response {
-    tracing::debug!("Handler → login_page (public route)");
+    elog!(Debug, "Handler → login_page (public route)");
     html_response(include_str!("../../assets/templates/login.html"))
 }
 
@@ -27,7 +28,7 @@ pub async fn register_page(
     State(_state): State<SharedState>,
     _req: Request,
 ) -> common::Response {
-    tracing::debug!("Handler → register_page (public route)");
+    elog!(Debug, "Handler → register_page (public route)");
     html_response(include_str!("../../assets/templates/register.html"))
 }
 
@@ -37,7 +38,7 @@ pub async fn home_page(
     req: Request,
 ) -> common::Response {
     let ctx = common::extract_context(&req);
-    tracing::debug!("Handler → home_page (client_id={})", ctx.client_id);
+    elog!(Debug, "Handler → home_page (client_id={})", ctx.client_id);
 
     Shell::empty()
         .sidebar(

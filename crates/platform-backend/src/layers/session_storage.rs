@@ -1,3 +1,4 @@
+use crate::elog;
 use rama::service::Service;
 use rama::http::Request;
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
@@ -46,7 +47,7 @@ where
             // Currently creates a fresh SessionStorage per request.
             // Full implementation needs SharedState access through the layer chain.
             let session = SessionStorage::new(client_id);
-            tracing::debug!("SessionStorage → created for client_id={}", client_id);
+            elog!(Debug, "SessionStorage → created for client_id={}", client_id);
 
             let mut req = req;
             req.extensions_mut().insert(session);

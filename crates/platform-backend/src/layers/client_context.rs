@@ -1,3 +1,4 @@
+use crate::elog;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
@@ -84,7 +85,7 @@ where
 
             let mut req = req;
             req.extensions_mut().insert(ctx);
-            tracing::debug!("ClientContext → assembled for client_id={}", client_id);
+            elog!(Debug, "ClientContext → assembled for client_id={}", client_id);
 
             let mut response = self.inner.serve(req).await.unwrap();
 
@@ -92,7 +93,7 @@ where
             if !had_cookie {
                 let ttl_days = Config::global().client_id_ttl_days;
                 let max_age = ttl_days as u64 * 24 * 60 * 60;
-                tracing::debug!("ClientContext → new cookie for {} (TTL={}d)", client_id, ttl_days);
+                elog!(Debug, "ClientContext → new cookie for {} (TTL={}d)", client_id, ttl_days);
                 let cookie = format!(
                     "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
                     platform_core::client_id::CLIENT_ID_COOKIE,

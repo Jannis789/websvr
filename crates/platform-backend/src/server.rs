@@ -1,3 +1,4 @@
+use crate::elog;
 use std::sync::Arc;
 
 use platform_core::{ClientId, Config, I18n, SseBroadcaster};
@@ -76,7 +77,7 @@ pub async fn run() {
         ValidateRequestHeaderLayer::custom_fn(|mut req: rama::http::Request| async move {
             let had_cookie = common::get_cookie_value(&req, platform_core::client_id::CLIENT_ID_COOKIE).is_some();
             let client_id = extract_or_generate_client_id(&req);
-            tracing::debug!("ValidateRequest → client_id={} (from_cookie={})", client_id, had_cookie);
+            elog!(Debug, "ValidateRequest → client_id={} (from_cookie={})", client_id, had_cookie);
             req.extensions_mut().insert(client_id);
             req.extensions_mut().insert(CookieWasPresent(had_cookie));
             Ok(req)
@@ -101,7 +102,7 @@ pub async fn run() {
         // Protected routes with layer stack
         .with_sub_service("/", protected_service);
 
-    tracing::info!("Rama Platform server listening on http://{bind_addr}");
+    elog!(Info, "Rama Platform server listening on http://{bind_addr}");
 
     let service = CompressionLayer::new().layer(app);
 

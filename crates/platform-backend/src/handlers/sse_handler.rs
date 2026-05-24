@@ -1,3 +1,4 @@
+use crate::elog;
 use std::collections::HashSet;
 
 use rama::http::{Request, Response};
@@ -15,11 +16,11 @@ pub async fn sse_endpoint(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
-    tracing::debug!("SSE → endpoint connected (client_id={})", ctx.client_id);
+    elog!(Debug, "SSE → endpoint connected (client_id={})", ctx.client_id);
 
     // 1. Parse known_hashes from query string
     let known_hashes = parse_known_hashes(&req);
-    tracing::debug!("SSE → known_hashes count={}", known_hashes.len());
+    elog!(Debug, "SSE → known_hashes count={}", known_hashes.len());
 
     // 2. Subscribe to the broadcast channel
     let mut rx = ctx.sse_broadcaster.subscribe();
@@ -28,7 +29,7 @@ pub async fn sse_endpoint(
     let stream = stream! {
         // Phase 1: Replay buffered events (iterate, NOT drain!)
         let buffered = ctx.event_emitter.get_buffered_events();
-        tracing::debug!("SSE → replay: {} buffered events, {} known hashes", buffered.len(), known_hashes.len());
+        elog!(Debug, "SSE → replay: {} buffered events, {} known hashes", buffered.len(), known_hashes.len());
         let mut replayed = 0usize;
         let mut skipped = 0usize;
         for event in &buffered {
@@ -41,7 +42,7 @@ pub async fn sse_endpoint(
                 yield Ok::<Event<String>, EventBuildError>(sse_event);
             }
         }
-        tracing::debug!("SSE → Phase 1 complete: {} replayed, {} skipped (known)", replayed, skipped);
+        elog!(Debug, "SSE → Phase 1 complete: {} replayed, {} skipped (known)", replayed, skipped);
 
         // Phase 2: Live events from broadcast channel
         while let Ok(event) = rx.recv().await {

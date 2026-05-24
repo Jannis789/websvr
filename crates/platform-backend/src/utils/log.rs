@@ -1,8 +1,10 @@
-// 6.4 Logging Utility mit automatischem File:Line und Timestamp
+// Centralized logging utility.
+// Use the `elog!` macro everywhere — it automatically captures file:line.
 
 use std::time::SystemTime;
 
 pub enum Level {
+    Debug,
     Info,
     Ok,
     Warn,
@@ -12,6 +14,7 @@ pub enum Level {
 impl Level {
     fn label(&self) -> &str {
         match self {
+            Level::Debug => "DBG ",
             Level::Info => "INFO",
             Level::Ok => " OK ",
             Level::Warn => "WARN",
@@ -21,6 +24,7 @@ impl Level {
 
     fn color(&self) -> &str {
         match self {
+            Level::Debug => "37",
             Level::Info => "36",
             Level::Ok => "32",
             Level::Warn => "33",
@@ -40,7 +44,7 @@ fn timestamp() -> String {
     format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
 }
 
-pub fn _emit(level: Level, file: &str, line: u32, msg: &str) {
+pub fn emit(level: Level, file: &str, line: u32, msg: &str) {
     let short_file = file.split('/').last().unwrap_or(file);
     let output = format!(
         "\x1b[2m{}\x1b[0m \x1b[{}m[{}]\x1b[0m \x1b[2m{}:{}\x1b[0m {}",
@@ -55,17 +59,4 @@ pub fn _emit(level: Level, file: &str, line: u32, msg: &str) {
         Level::Error => eprintln!("{}", output),
         _ => println!("{}", output),
     }
-}
-
-#[macro_export]
-macro_rules! elog {
-    ($level:ident, $($arg:tt)*) => {{
-        let msg = format!($($arg)*);
-        $crate::utils::log::_emit(
-            $crate::utils::log::Level::$level,
-            file!(),
-            line!(),
-            &msg,
-        );
-    }};
 }

@@ -9,8 +9,6 @@ platform-core = { path = "../platform-core" }
 rama = { version = "0.3.0-alpha.4", features = ["http", "http-full"] }
 tokio = { version = "1", features = ["full"] }
 async-stream = "0.3"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ring = "0.17.14"

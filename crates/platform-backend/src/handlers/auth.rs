@@ -1,3 +1,4 @@
+use crate::elog;
 use rama::http::{Request, Response, StatusCode};
 use rama::http::service::web::extract::State;
 use rama::http::header;
@@ -37,7 +38,7 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
             }
             Ok(None) => return Some(all_bytes),
             Err(e) => {
-                tracing::error!("Failed to read request body: {e}");
+                elog!(Error, "Failed to read request body: {e}");
                 return None;
             }
         }
@@ -59,12 +60,12 @@ pub async fn login(
     let form: LoginForm = match serde_urlencoded::from_bytes(&all_bytes) {
         Ok(f) => f,
         Err(e) => {
-            tracing::warn!("Invalid login form: {e}");
+            elog!(Warn, "Invalid login form: {e}");
             return html_response(include_str!("../../assets/templates/login.html"));
         }
     };
 
-    tracing::info!("Login attempt for: {}", form.email);
+    elog!(Info, "Login attempt for: {}", form.email);
 
     // TODO Phase 2: Query DB via SeaORM, verify password
     // let user = UserEntity::find()
@@ -101,23 +102,23 @@ pub async fn register(
     let form: RegisterForm = match serde_urlencoded::from_bytes(&all_bytes) {
         Ok(f) => f,
         Err(e) => {
-            tracing::warn!("Invalid register form: {e}");
+            elog!(Warn, "Invalid register form: {e}");
             return html_response(include_str!("../../assets/templates/register.html"));
         }
     };
 
-    tracing::info!("Register attempt: {} <{}>", form.username, form.email);
+    elog!(Info, "Register attempt: {} <{}>", form.username, form.email);
 
     // Validate password length
     if form.password.len() < 8 {
-        tracing::warn!("Password too short for: {}", form.email);
+        elog!(Warn, "Password too short for: {}", form.email);
         return html_response(include_str!("../../assets/templates/register.html"));
     }
 
     // TODO Phase 2: Check uniqueness, hash password, insert user via SeaORM
     let _ = state;
 
-    tracing::info!("Registration placeholder — redirecting to login");
+    elog!(Info, "Registration placeholder — redirecting to login");
     redirect("/login")
 }
 

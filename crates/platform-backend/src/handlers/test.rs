@@ -1,3 +1,4 @@
+use crate::elog;
 use rama::http::{Request, Response, StatusCode};
 use rama::http::service::web::extract::State;
 use platform_core::compute_content_hash;
@@ -10,7 +11,7 @@ pub async fn test_page(
     req: Request,
 ) -> Response {
     let _ctx = common::extract_context(&req);
-    tracing::debug!("Test → test page requested (client_id={})", _ctx.client_id);
+    elog!(Debug, "Test → test page requested (client_id={})", _ctx.client_id);
     html_response(include_str!("../../assets/templates/test.html"))
 }
 
@@ -55,7 +56,7 @@ pub async fn test_run(
     let ctx = common::extract_context(&req);
     let sse_broadcaster = ctx.sse_broadcaster.clone();
     let event_emitter = ctx.event_emitter.clone();
-    tracing::info!("Test → running hash-sync test sequence");
+    elog!(Info, "Test → running hash-sync test sequence");
 
     // Spawn the test sequence in the background; respond immediately with 204
     tokio::spawn(async move {
