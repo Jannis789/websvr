@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/assets/css/pages/login.css">
   <script type="module" src="/assets/js/datastar-core.js"></script>
 </head>
-<body data-signals="{lightMode:false}" data-class:light-mode="$lightMode">
+<body data-signals="{lightMode:false, email:'', password:'', error:''}" data-class:light-mode="$lightMode">
 
   <div class="auth-container">
     <div class="auth-card">
@@ -17,14 +17,16 @@
         <h1>Rama Platform</h1>
       </div>
 
-      <form method="post" action="/login" class="auth-form">
+      <div id="auth-feedback" data-show="$error" class="form-message message-error" data-text="$error"></div>
+
+      <form class="auth-form" data-on:submit.prevent="@post('/login')">
         <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" required />
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required data-bind:email />
         </div>
         <div class="form-group">
           <label for="password">Password</label>
-          <input type="password" id="password" name="password" required />
+          <input type="password" id="password" name="password" required data-bind:password />
         </div>
         <button type="submit" class="auth-submit">Login</button>
       </form>

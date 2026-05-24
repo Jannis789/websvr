@@ -4,28 +4,26 @@ use rama::http::service::web::extract::State;
 use rama::http::header;
 use crate::server::SharedState;
 use serde::Deserialize;
-use crate::utils::request::{extract_context};
+use crate::utils::request::extract_context;
 use crate::utils::response::{empty_response, redirect, html_response};
 
 /// Maximum allowed body size for login/register forms (10 KiB).
 const MAX_BODY_SIZE: usize = 10 * 1024;
 
 #[derive(Debug, Deserialize)]
-struct LoginForm {
-    email: String,
-    #[allow(dead_code)]
-    password: String,
+struct LoginPayload {
+    email: Option<String>,
+    password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct RegisterForm {
-    username: String,
-    email: String,
-    password: String,
+struct RegisterPayload {
+    username: Option<String>,
+    email: Option<String>,
+    password: Option<String>,
 }
 
 /// Read the request body with a size limit.
-/// Returns `None` if the body exceeds MAX_BODY_SIZE.
 async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     let mut body = req.into_body();
     let mut all_bytes = Vec::new();
@@ -46,7 +44,22 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     }
 }
 
+/// Build an SSE response that merges the `error` signal.
+/// Datastar processes this as a single SSE event.
+fn error_sse(message: &str) -> Response {
+    let body = format!(
+        "event: datastar-merge-signals\ndata: {{\"error\":\"{}\"}}\n\n",
+        message.replace('"', "\\\"")
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(body.into())
+        .unwrap()
+}
+
 /// POST /login — authenticate user via email + password
+/// Datastar @post sends signals as JSON body.
 pub async fn login(
     State(state): State<SharedState>,
     req: Request,
@@ -55,44 +68,43 @@ pub async fn login(
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
-        None => return empty_response(StatusCode::PAYLOAD_TOO_LARGE),
+        None => return error_sse("Request too large"),
     };
 
-    let form: LoginForm = match serde_urlencoded::from_bytes(&all_bytes) {
+    let form: LoginPayload = match serde_json::from_slice(&all_bytes) {
         Ok(f) => f,
-        Err(e) => {
-            elog!(Warn, "Invalid login form: {e}");
-            return html_response(include_str!("../../assets/templates/login.html"));
-        }
+        Err(_) => return error_sse("Invalid request"),
     };
 
-    elog!(Info, "Login attempt for: {}", form.email);
+    let email = match form.email {
+        Some(ref e) if !e.is_empty() => e,
+        _ => return error_sse("Email is required"),
+    };
+
+    if form.password.as_ref().map_or(true, |p| p.is_empty()) {
+        return error_sse("Password is required");
+    }
+
+    elog!(Info, "Login attempt for: {}", email);
 
     // TODO Phase 2: Query DB via SeaORM, verify password
-    // let user = UserEntity::find()
-    //     .filter(user::Column::Email.eq(&form.email))
-    //     .one(&state.db).await
-    //     .expect("DB query failed");
-    //
-    // match user {
-    //     Some(user) if PasswordUtil::verify_password(&form.password, &user.password_hash) => {
-    //         // Create session in DB
-    //         tracing::info!("Login successful for: {}", form.email);
-    //         return redirect("/home");
-    //     }
-    //     _ => {
-    //         tracing::warn!("Login failed for: {}", form.email);
-    //     }
-    // }
     let _ = state;
 
-    // Placeholder: mark session as authenticated and redirect to home
+    // Placeholder: mark session as authenticated
     {
         let mut session = ctx.session_storage.lock().await;
         session.set_volatile("authenticated", serde_json::Value::Bool(true));
     }
     elog!(Info, "Session → authenticated for {}", ctx.client_id);
-    redirect("/home")
+
+    // Success: redirect to /home
+    let mut resp = redirect("/home");
+    // Tell Datastar this is a redirect it should follow
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        "text/event-stream".parse().unwrap(),
+    );
+    resp
 }
 
 /// POST /register — create new user account
@@ -102,38 +114,44 @@ pub async fn register(
 ) -> Response {
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
-        None => return empty_response(StatusCode::PAYLOAD_TOO_LARGE),
+        None => return error_sse("Request too large"),
     };
 
-    let form: RegisterForm = match serde_urlencoded::from_bytes(&all_bytes) {
+    let form: RegisterPayload = match serde_json::from_slice(&all_bytes) {
         Ok(f) => f,
-        Err(e) => {
-            elog!(Warn, "Invalid register form: {e}");
-            return html_response(include_str!("../../assets/templates/register.html"));
-        }
+        Err(_) => return error_sse("Invalid request"),
     };
 
-    elog!(Info, "Register attempt: {} <{}>", form.username, form.email);
+    let username = match form.username {
+        Some(ref u) if !u.is_empty() => u,
+        _ => return error_sse("Username is required"),
+    };
 
-    // Validate password length
-    if form.password.len() < 8 {
-        elog!(Warn, "Password too short for: {}", form.email);
-        return html_response(include_str!("../../assets/templates/register.html"));
-    }
+    let email = match form.email {
+        Some(ref e) if !e.is_empty() => e,
+        _ => return error_sse("Email is required"),
+    };
+
+    let password = match form.password {
+        Some(ref p) if p.len() >= 8 => p,
+        Some(ref p) if !p.is_empty() => return error_sse("Password must be at least 8 characters"),
+        _ => return error_sse("Password is required"),
+    };
+
+    elog!(Info, "Register attempt: {} <{}>", username, email);
 
     // TODO Phase 2: Check uniqueness, hash password, insert user via SeaORM
-    let _ = state;
+    let _ = (state, password);
 
     elog!(Info, "Registration placeholder — redirecting to login");
     redirect("/login")
 }
 
-/// POST /logout — clear session
+/// POST /logout — clear session and redirect to login
 pub async fn logout(
     State(_state): State<SharedState>,
     _req: Request,
 ) -> Response {
-    // Clear client_id cookie by setting Max-Age=0
     let mut resp = redirect("/login");
     let clear_cookie = format!(
         "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
