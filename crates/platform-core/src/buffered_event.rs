@@ -19,3 +19,18 @@ pub struct BufferedEvent {
     /// The Datastar event type as a string (e.g. "datastar-patch-elements").
     pub event_type: String,
 }
+
+impl BufferedEvent {
+    /// Extract the CSS selector from the payload (e.g. "#content-body").
+    /// The selector line looks like: `data: selector #content-body`
+    pub fn extract_selector(&self) -> Option<String> {
+        for line in self.payload.lines() {
+            let trimmed = line.trim();
+            // Line format: "data: selector #content-body"
+            if trimmed.starts_with("data: selector ") {
+                return Some(trimmed.strip_prefix("data: selector ")?.trim().to_string());
+            }
+        }
+        None
+    }
+}

@@ -2,16 +2,15 @@ use std::sync::{Arc, Mutex};
 
 use crate::BufferedEvent;
 
-/// Simple per-client event buffer.
+/// Per-client event buffer keyed by selector.
 ///
-/// Stores `BufferedEvent`s so they can be replayed when an SSE
-/// client reconnects.  No namespace logic, no hash-tracking —
-/// that intelligence lives in the `SseEndpoint`.
+/// Stores the **latest** `BufferedEvent` per CSS selector so that SSE
+/// replay always sends the current state, not a history of patches.
+/// Navigation events (should_cache: false) never enter the buffer,
+/// which guarantees the initial state is always correct on reload.
 ///
-/// Uses `Arc<Mutex<Vec<...>>>` internally so that all clones of
-/// a `ClientContext` share the same buffer.  This is critical for
-/// Phase 1 (replay) of the SSE endpoint: handlers emit events into
-/// a clone of the same `EventEmitter` that the SSE endpoint reads from.
+/// Uses `Arc<Mutex<HashMap>>` internally so that all clones of
+/// a `ClientContext` share the same buffer.
 #[derive(Debug, Clone)]
 pub struct EventEmitter {
     buffer: Arc<Mutex<Vec<BufferedEvent>>>,
@@ -22,9 +21,16 @@ impl EventEmitter {
         Self { buffer: Arc::new(Mutex::new(Vec::new())) }
     }
 
-    /// Append an event to the buffer.
+    /// Append an event to the buffer, replacing any existing event
+    /// with the same CSS selector. This keeps the buffer small and
+    /// ensures replay always reflects the current state.
     pub fn buffer_event(&self, event: BufferedEvent) {
         if let Ok(mut buf) = self.buffer.lock() {
+            // Extract selector from payload to deduplicate
+            let selector = event.extract_selector();
+            if let Some(sel) = selector {
+                buf.retain(|e| e.extract_selector().as_ref() != Some(&sel));
+            }
             buf.push(event);
         }
     }
