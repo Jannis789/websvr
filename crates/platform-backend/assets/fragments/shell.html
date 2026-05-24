@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/assets/icons/logo.svg">
+  <title>Rama Platform</title>
+  <link rel="stylesheet" href="/assets/css/pages/home.css">
+  <script type="module" src="/assets/js/datastar-core.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+  </script>
+</head>
+<body data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
+
+  <div class="app-layout">
+
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div id="sidebar-header"></div>
+        <div id="sidebar-menu"></div>
+      </div>
+      <div id="sidebar-footer"></div>
+    </aside>
+
+    <main class="main-container">
+      <div id="main-header"></div>
+      <div id="content-body"></div>
+    </main>
+
+  </div>
+
+  <div data-init="@get('/sse')"></div>
+
+</body>
+</html>

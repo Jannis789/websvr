@@ -1,0 +1,20 @@
+<ul class="sidebar-menu">
+  <li class="menu-item"
+      data-class:active="$activePage === 'overview'"
+      data-on:click="$activePage = 'overview'; @get('/home/overview', {selector:'.content-body'})">
+    <span class="icon icon-view-grid" role="img" aria-hidden="true"></span>
+    <span class="nav-label">Overview</span>
+  </li>
+  <li class="menu-item"
+      data-class:active="$activePage === 'movies'"
+      data-on:click="$activePage = 'movies'; @get('/home/movies', {selector:'.content-body'})">
+    <span class="icon icon-video" role="img" aria-hidden="true"></span>
+    <span class="nav-label">Movies</span>
+  </li>
+  <li class="menu-item"
+      data-class:active="$activePage === 'series'"
+      data-on:click="$activePage = 'series'; @get('/home/series', {selector:'.content-body'})">
+    <span class="icon icon-tv" role="img" aria-hidden="true"></span>
+    <span class="nav-label">Series</span>
+  </li>
+</ul>

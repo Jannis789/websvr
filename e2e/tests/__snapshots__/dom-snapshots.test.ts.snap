@@ -88,6 +88,14 @@ exports[`HTML Template Snapshots > snapshot: home.html structure is stable > hom
     "type": null,
   },
   {
+    "href": "/assets/icons/logo.svg",
+    "id": undefined,
+    "rel": "icon",
+    "src": null,
+    "tag": "link",
+    "type": "image/svg+xml",
+  },
+  {
     "href": null,
     "id": undefined,
     "rel": null,
@@ -152,6 +160,14 @@ exports[`HTML Template Snapshots > snapshot: login.html structure is stable > lo
     "type": null,
   },
   {
+    "href": "/assets/icons/logo.svg",
+    "id": undefined,
+    "rel": "icon",
+    "src": null,
+    "tag": "link",
+    "type": "image/svg+xml",
+  },
+  {
     "href": null,
     "id": undefined,
     "rel": null,
@@ -208,6 +224,14 @@ exports[`HTML Template Snapshots > snapshot: register.html structure is stable >
     "type": null,
   },
   {
+    "href": "/assets/icons/logo.svg",
+    "id": undefined,
+    "rel": "icon",
+    "src": null,
+    "tag": "link",
+    "type": "image/svg+xml",
+  },
+  {
     "href": null,
     "id": undefined,
     "rel": null,
@@ -262,6 +286,14 @@ exports[`HTML Template Snapshots > snapshot: test.html structure is stable > tes
     "src": null,
     "tag": "meta",
     "type": null,
+  },
+  {
+    "href": "/assets/icons/logo.svg",
+    "id": undefined,
+    "rel": "icon",
+    "src": null,
+    "tag": "link",
+    "type": "image/svg+xml",
   },
   {
     "href": null,
