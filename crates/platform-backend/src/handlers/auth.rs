@@ -3,8 +3,9 @@ use rama::http::{Request, Response, StatusCode};
 use rama::http::service::web::extract::State;
 use rama::http::header;
 use crate::server::SharedState;
-use crate::common::{self, redirect, html_response, empty_response};
 use serde::Deserialize;
+use crate::utils::request::{extract_context};
+use crate::utils::response::{empty_response, redirect, html_response};
 
 /// Maximum allowed body size for login/register forms (10 KiB).
 const MAX_BODY_SIZE: usize = 10 * 1024;
@@ -50,7 +51,7 @@ pub async fn login(
     State(state): State<SharedState>,
     req: Request,
 ) -> Response {
-    let mut ctx = common::extract_context(&req);
+    let mut ctx = extract_context(&req);
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,

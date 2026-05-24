@@ -7,14 +7,15 @@ use rama::http::service::web::extract::State;
 use async_stream::stream;
 use crate::sse::BufferedEvent;
 use crate::server::SharedState;
-use crate::common;
+use crate::utils::request::{extract_context};
+
 
 /// GET /sse — SSE endpoint with buffered state replay
 pub async fn sse_endpoint(
     State(_state): State<SharedState>,
     req: Request,
 ) -> Response {
-    let ctx = common::extract_context(&req);
+    let ctx = extract_context(&req);
 
     // Parse known_hashes from query string
     let known_hashes = parse_known_hashes(&req);

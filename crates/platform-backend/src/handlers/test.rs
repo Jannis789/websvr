@@ -3,14 +3,15 @@ use rama::http::{Request, Response, StatusCode};
 use rama::http::service::web::extract::State;
 use crate::crypto::compute_content_hash;
 use crate::server::SharedState;
-use crate::common::{self, html_response, empty_response};
+use crate::utils::request::{extract_context};
+use crate::utils::response::{empty_response, html_response};
 
 /// GET /test — E2E test harness page
 pub async fn test_page(
     State(_state): State<SharedState>,
     req: Request,
 ) -> Response {
-    let _ctx = common::extract_context(&req);
+    let _ctx = extract_context(&req);
     elog!(Debug, "Test → test page requested (client_id={})", _ctx.client_id);
     html_response(include_str!("../../assets/templates/test.html"))
 }
@@ -53,7 +54,7 @@ pub async fn test_run(
     State(_state): State<SharedState>,
     req: Request,
 ) -> Response {
-    let ctx = common::extract_context(&req);
+    let ctx = extract_context(&req);
     let sse_broadcaster = ctx.sse_broadcaster.clone();
     let event_emitter = ctx.event_emitter.clone();
     elog!(Info, "Test → running hash-sync test sequence");

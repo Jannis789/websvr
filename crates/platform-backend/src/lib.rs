@@ -9,7 +9,6 @@ pub mod entities;
 pub mod client_context;
 pub mod context;
 pub mod crypto;
-pub mod common;
 pub mod utils;
 
 /// Centralized logging macro. Captures file:line automatically.

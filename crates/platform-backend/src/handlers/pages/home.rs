@@ -2,9 +2,10 @@ use crate::elog;
 use rama::http::Request;
 use rama::http::service::web::extract::State;
 use crate::server::SharedState;
-use crate::common::{self, html_response};
 use crate::components::Shell;
 use crate::components::sidebar::Sidebar;
+use crate::utils::request::{extract_context};
+use crate::utils::response::{Response, html_response};
 
 static SHELL: &str = include_str!("../../../assets/fragments/shell.html");
 
@@ -18,8 +19,8 @@ static CONTENT_OVERVIEW: &str = include_str!("../../../assets/fragments/content/
 pub async fn home_page(
     State(_state): State<SharedState>,
     req: Request,
-) -> common::Response {
-    let ctx = common::extract_context(&req);
+) -> Response {
+    let ctx = extract_context(&req);
     elog!(Debug, "Handler → home_page (client_id={})", ctx.client_id);
 
     Shell::empty()
