@@ -17,7 +17,7 @@
 .theme-switch .slider {
   position: absolute;
   inset: 0;
-  background-color: #4b4f64;
+  background-color: var(--switch-inactive-bg);
   border-radius: 12px;
   transition: background-color 0.25s ease;
 }
@@ -29,15 +29,15 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background-color: #d2d3d7;
+  background-color: var(--switch-icon-color);
   left: 3px;
   top: 3px;
   transition: transform 0.25s ease, background-color 0.25s ease;
 }
 
-/* Active: blue track, white knob slides right */
+/* Active: accent track, white knob slides right */
 .theme-switch .slider.checked {
-  background-color: #7aa2f7;
+  background-color: var(--accent);
 }
 
 .theme-switch .slider.checked::after {
@@ -52,11 +52,11 @@
   left: 5px;
   width: 14px;
   height: 14px;
-  color: #1a1b26;
+  color: var(--bg-primary);
   z-index: 2;
   pointer-events: none;
   opacity: 0.6;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease;
 }
 
 /* Sun — right, hidden in dark mode */
@@ -66,11 +66,11 @@
   right: 5px;
   width: 14px;
   height: 14px;
-  color: #1a1b26;
+  color: var(--bg-primary);
   z-index: 1;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease;
 }
 
 /* Light mode: moon hidden, sun visible */
