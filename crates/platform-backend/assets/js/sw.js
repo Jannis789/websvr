@@ -1,14 +1,10 @@
 // Service Worker — Hash-Sync Interceptor & Event Cache
 //
-// Caches complete SSE events (raw text) keyed by their hash.
-// On reload, replays cached events to Datastar, sends known_hashes
-// to the server so it skips already-seen events, and passes the
-// live response through unchanged.
-//
-// The server buffers only the initial page state. Navigation events
-// (should_cache: false) are broadcast but not buffered. On reload the
-// server always replays the correct initial state, which overwrites any
-// stale navigation events from the SW cache (last patch wins).
+// Caches SSE events (raw text) keyed by hash for deduplication.
+// On reload: clears the registry, lets the server send the full
+// initial state fresh — no stale navigation events can leak through.
+// For live navigation: passes events through and registers hashes
+// so the server can skip already-seen events on reconnect.
 
 const HASH_REGISTRY = new Map(); // hash → { rawEvent, timestamp }
 const MAX_REGISTRY_SIZE = 2000;
@@ -66,7 +62,17 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (url.pathname === '/sse') {
+    // Grab known hashes BEFORE clearing — server needs them to skip
+    // events that are still in-flight (edge case: fast reconnect).
+    // On full page reload the registry is already empty from install,
+    // so known will be empty and the server sends everything.
     const known = Array.from(HASH_REGISTRY.keys()).join(',');
+
+    // Clear registry on every SSE reconnect.
+    // The server will send the full initial state fresh.
+    // Old navigation events must not leak into the replay.
+    HASH_REGISTRY.clear();
+
     const sseUrl = known.length > 0
       ? `${url.origin}${url.pathname}?known_hashes=${encodeURIComponent(known)}`
       : `${url.origin}${url.pathname}`;
@@ -75,24 +81,15 @@ self.addEventListener('fetch', (event) => {
       fetch(sseUrl).then((response) => {
         if (!response.body) return response;
 
-        const encoder = new TextEncoder();
         const decoder = new TextDecoder();
         const learn = createStreamLearner();
 
-        // Replay prefix: concatenate all cached raw events
-        const cached = [];
-        for (const entry of HASH_REGISTRY.values()) {
-          cached.push(entry.rawEvent);
-        }
-
-        const combined = new ReadableStream({
+        // No replay prefix — server sends everything fresh.
+        // Just learn new events as they come through.
+        const passthrough = new ReadableStream({
           async start(controller) {
-            // 1. Replay cached events
-            if (cached.length > 0) {
-              controller.enqueue(encoder.encode(cached.join('')));
-            }
-            // 2. Pipe live response through, learning new events
             const reader = response.body.getReader();
+            const encoder = new TextEncoder();
             try {
               while (true) {
                 const { done, value } = await reader.read();
@@ -106,7 +103,7 @@ self.addEventListener('fetch', (event) => {
           }
         });
 
-        return new Response(combined, {
+        return new Response(passthrough, {
           status: response.status,
           statusText: response.statusText,
           headers: response.headers,

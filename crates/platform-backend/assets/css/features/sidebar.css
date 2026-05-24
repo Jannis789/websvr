@@ -17,7 +17,7 @@
       z-index: 100;
       width: min(280px, 80vw);
       border-right: none;
-      box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+      box-shadow: none;
       transform: translateX(-100%);
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                   background-color 0.25s, border-color 0.25s;
@@ -87,6 +87,38 @@
   font-size: clamp(0.9rem, 1.5vw, 1.05rem);
   font-weight: 600;
   color: var(--fg-primary);
+}
+
+/* ── Sidebar Close (mobile only) ── */
+.sidebar-close {
+  display: none;
+
+  @media (width < 768px) {
+    & {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      margin-left: auto;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      color: var(--fg-muted);
+      transition: background-color 0.15s ease;
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+      color: var(--fg-primary);
+    }
+  }
+}
+
+.sidebar-close .icon {
+  width: 18px;
+  height: 18px;
 }
 
 /* ── Sidebar Menu ── */

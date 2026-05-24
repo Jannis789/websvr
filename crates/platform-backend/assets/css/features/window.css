@@ -2,7 +2,7 @@
 
 /* ── App Layout: Sidebar + Main (home page) ── */
 .app-layout {
-  --app-max-w: 960px;
+  --app-max-w: 1600px;
   --app-margin: clamp(8px, 2vw, 16px);
 
   width: min(var(--app-max-w), calc(100vw - var(--app-margin) * 2));
