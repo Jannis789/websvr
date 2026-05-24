@@ -2,7 +2,8 @@ use rama::http::Request;
 use rama::http::service::web::extract::State;
 use crate::server::SharedState;
 use crate::common::{self, html_response};
-use crate::components::{Shell, Sidebar};
+use crate::components::Shell;
+use crate::components::sidebar::Sidebar;
 
 static SHELL: &str = include_str!("../../assets/fragments/shell.html");
 

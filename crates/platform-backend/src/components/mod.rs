@@ -2,13 +2,17 @@ use rama::http::body::sse::datastar::PatchElements;
 use platform_core::ClientContext;
 use crate::context::ClientContextSseExt;
 
-/// A single patch: the raw HTML (for hashing) and the PatchElements (for SSE).
+pub mod sidebar;
+
+// ── PatchEntry: data + elements for a single SSE patch ──
+
 pub struct PatchEntry {
     pub data: &'static str,
     pub elements: PatchElements,
 }
 
-/// Strategy trait: anything that can produce SSE patches.
+// ── Patch trait: strategy interface for composable components ──
+
 pub trait Patch {
     fn into_patches(self) -> Vec<PatchEntry>;
 }
@@ -33,39 +37,6 @@ impl Patch for Fragment {
             elements: PatchElements::new(self.html.try_into().unwrap())
                 .with_selector(self.selector.try_into().unwrap()),
         }]
-    }
-}
-
-// ── Sidebar: multiple slots ──
-
-pub struct Sidebar {
-    patches: Vec<PatchEntry>,
-}
-
-impl Sidebar {
-    pub fn empty() -> Self {
-        Sidebar { patches: vec![] }
-    }
-
-    pub fn header(mut self, html: &'static str) -> Self {
-        self.patches.extend(Fragment::new("#sidebar-header", html).into_patches());
-        self
-    }
-
-    pub fn menu(mut self, html: &'static str) -> Self {
-        self.patches.extend(Fragment::new("#sidebar-menu", html).into_patches());
-        self
-    }
-
-    pub fn footer(mut self, html: &'static str) -> Self {
-        self.patches.extend(Fragment::new("#sidebar-footer", html).into_patches());
-        self
-    }
-}
-
-impl Patch for Sidebar {
-    fn into_patches(self) -> Vec<PatchEntry> {
-        self.patches
     }
 }
 
@@ -97,11 +68,11 @@ impl Shell {
     }
 
     /// Convenience: sidebar component.
-    pub fn sidebar(self, sidebar: Sidebar) -> Self {
+    pub fn sidebar(self, sidebar: sidebar::Sidebar) -> Self {
         self.add(sidebar)
     }
 
-    /// Emit all collected patches via SSE and return the shell HTML.
+    /// Emit all collected patches via SSE.
     pub fn emit(self, ctx: &ClientContext) {
         for entry in self.patches {
             ctx.emit_patch(entry.data, entry.elements, true);
