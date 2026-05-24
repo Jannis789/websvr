@@ -13,9 +13,9 @@
     }
   </script>
 </head>
-<body data-signals="{activePage:'overview',popupOpen:false,lightMode:false}" data-class:light-mode="$lightMode">
+<body data-signals="{activePage:'overview',popupOpen:false,lightMode:false,sidebarOpen:false}" data-class:light-mode="$lightMode">
 
-  <div class="app-layout">
+  <div class="app-layout" data-class:sidebar-open="$sidebarOpen">
 
     <aside class="sidebar">
       <div class="sidebar-top">
@@ -25,7 +25,12 @@
       <div id="sidebar-footer"></div>
     </aside>
 
+    <div class="sidebar-backdrop" data-on:click="$sidebarOpen = false"></div>
+
     <main class="main-container">
+      <button class="hamburger" data-on:click="$sidebarOpen = !$sidebarOpen" aria-label="Menu">
+        <span class="icon icon-open-menu"></span>
+      </button>
       <div id="main-header"></div>
       <div id="content-body"></div>
     </main>

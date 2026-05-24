@@ -1,7 +1,7 @@
 /* ===== Sidebar ===== */
 
 .sidebar {
-  width: 260px;
+  width: clamp(200px, 22vw, 260px);
   flex-shrink: 0;
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
@@ -9,7 +9,59 @@
   flex-direction: column;
   position: relative;
   transition: background-color 0.25s, border-color 0.25s;
+
+  @media (width < 768px) {
+    & {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 100;
+      width: min(280px, 80vw);
+      border-right: none;
+      box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  background-color 0.25s, border-color 0.25s;
+    }
+  }
 }
+
+/* Sidebar open state (mobile) */
+.app-layout.sidebar-open > .sidebar {
+  @media (width < 768px) {
+    & {
+      transform: translateX(0);
+    }
+  }
+}
+
+/* ── Sidebar Backdrop (mobile overlay) ── */
+.sidebar-backdrop {
+  display: none;
+
+  @media (width < 768px) {
+    & {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background-color: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+  }
+}
+
+.app-layout.sidebar-open > .sidebar-backdrop {
+  @media (width < 768px) {
+    & {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+}
+
+/* ── Structure ── */
 
 .sidebar-top {
   display: flex;
@@ -32,7 +84,7 @@
 }
 
 .sidebar-title {
-  font-size: 1.05rem;
+  font-size: clamp(0.9rem, 1.5vw, 1.05rem);
   font-weight: 600;
   color: var(--fg-primary);
 }
@@ -116,7 +168,6 @@
   height: 32px;
   border-radius: 50%;
   background-color: var(--bg-hover);
-  /* mask is already applied via .icon-person */
 }
 
 .username {

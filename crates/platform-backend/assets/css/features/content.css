@@ -2,13 +2,14 @@
 
 .main-container {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .main-header {
   height: 56px;
-  padding: 0 24px;
+  padding: 0 clamp(12px, 3vw, 24px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -29,7 +30,7 @@
 
 .content-body {
   flex: 1;
-  padding: 24px;
+  padding: clamp(12px, 3vw, 24px);
   overflow-y: auto;
 }
 
@@ -37,4 +38,35 @@
   font-size: 1.2rem;
   font-weight: 700;
   margin-bottom: 8px;
+}
+
+/* ── Hamburger Button (mobile only) ── */
+.hamburger {
+  display: none;
+
+  @media (width < 768px) {
+    & {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      color: var(--fg-primary);
+      flex-shrink: 0;
+      transition: background-color 0.15s ease;
+    }
+
+    &:hover {
+      background-color: var(--bg-hover);
+    }
+  }
+}
+
+.hamburger .icon {
+  width: 22px;
+  height: 22px;
 }

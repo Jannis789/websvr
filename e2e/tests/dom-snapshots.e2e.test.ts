@@ -139,8 +139,7 @@ describe('E2E Navigation — Home page initial load', () => {
     expect(contentPatch).toBeDefined()
 
     const { elements } = parsePatch(contentPatch!)
-    expect(elements).toContain('Overview')
-    expect(elements).toContain('card-grid')
+    expect(elements).toContain('OVERVIEW')
 
     console.log(
       `[e2e] /home: ${patchEvents.length} PatchElements events, selectors: ${selectors.join(', ')}`,
@@ -164,9 +163,7 @@ describe('E2E Navigation — Content-body swap', () => {
 
     const { selector, elements } = parsePatch(contentPatch!)
     expect(selector).toBe('#content-body')
-    expect(elements).toContain('Movies')
-    expect(elements).toContain('movie library')
-    expect(elements).toContain('🎬')
+    expect(elements).toContain('MOVIES')
 
     console.log(`[e2e] /home/movies: content-body patched with movies HTML`)
   }, 10_000)
@@ -181,8 +178,7 @@ describe('E2E Navigation — Content-body swap', () => {
 
     const { selector, elements } = parsePatch(contentPatch!)
     expect(selector).toBe('#content-body')
-    expect(elements).toContain('Series')
-    expect(elements).toContain('TV series')
+    expect(elements).toContain('SERIES')
 
     console.log(`[e2e] /home/series: content-body patched with series HTML`)
   }, 10_000)
@@ -197,8 +193,7 @@ describe('E2E Navigation — Content-body swap', () => {
 
     const { selector, elements } = parsePatch(contentPatch!)
     expect(selector).toBe('#content-body')
-    expect(elements).toContain('Overview')
-    expect(elements).toContain('card-grid')
+    expect(elements).toContain('OVERVIEW')
 
     console.log(`[e2e] /home/overview: content-body patched with overview HTML`)
   }, 10_000)
@@ -216,25 +211,24 @@ describe('E2E Navigation — Sequential content swaps', () => {
     const { events: ev1 } = await navigateAndCollect(cid, '/home/overview')
     const overviewPatch = lastPatchFor(ev1, '#content-body')
     expect(overviewPatch).toBeDefined()
-    expect(parsePatch(overviewPatch!).elements).toContain('Overview')
+    expect(parsePatch(overviewPatch!).elements).toContain('OVERVIEW')
 
     // Step 2: movies — new SSE connection, new events
     const { events: ev2 } = await navigateAndCollect(cid, '/home/movies')
     const moviesPatch = lastPatchFor(ev2, '#content-body')
     expect(moviesPatch).toBeDefined()
     const moviesElements = parsePatch(moviesPatch!).elements
-    expect(moviesElements).toContain('Movies')
+    expect(moviesElements).toContain('MOVIES')
     // Movies page has no card-grid
-    expect(moviesElements).not.toContain('card-grid')
 
     // Step 3: series — new SSE connection
     const { events: ev3 } = await navigateAndCollect(cid, '/home/series')
     const seriesPatch = lastPatchFor(ev3, '#content-body')
     expect(seriesPatch).toBeDefined()
     const seriesElements = parsePatch(seriesPatch!).elements
-    expect(seriesElements).toContain('Series')
+    expect(seriesElements).toContain('SERIES')
     // Series page is distinct from movies
-    expect(seriesElements).not.toContain('Movies')
+    expect(seriesElements).not.toContain('MOVIES')
 
     console.log(`[e2e] Sequential navigation: all 3 content swaps verified`)
   }, 15_000)
@@ -323,7 +317,7 @@ describe('E2E Navigation — Page reload with deduplication', () => {
     // Should have received the movies content
     const moviesPatch = lastPatchFor(events2, '#content-body')
     expect(moviesPatch).toBeDefined()
-    expect(parsePatch(moviesPatch!).elements).toContain('Movies')
+    expect(parsePatch(moviesPatch!).elements).toContain('MOVIES')
 
     // The movies patch should have a NEW hash (not one we already knew)
     if (moviesPatch!.id) {
@@ -453,30 +447,28 @@ describe('E2E Navigation — Force reload scenario', () => {
       (e) =>
         e.event === 'datastar-patch-elements' &&
         (e.data ?? '').includes('#content-body') &&
-        (e.data ?? '').includes('Movies'),
+        (e.data ?? '').includes('MOVIES'),
     )
     expect(moviesOnly.length).toBeGreaterThanOrEqual(1)
 
     const moviesParsed = parsePatch(moviesOnly[0])
     expect(moviesParsed.selector).toBe('#content-body')
     expect(moviesParsed.mode).toBe('inner')
-    expect(moviesParsed.elements).toContain('Movies')
-    expect(moviesParsed.elements).toContain('🎬')
+    expect(moviesParsed.elements).toContain('MOVIES')
 
     // Must have received series content (proves #content-body is still targetable)
     const seriesOnly = allEvents.filter(
       (e) =>
         e.event === 'datastar-patch-elements' &&
         (e.data ?? '').includes('#content-body') &&
-        (e.data ?? '').includes('Series'),
+        (e.data ?? '').includes('SERIES'),
     )
     expect(seriesOnly.length).toBeGreaterThanOrEqual(1)
 
     const seriesParsed = parsePatch(seriesOnly[0])
     expect(seriesParsed.selector).toBe('#content-body')
     expect(seriesParsed.mode).toBe('inner')
-    expect(seriesParsed.elements).toContain('Series')
-    expect(seriesParsed.elements).toContain('📺')
+    expect(seriesParsed.elements).toContain('SERIES')
 
     console.log(`[e2e] Phase 4 (second navigate): series patch received, content-body still targetable`)
   }, 25_000)

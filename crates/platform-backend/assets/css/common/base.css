@@ -22,10 +22,9 @@ body {
   height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 10px;
+  align-items: flex-start;
   background-color: var(--bg-outer, var(--bg-primary));
-  overflow: hidden;
+  overflow: auto;
   transition: background-color 0.25s ease;
 }
 
