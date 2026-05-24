@@ -1,7 +1,8 @@
 use crate::elog;
 use std::sync::Arc;
 
-use platform_core::{ClientId, Config, I18n, SseBroadcaster};
+use platform_core::{ClientId, Config, I18n};
+use crate::sse::SseBroadcaster;
 use sea_orm::DatabaseConnection;
 use rama::http::layer::compression::CompressionLayer;
 use rama::http::layer::validate_request::ValidateRequestHeaderLayer;

@@ -5,7 +5,7 @@ use rama::http::service::web::response::{Sse, IntoResponse};
 use rama::http::sse::{Event, EventBuildError};
 use rama::http::service::web::extract::State;
 use async_stream::stream;
-use platform_core::BufferedEvent;
+use crate::sse::BufferedEvent;
 use crate::server::SharedState;
 use crate::common;
 

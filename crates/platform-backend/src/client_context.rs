@@ -1,14 +1,9 @@
 use std::sync::Arc;
 
-use crate::{ClientId, SessionStorage, EventEmitter, SseBroadcaster};
+use platform_core::{ClientId, SessionStorage};
+use crate::sse::{EventEmitter, SseBroadcaster};
 
 /// Aggregated per-request client state.
-///
-/// Injected into `req.extensions()` by `ClientContextService`
-/// and extracted by handlers via `extract_context(&req)`.
-///
-/// Contains everything a handler needs to emit SSE events
-/// and access session data.
 #[derive(Debug, Clone)]
 pub struct ClientContext {
     pub client_id: ClientId,
@@ -18,7 +13,6 @@ pub struct ClientContext {
 }
 
 impl ClientContext {
-    /// Create a fresh `ClientContext` for a new client.
     pub fn new(client_id: ClientId, sse_broadcaster: Arc<SseBroadcaster>) -> Self {
         Self {
             session_storage: SessionStorage::new(client_id),
@@ -28,7 +22,6 @@ impl ClientContext {
         }
     }
 
-    /// Create a `ClientContext` from an existing session.
     pub fn with_session(
         client_id: ClientId,
         session: SessionStorage,
@@ -42,11 +35,6 @@ impl ClientContext {
         }
     }
 
-    /// Create a `ClientContext` with a pre-existing `EventEmitter`.
-    ///
-    /// This is used by `ClientContextService` to share the same event buffer
-    /// across all requests from the same client, which is essential for
-    /// Phase 1 (replay) of the SSE endpoint.
     pub fn with_session_and_emitter(
         client_id: ClientId,
         session: SessionStorage,

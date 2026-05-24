@@ -7,7 +7,9 @@ use rama::http::Request;
 use rama::http::header;
 use rama::http::response::Response;
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
-use platform_core::{ClientId, SessionStorage, ClientContext, SseBroadcaster, EventEmitter, Config};
+use platform_core::{ClientId, SessionStorage, Config};
+use crate::client_context::ClientContext;
+use crate::sse::{SseBroadcaster, EventEmitter};
 use std::convert::Infallible;
 use std::future::Future;
 

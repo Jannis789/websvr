@@ -6,6 +6,7 @@ pub mod handlers;
 pub mod sse;
 pub mod db;
 pub mod entities;
+pub mod client_context;
 pub mod context;
 pub mod crypto;
 pub mod common;

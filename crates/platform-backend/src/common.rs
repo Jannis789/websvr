@@ -1,7 +1,7 @@
 use rama::http::{Request, StatusCode};
 use rama::http::header;
 use rama::extensions::ExtensionsRef;
-use platform_core::ClientContext;
+use crate::client_context::ClientContext;
 
 /// Utility: extract `ClientContext` from request extensions.
 #[inline]

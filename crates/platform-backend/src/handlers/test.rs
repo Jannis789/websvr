@@ -1,7 +1,7 @@
 use crate::elog;
 use rama::http::{Request, Response, StatusCode};
 use rama::http::service::web::extract::State;
-use platform_core::compute_content_hash;
+use crate::crypto::compute_content_hash;
 use crate::server::SharedState;
 use crate::common::{self, html_response, empty_response};
 
@@ -139,7 +139,7 @@ pub async fn test_run(
         // ────────────────────────────────────────
         let _ = sse_broadcaster.broadcast(marker_event("phase-f-start", "Phase F: PatchSignals"));
 
-        let signals_event = platform_core::BufferedEvent {
+        let signals_event = crate::sse::BufferedEvent {
             hash: compute_content_hash("{\"test_signal\": true}", &secret),
             payload: "{\"test_signal\": true}".to_string(),
             event_type: "datastar-patch-signals".to_string(),
@@ -151,7 +151,7 @@ pub async fn test_run(
         // ────────────────────────────────────────
         // Phase G: Completion marker — TS tests await this hash
         // ────────────────────────────────────────
-        let _ = sse_broadcaster.broadcast(platform_core::BufferedEvent {
+        let _ = sse_broadcaster.broadcast(crate::sse::BufferedEvent {
             hash: "test-complete".to_string(),
             payload: "<div id='test-complete' class='test-info' style='display:none'></div>".to_string(),
             event_type: "datastar-patch-elements".to_string(),
@@ -170,9 +170,9 @@ pub async fn test_run(
 }
 
 /// Helper: create a `BufferedEvent` from an HTML snippet for PatchElements.
-fn buffered_patch(html: &str, secret: &str) -> platform_core::BufferedEvent {
+fn buffered_patch(html: &str, secret: &str) -> crate::sse::BufferedEvent {
     let hash = compute_content_hash(html, secret);
-    platform_core::BufferedEvent {
+    crate::sse::BufferedEvent {
         hash,
         payload: html.to_string(),
         event_type: "datastar-patch-elements".to_string(),
@@ -180,8 +180,8 @@ fn buffered_patch(html: &str, secret: &str) -> platform_core::BufferedEvent {
 }
 
 /// Helper: create a marker/info event (visible in test results).
-fn marker_event(hash_suffix: &str, message: &str) -> platform_core::BufferedEvent {
-    platform_core::BufferedEvent {
+fn marker_event(hash_suffix: &str, message: &str) -> crate::sse::BufferedEvent {
+    crate::sse::BufferedEvent {
         hash: format!("marker-{}", hash_suffix),
         payload: format!(
             "<div class='test-info test-marker' data-marker='{}'>📋 {}</div>",

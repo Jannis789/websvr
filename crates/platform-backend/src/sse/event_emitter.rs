@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::BufferedEvent;
+use super::BufferedEvent;
 
 /// Per-client event buffer keyed by selector.
 ///

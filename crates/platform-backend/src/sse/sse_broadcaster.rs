@@ -1,4 +1,4 @@
-use crate::BufferedEvent;
+use super::BufferedEvent;
 use tokio::sync::broadcast;
 
 /// A multi-producer, multi-consumer SSE broadcaster.

@@ -3,10 +3,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 
 const SALT_LEN: usize = 16;
 
-/// Cryptographic utilities for password hashing and content hashing.
-///
-/// Uses `ring::hmac::HMAC_SHA256` for both password storage
-/// and the deterministic content hash used in SSE hash-sync.
+/// Password hashing utilities using HMAC-SHA256.
 #[derive(Debug)]
 pub struct PasswordUtil;
 
@@ -48,31 +45,17 @@ impl PasswordUtil {
 
         let expected = Self::hash_password(password, &salt);
 
-        // Constant-time comparison of the raw hash bytes.
-        // Manual implementation to avoid deprecated ring::constant_time.
-        // XOR all bytes, then check if the accumulator is zero.
         let expected_hash = expected.split('.').nth(1).unwrap_or("");
         let stored_hash = parts[1];
         if expected_hash.len() != stored_hash.len() {
             return false;
         }
-        let cmp = expected_hash.bytes()
+        let cmp = expected_hash
+            .bytes()
             .zip(stored_hash.bytes())
             .fold(0u8, |acc, (a, b)| acc | (a ^ b));
         cmp == 0
     }
-}
-
-/// Compute a deterministic content hash for SSE hash-sync.
-///
-/// Uses HMAC-SHA256 with a secret key (from env), truncates to
-/// 16 bytes (128 bit), and returns a hex-encoded string.
-/// This is deterministic across server restarts, unlike `std::hash::Hash`.
-pub fn compute_content_hash(data: &str, hmac_secret: &str) -> String {
-    let key = hmac::Key::new(hmac::HMAC_SHA256, hmac_secret.as_bytes());
-    let tag = hmac::sign(&key, data.as_bytes());
-    // Truncate to 16 bytes (128 bit) for efficient hash-sync in the Service Worker
-    hex::encode(&tag.as_ref()[..16])
 }
 
 #[cfg(test)]
@@ -84,20 +67,5 @@ mod tests {
         let hash = PasswordUtil::hash_new("hunter2");
         assert!(PasswordUtil::verify_password("hunter2", &hash));
         assert!(!PasswordUtil::verify_password("wrong", &hash));
-    }
-
-    #[test]
-    fn test_content_hash_deterministic() {
-        let a = compute_content_hash("hello", "secret");
-        let b = compute_content_hash("hello", "secret");
-        assert_eq!(a, b);
-        assert_eq!(a.len(), 32); // 16 bytes = 32 hex chars
-    }
-
-    #[test]
-    fn test_content_hash_different() {
-        let a = compute_content_hash("hello", "secret");
-        let b = compute_content_hash("world", "secret");
-        assert_ne!(a, b);
     }
 }

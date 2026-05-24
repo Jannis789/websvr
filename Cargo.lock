@@ -2313,13 +2313,10 @@ dependencies = [
 name = "platform-core"
 version = "0.0.1"
 dependencies = [
- "chrono",
  "hex",
  "ring",
- "sea-orm",
  "serde",
  "serde_json",
- "tokio",
  "uuid",
 ]
 
