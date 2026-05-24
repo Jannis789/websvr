@@ -15,26 +15,37 @@ pub async fn sse_endpoint(
     req: Request,
 ) -> Response {
     let ctx = common::extract_context(&req);
-    elog!(Debug, "SSE → endpoint connected (client_id={})", ctx.client_id);
+
+    // Parse known_hashes from query string
+    let known_hashes = parse_known_hashes(&req);
+    elog!(Debug, "SSE → connected (client_id={}, known={})", ctx.client_id, known_hashes.len());
 
     // 1. Subscribe to the broadcast channel FIRST
-    //    (so we don't miss events between Phase 1 and Phase 2)
     let mut rx = ctx.sse_broadcaster.subscribe();
 
     // 2. Generate async SSE stream
     let stream = stream! {
-        // Phase 1: Replay buffered events (current state snapshot)
+        // Phase 1: Replay buffered events, skip known ones
         let buffered = ctx.event_emitter.get_buffered_events();
-        elog!(Debug, "SSE → replaying {} buffered events", buffered.len());
+        let mut sent = 0;
+        let mut skipped = 0;
         for event in &buffered {
+            if known_hashes.contains(&event.hash) {
+                skipped += 1;
+                continue;
+            }
             if let Ok(sse_event) = build_sse_event(event) {
                 yield Ok::<Event<String>, EventBuildError>(sse_event);
+                sent += 1;
             }
         }
-        elog!(Debug, "SSE → Phase 1 complete, entering live mode");
+        elog!(Debug, "SSE → Phase 1: sent {}, skipped {} (known)", sent, skipped);
 
         // Phase 2: Live events from broadcast channel
         while let Ok(event) = rx.recv().await {
+            if known_hashes.contains(&event.hash) {
+                continue;
+            }
             if let Ok(sse_event) = build_sse_event(&event) {
                 yield Ok::<Event<String>, EventBuildError>(sse_event);
             }
@@ -43,6 +54,25 @@ pub async fn sse_endpoint(
 
     // 3. Sse implements IntoResponse
     Sse::new(stream).into_response()
+}
+
+/// Parse `known_hashes` from the query string.
+/// Format: `?known_hashes=hash1,hash2,hash3`
+fn parse_known_hashes(req: &Request) -> std::collections::HashSet<String> {
+    let mut set = std::collections::HashSet::new();
+    if let Some(query) = req.uri().query() {
+        for pair in query.split('&') {
+            if let Some(value) = pair.strip_prefix("known_hashes=") {
+                for hash in value.split(',') {
+                    let h = hash.trim();
+                    if !h.is_empty() {
+                        set.insert(h.to_string());
+                    }
+                }
+            }
+        }
+    }
+    set
 }
 
 /// Build a Rama `Event<String>` from a `BufferedEvent`.
