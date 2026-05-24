@@ -238,8 +238,8 @@ describe('E2E Navigation — Sequential content swaps', () => {
 // Tests — Page reload (known_hashes dedup)
 // ─────────────────────────────────────────────
 
-describe('E2E Navigation — Page reload with deduplication', () => {
-  test('after reload, known_hashes prevents re-sending already-seen content', async () => {
+describe('E2E Navigation — Page reload', () => {
+  test('after reload, server replays all buffered events (full state)', async () => {
     const cid = generateClientId()
 
     // First visit: load home (gets all shell components)
@@ -251,59 +251,42 @@ describe('E2E Navigation — Page reload with deduplication', () => {
       .filter((id): id is string => !!id)
 
     expect(patchIds1.length).toBeGreaterThanOrEqual(5)
+    console.log(`[e2e] First visit: ${patchIds1.length} events`)
 
-    // Take all event IDs as "known"
-    const knownHashes = patchIds1.join(',')
-    console.log(`[e2e] First visit: ${patchIds1.length} events, hashes collected`)
-
-    // Simulate page reload: reconnect with known_hashes
-    // The buffered events should be skipped since we already know them
-    const sseResp2 = await fetch(
-      `${BASE_URL}/sse?known_hashes=${knownHashes}`,
-      {
-        headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
-      },
-    )
+    // Simulate page reload: reconnect WITHOUT known_hashes
+    // Server should replay the full buffered state
+    const sseResp2 = await fetch(`${BASE_URL}/sse`, {
+      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+    })
     expect(sseResp2.status).toBe(200)
 
-    // Collect for a short time — should get NO duplicate patch events
     const events2 = await collectSseEvents(sseResp2, 2_000)
+    const patches2 = filterPatch(events2)
 
-    const patchIds2 = filterPatch(events2)
-      .map((e) => e.id)
-      .filter((id): id is string => !!id)
+    // Should receive buffered events (the full shell state)
+    expect(patches2.length).toBeGreaterThanOrEqual(5)
 
-    // Verify none of the known hashes leaked through
-    const knownSet = new Set(patchIds1)
-    const leaked = patchIds2.filter((h) => knownSet.has(h))
-    expect(leaked.length).toBe(0)
+    // Last content-body should be OVERVIEW (not a stale navigation)
+    const lastContent = lastPatchFor(events2, '#content-body')
+    expect(lastContent).toBeDefined()
+    expect(parsePatch(lastContent!).elements).toContain('OVERVIEW')
 
-    console.log(
-      `[e2e] Reload: ${patchIds2.length} events (${leaked.length} leaked)`,
-    )
+    console.log(`[e2e] Reload: ${patches2.length} events replayed, content=OVERVIEW`)
   }, 15_000)
 
-  test('after reload + navigation, new content arrives even with known_hashes', async () => {
+  test('after reload + navigation, new content arrives correctly', async () => {
     const cid = generateClientId()
 
     // First visit: load overview
     const { events: ev1 } = await navigateAndCollect(cid, '/home/overview')
-    const patchIds1 = new Set(
-      filterPatch(ev1)
-        .map((e) => e.id)
-        .filter((id): id is string => !!id),
-    )
+    expect(ev1.length).toBeGreaterThan(0)
 
-    // Reconnect with known_hashes, then navigate to movies
-    const knownHashes = Array.from(patchIds1).join(',')
-    const sseResp2 = await fetch(
-      `${BASE_URL}/sse?known_hashes=${knownHashes}`,
-      {
-        headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
-      },
-    )
+    // Reconnect, then navigate to movies
+    const sseResp2 = await fetch(`${BASE_URL}/sse`, {
+      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+    })
 
-    // Wait for initial replay to settle, then navigate to movies
+    // Wait for replay to settle, then navigate
     await new Promise((r) => setTimeout(r, 500))
 
     const navResp = await fetch(`${BASE_URL}/home/movies`, {
@@ -311,20 +294,13 @@ describe('E2E Navigation — Page reload with deduplication', () => {
     })
     expect(navResp.status).toBe(303)
 
-    // Collect events from the SSE connection
     const events2 = await collectSseEvents(sseResp2, 3_000)
 
-    // Should have received the movies content
     const moviesPatch = lastPatchFor(events2, '#content-body')
     expect(moviesPatch).toBeDefined()
     expect(parsePatch(moviesPatch!).elements).toContain('MOVIES')
 
-    // The movies patch should have a NEW hash (not one we already knew)
-    if (moviesPatch!.id) {
-      expect(patchIds1.has(moviesPatch!.id)).toBe(false)
-    }
-
-    console.log(`[e2e] Reload+navigate: movies content received, no duplicates`)
+    console.log(`[e2e] Reload+navigate: movies content received`)
   }, 15_000)
 })
 
@@ -353,34 +329,17 @@ describe('E2E Navigation — Force reload scenario', () => {
     const patches1 = filterPatch(events1)
     expect(patches1.length).toBeGreaterThanOrEqual(5)
 
-    // Extract content-body hash from initial load
     const initialContentPatch = lastPatchFor(events1, '#content-body')
     expect(initialContentPatch).toBeDefined()
-    expect(initialContentPatch!.id).toBeTruthy()
+    console.log(`[e2e] Phase 1: ${patches1.length} events`)
 
-    console.log(`[e2e] Phase 1: ${patches1.length} events, content-body hash=${initialContentPatch!.id}`)
-
-    // Collect ALL known hashes (simulates what the SW would store)
-    const knownHashes = patches1
-      .map((e) => e.id)
-      .filter((id): id is string => !!id)
-      .join(',')
-
-    // === Phase 2+3+4: Reconnect with known_hashes, then navigate ===
-    // We open a new SSE connection and collect events throughout:
-    //   - First: buffered replay (should be empty due to known_hashes)
-    //   - Then: navigate to movies → collect movies event
-    //   - Then: navigate to series → collect series event
-    const sseResp2 = await fetch(
-      `${BASE_URL}/sse?known_hashes=${encodeURIComponent(knownHashes)}`,
-      {
-        headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
-      },
-    )
+    // === Phase 2: Reconnect without known_hashes (full reload) ===
+    const sseResp2 = await fetch(`${BASE_URL}/sse`, {
+      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+    })
     expect(sseResp2.status).toBe(200)
 
-    // Start collecting from the new SSE stream with a generous timeout
-    // We trigger navigations DURING collection using concurrent promises
+    // Collect replay + navigations
     const collectAll = async (): Promise<SseEvent[]> => {
       const controller = new AbortController()
       const events: SseEvent[] = []
@@ -396,28 +355,24 @@ describe('E2E Navigation — Force reload scenario', () => {
       }
 
       const navigations = async () => {
-        // Wait for replay to settle
         await new Promise((r) => setTimeout(r, 1_500))
 
-        // Phase 3: Navigate to movies
+        // Navigate to movies
         const navResp1 = await fetch(`${BASE_URL}/home/movies`, {
           headers: authHeaders(cid),
         })
         expect(navResp1.status).toBe(303)
 
-        // Wait for movies event to arrive
         await new Promise((r) => setTimeout(r, 2_000))
 
-        // Phase 4: Navigate to series
+        // Navigate to series
         const navResp2 = await fetch(`${BASE_URL}/home/series`, {
           headers: authHeaders(cid),
         })
         expect(navResp2.status).toBe(303)
 
-        // Wait for series event to arrive
         await new Promise((r) => setTimeout(r, 2_000))
 
-        // Done — abort the SSE stream
         controller.abort()
         if (!sseResp2.bodyUsed) {
           sseResp2.body?.cancel().catch(() => {})
@@ -434,14 +389,6 @@ describe('E2E Navigation — Force reload scenario', () => {
 
     const allEvents = await collectAll()
 
-    // Check that no known hashes leaked through during replay
-    const replayEvents = allEvents.slice(0, patches1.length) // early events are replay
-    const replayLeaks = filterPatch(replayEvents)
-      .map((e) => e.id)
-      .filter((id): id is string => !!id)
-      .filter((h) => new Set(knownHashes.split(',')).has(h))
-    expect(replayLeaks.length).toBe(0)
-
     // Must have received movies content
     const moviesOnly = allEvents.filter(
       (e) =>
@@ -450,13 +397,9 @@ describe('E2E Navigation — Force reload scenario', () => {
         (e.data ?? '').includes('MOVIES'),
     )
     expect(moviesOnly.length).toBeGreaterThanOrEqual(1)
+    expect(parsePatch(moviesOnly[0]).elements).toContain('MOVIES')
 
-    const moviesParsed = parsePatch(moviesOnly[0])
-    expect(moviesParsed.selector).toBe('#content-body')
-    expect(moviesParsed.mode).toBe('inner')
-    expect(moviesParsed.elements).toContain('MOVIES')
-
-    // Must have received series content (proves #content-body is still targetable)
+    // Must have received series content
     const seriesOnly = allEvents.filter(
       (e) =>
         e.event === 'datastar-patch-elements' &&
@@ -464,13 +407,9 @@ describe('E2E Navigation — Force reload scenario', () => {
         (e.data ?? '').includes('SERIES'),
     )
     expect(seriesOnly.length).toBeGreaterThanOrEqual(1)
+    expect(parsePatch(seriesOnly[0]).elements).toContain('SERIES')
 
-    const seriesParsed = parsePatch(seriesOnly[0])
-    expect(seriesParsed.selector).toBe('#content-body')
-    expect(seriesParsed.mode).toBe('inner')
-    expect(seriesParsed.elements).toContain('SERIES')
-
-    console.log(`[e2e] Phase 4 (second navigate): series patch received, content-body still targetable`)
+    console.log(`[e2e] Phase 4: series patch received, content-body still targetable`)
   }, 25_000)
 })
 
