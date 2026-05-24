@@ -232,7 +232,7 @@ describe('MSW Integration — Hash Registry Persistence', () => {
     ]
     await dispatchFetchEvent('http://localhost:3000/sse')
 
-    sw.HASH_REGISTRY.set('expired-hash', Date.now() - 25 * 60 * 60 * 1000)
+    sw.HASH_REGISTRY.set('expired-hash', { payload: '', eventType: 'datastar-patch-elements', timestamp: Date.now() - 25 * 60 * 60 * 1000 })
 
     callLog.length = 0
     await dispatchFetchEvent('http://localhost:3000/sse')
@@ -294,7 +294,7 @@ describe('MSW Integration — Edge Cases', () => {
 
     // Phase 2: age out the hash, then trigger a new SSE request
     // with NO events so consumeSSEStream doesn't re-register it
-    sw.HASH_REGISTRY.set('expiring-hash', Date.now() - 25 * 60 * 60 * 1000)
+    sw.HASH_REGISTRY.set('expiring-hash', { payload: '', eventType: 'datastar-patch-elements', timestamp: Date.now() - 25 * 60 * 60 * 1000 })
 
     callLog.length = 0
     _sseEvents = []  // empty stream — no re-registration

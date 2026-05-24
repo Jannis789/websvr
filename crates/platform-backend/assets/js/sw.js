@@ -1,13 +1,14 @@
-// Service Worker — Hash-Sync Interceptor & Registry
+// Service Worker — Hash-Sync Interceptor & Payload Cache
 // Intercepts fetch('/sse') to append known_hashes for deduplication.
-// Maintains an in-memory Hash Registry (TTL: 24h) of PatchElements hashes.
+// Caches full event payloads so it can restore them on page reload.
 //
 // Hash learning: The SSE endpoint embeds the HMAC hash as the event ID.
-// This SW tees the response stream, parses SSE event IDs incrementally,
+// This SW tees the response stream, parses SSE event IDs + payloads incrementally,
 // and registers them in real time. On subsequent navigations, known_hashes
-// is sent with the SSE request so the server can skip already-seen events.
+// is sent with the SSE request so the server can skip already-seen events,
+// and the SW replays the cached payloads locally before streaming new ones.
 
-const HASH_REGISTRY = new Map(); // hash → timestamp
+const HASH_REGISTRY = new Map(); // hash → { payload, eventType, timestamp }
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_REGISTRY_SIZE = 2000;
 const EVENT_PREFIX = 'datastar-patch-elements';
@@ -21,49 +22,56 @@ self.addEventListener('activate', (event) => {
 });
 
 // ── Helper: Parse SSE text incrementally ──
-// Processes accumulated SSE text, extracts event IDs for PatchElements events,
+// Processes accumulated SSE text, extracts event IDs + payloads for PatchElements events,
 // and registers them. Returns the remaining (incomplete) text.
-//
-// SSE events can be split across network chunks. To handle this, the parser
-// persists its in-progress eventType/eventId state across calls (in module
-// globals pendingEventType, pendingEventId). The buffer holds the
-// incomplete last line; the pending fields hold the event header state.
-let pendingEventType = null; // persisted across calls for split events
-let pendingEventId = null;   // persisted across calls for split events
+let pendingEventType = null;
+let pendingEventId = null;
+let pendingDataLines = [];
 
 function processSSERead(buffer, text) {
   const data = buffer + text;
   const lines = data.split('\n');
 
-  // The last line might be incomplete; keep it for the next chunk
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i];
     if (line.startsWith('event: ')) {
       pendingEventType = line.slice(7).trim();
     } else if (line.startsWith('id: ')) {
       pendingEventId = line.slice(4).trim();
+    } else if (line.startsWith('data: ')) {
+      pendingDataLines.push(line.slice(6));
     } else if (line === '' && pendingEventType) {
-      // End of an event — register if it's a PatchElements event with a hash ID
+      // End of an event
       if (pendingEventType === EVENT_PREFIX && pendingEventId && pendingEventId.length > 0) {
-        registerHash(pendingEventId);
+        const payload = pendingDataLines.join('\n');
+        registerHash(pendingEventId, payload, pendingEventType);
       }
       pendingEventType = null;
       pendingEventId = null;
+      pendingDataLines = [];
     }
   }
 
-  // Return the potentially incomplete last line
-  return lines[lines.length - 1];
+  // Keep the potentially incomplete last line
+  const lastLine = lines[lines.length - 1];
+  if (lastLine.startsWith('data: ')) {
+    pendingDataLines.push(lastLine.slice(6));
+    return '';
+  }
+  return lastLine;
 }
 
-// ── Helper: Register a single hash ──
-function registerHash(hash) {
-  HASH_REGISTRY.set(hash, Date.now());
+// ── Helper: Register a hash with payload ──
+// Also accepts legacy calls with just a hash (test compatibility)
+function registerHash(hash, payload, eventType) {
+  if (payload === undefined) payload = '';
+  if (eventType === undefined) eventType = EVENT_PREFIX;
+  HASH_REGISTRY.set(hash, { payload, eventType, timestamp: Date.now() });
 
   // Limit registry size (keep latest MAX_REGISTRY_SIZE)
   if (HASH_REGISTRY.size > MAX_REGISTRY_SIZE) {
     const entries = [...HASH_REGISTRY.entries()]
-      .sort((a, b) => a[1] - b[1]);
+      .sort((a, b) => a[1].timestamp - b[1].timestamp);
     const toDelete = entries.slice(0, entries.length - MAX_REGISTRY_SIZE);
     for (const [h] of toDelete) {
       HASH_REGISTRY.delete(h);
@@ -74,16 +82,33 @@ function registerHash(hash) {
 // ── Helper: Clean expired hashes ──
 function cleanExpiredHashes() {
   const now = Date.now();
-  for (const [hash, ts] of HASH_REGISTRY) {
+  for (const [hash, entry] of HASH_REGISTRY) {
+    const ts = typeof entry === 'object' ? entry.timestamp : entry;
     if (now - ts > TTL_MS) {
       HASH_REGISTRY.delete(hash);
     }
   }
 }
 
+// ── Helper: Build SSE text for cached events ──
+function buildCachedEventsStream() {
+  const parts = [];
+  for (const [hash, entry] of HASH_REGISTRY) {
+    // Skip legacy entries without proper structure
+    if (typeof entry !== 'object' || !entry.payload) continue;
+    parts.push(`event: ${entry.eventType}`);
+    parts.push(`id: ${hash}`);
+    // Split payload by newlines into multiple data: lines
+    const dataLines = entry.payload.split('\n');
+    for (const line of dataLines) {
+      parts.push(`data: ${line}`);
+    }
+    parts.push(''); // empty line = event boundary
+  }
+  return parts.join('\n');
+}
+
 // ── Helper: Read SSE stream incrementally ──
-// Reads from the cloned stream in a background loop, never blocking the
-// page's stream. Hashes are registered as events arrive.
 async function consumeSSEStream(stream) {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
@@ -98,16 +123,15 @@ async function consumeSSEStream(stream) {
       buffer = processSSERead(buffer, chunk);
     }
 
-    // ── Flush: stream ended with a buffered (incomplete) event header.
-    // The last line was kept as `buffer`; the event headers are still in
-    // `pendingEventType`/`pendingEventId`.  Flush them now.
+    // Flush remaining buffered event
     if (pendingEventType === EVENT_PREFIX && pendingEventId && pendingEventId.length > 0) {
-      registerHash(pendingEventId);
+      const payload = pendingDataLines.join('\n');
+      registerHash(pendingEventId, payload, pendingEventType);
       pendingEventType = null;
       pendingEventId = null;
+      pendingDataLines = [];
     }
   } catch (err) {
-    // Stream closed or errored — silently ignore
     console.debug('SW: SSE stream consume ended:', err.message);
   } finally {
     reader.releaseLock();
@@ -130,15 +154,43 @@ self.addEventListener('fetch', (event) => {
 
     event.respondWith(
       fetch(sseUrl).then(async (response) => {
-        // Tee the stream: one for the page (Datastar), one for the SW (hash parsing)
+        // Build the cached events prefix
+        const cachedStream = buildCachedEventsStream();
+
         if (response.body) {
           const [pageStream, swStream] = response.body.tee();
 
-          // Parse the SW stream in the background (don't await — let it run)
+          // Parse the SW stream in the background (don't await)
           consumeSSEStream(swStream);
 
-          // Return a new response with the page's stream
-          return new Response(pageStream, {
+          // Prepend cached events to the page stream
+          const encoder = new TextEncoder();
+          const cachedBytes = cachedStream.length > 0 ? encoder.encode(cachedStream) : new Uint8Array(0);
+
+          // Combine: cached events + live server events
+          const combinedStream = new ReadableStream({
+            start(controller) {
+              // Push cached events first
+              if (cachedBytes.length > 0) {
+                controller.enqueue(cachedBytes);
+              }
+              // Then pipe the live stream
+              const reader = pageStream.getReader();
+              function pump() {
+                reader.read().then(({ done, value }) => {
+                  if (done) {
+                    controller.close();
+                    return;
+                  }
+                  controller.enqueue(value);
+                  pump();
+                }).catch(() => controller.close());
+              }
+              pump();
+            }
+          });
+
+          return new Response(combinedStream, {
             status: response.status,
             statusText: response.statusText,
             headers: response.headers,
@@ -159,6 +211,7 @@ if (typeof globalThis.__SW_TEST_MODE !== 'undefined') {
     registerHash,
     cleanExpiredHashes,
     consumeSSEStream,
+    buildCachedEventsStream,
     TTL_MS,
     MAX_REGISTRY_SIZE,
   };
