@@ -60,7 +60,7 @@ pub async fn run() {
 
     // ── Protected sub-router with its own layer stack ──
     let protected = Router::new_with_state(shared_state.clone())
-        .with_get("/home", handlers::page::home_page)
+        .with_get("/home", handlers::pages::home_page)
         .with_get("/home/overview", handlers::navigate::get_home_overview)
         .with_get("/home/movies", handlers::navigate::get_home_movies)
         .with_get("/home/series", handlers::navigate::get_home_series)
@@ -92,8 +92,8 @@ pub async fn run() {
         // Static assets
         .with_dir("/assets", std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
         // Public pages
-        .with_get("/login", handlers::page::login_page)
-        .with_get("/register", handlers::page::register_page)
+        .with_get("/login", handlers::pages::login_page)
+        .with_get("/register", handlers::pages::register_page)
         .with_post("/login", handlers::auth::login)
         .with_post("/register", handlers::auth::register)
         .with_post("/logout", handlers::auth::logout)
