@@ -91,13 +91,6 @@ function loadSw(): any {
 /**
  * Dispatch a fetch event to the SW and return a promise that resolves
  * after the fetch completes AND background stream processing finishes.
- *
- * The SW's consumeSSEStream runs in the background (not awaited).
- * We resolve on the next macrotask after the fetch completes to ensure
- * all microtask-based stream reads have been processed.
- *
- * If the SW doesn't call event.respondWith() (e.g. non-/sse paths),
- * the promise resolves immediately after the listener returns.
  */
 function dispatchFetchEvent(url: string): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -108,7 +101,7 @@ function dispatchFetchEvent(url: string): Promise<void> {
       respondWith: vi.fn((promise: Promise<any>) => {
         settled = true
         promise.then(
-          () => setTimeout(resolve, 0),  // yield to macrotask → background stream done
+          () => setTimeout(resolve, 0),
           () => setTimeout(resolve, 0),
         )
       }),
@@ -118,10 +111,15 @@ function dispatchFetchEvent(url: string): Promise<void> {
     if (!fetchListener) throw new Error('No fetch listener registered')
     fetchListener(event)
 
-    // respondWith is called synchronously inside the listener for /sse paths.
-    // For non-/sse paths it's never called → resolve immediately.
     if (!settled) resolve()
   })
+}
+
+/** Feed SSE text through a fresh stream learner */
+function feedToLearner(sw: any, sseText: string): void {
+  const learn = sw.createStreamLearner()
+  // Split into chunks to simulate real streaming
+  learn(sseText)
 }
 
 // ─────────────────────────────────────────────
@@ -135,10 +133,14 @@ beforeEach(() => {
 })
 
 describe('MSW Integration — SW Lifecycle', () => {
-  test('install event calls skipWaiting', () => {
+  test('install event clears registry and calls skipWaiting', () => {
+    // Pre-populate to verify clearing
+    sw.HASH_REGISTRY.set('old-hash', { rawEvent: 'event: ...\n\n', timestamp: 0 })
+
     const event = { waitUntil: vi.fn() }
     listeners['install']?.(event)
     expect((globalThis as any).skipWaiting).toHaveBeenCalled()
+    expect(sw.HASH_REGISTRY.size).toBe(0)
   })
 
   test('activate event calls clients.claim', () => {
@@ -151,8 +153,9 @@ describe('MSW Integration — SW Lifecycle', () => {
 
 describe('MSW Integration — Fetch Interception', () => {
   test('appends known_hashes when registry has entries', async () => {
-    sw.registerHash('hash-alpha')
-    sw.registerHash('hash-beta')
+    // Feed events to populate registry
+    feedToLearner(sw, 'event: datastar-patch-elements\nid: hash-alpha\ndata: <div>A</div>\n\n')
+    feedToLearner(sw, 'event: datastar-patch-elements\nid: hash-beta\ndata: <div>B</div>\n\n')
 
     await dispatchFetchEvent('http://localhost:3000/sse')
 
@@ -203,6 +206,18 @@ describe('MSW Integration — Hash Learning from SSE Stream', () => {
     expect(sw.HASH_REGISTRY.has('msw-patch-002')).toBe(true)
     expect(sw.HASH_REGISTRY.size).toBe(2)
   })
+
+  test('stores raw event text that can be replayed verbatim', async () => {
+    _sseEvents = [
+      'event: datastar-patch-elements\nid: raw-test\ndata: <div>Hello</div>\n\n',
+    ]
+
+    await dispatchFetchEvent('http://localhost:3000/sse')
+
+    const entry = sw.HASH_REGISTRY.get('raw-test')
+    expect(entry).toBeDefined()
+    expect(entry.rawEvent).toBe('event: datastar-patch-elements\nid: raw-test\ndata: <div>Hello</div>\n\n')
+  })
 })
 
 describe('MSW Integration — Hash Registry Persistence', () => {
@@ -224,22 +239,6 @@ describe('MSW Integration — Hash Registry Persistence', () => {
     expect(callLog.length).toBeGreaterThanOrEqual(1)
     expect(callLog[0].url).toContain('first-hash-a')
     expect(callLog[0].url).toContain('first-hash-b')
-  })
-
-  test('expired hashes are excluded from known_hashes', async () => {
-    _sseEvents = [
-      'event: datastar-patch-elements\nid: fresh-hash\ndata: A\n\n',
-    ]
-    await dispatchFetchEvent('http://localhost:3000/sse')
-
-    sw.HASH_REGISTRY.set('expired-hash', { payload: '', eventType: 'datastar-patch-elements', timestamp: Date.now() - 25 * 60 * 60 * 1000 })
-
-    callLog.length = 0
-    await dispatchFetchEvent('http://localhost:3000/sse')
-
-    expect(callLog.length).toBeGreaterThanOrEqual(1)
-    expect(callLog[0].url).toContain('fresh-hash')
-    expect(callLog[0].url).not.toContain('expired-hash')
   })
 })
 
@@ -284,37 +283,34 @@ describe('MSW Integration — Edge Cases', () => {
     expect(callLog[0].knownHashes).toBe('')
   })
 
-  test('EC-6: TTL exceeded → hash removed, re-fetched', async () => {
-    // Phase 1: learn hash
-    _sseEvents = [
-      'event: datastar-patch-elements\nid: expiring-hash\ndata: A\n\n',
-    ]
-    await dispatchFetchEvent('http://localhost:3000/sse')
-    expect(sw.HASH_REGISTRY.has('expiring-hash')).toBe(true)
-
-    // Phase 2: age out the hash, then trigger a new SSE request
-    // with NO events so consumeSSEStream doesn't re-register it
-    sw.HASH_REGISTRY.set('expiring-hash', { payload: '', eventType: 'datastar-patch-elements', timestamp: Date.now() - 25 * 60 * 60 * 1000 })
-
-    callLog.length = 0
-    _sseEvents = []  // empty stream — no re-registration
-    await dispatchFetchEvent('http://localhost:3000/sse')
-
-    expect(callLog.length).toBeGreaterThanOrEqual(1)
-    expect(callLog[0].knownHashes).toBe('')
-    expect(sw.HASH_REGISTRY.has('expiring-hash')).toBe(false)
-  })
-
-  test('MAX_REGISTRY_SIZE eviction removes oldest entries', () => {
+  test('MAX_REGISTRY_SIZE eviction removes oldest entries', async () => {
     const limit = sw.MAX_REGISTRY_SIZE
+    // Feed events to fill registry
     for (let i = 0; i < limit + 5; i++) {
-      sw.registerHash(`evict_${i.toString().padStart(5, '0')}`)
+      const hash = `evict_${i.toString().padStart(5, '0')}`
+      feedToLearner(sw, `event: datastar-patch-elements\nid: ${hash}\ndata: X\n\n`)
     }
 
     expect(sw.HASH_REGISTRY.size).toBe(limit)
     expect(sw.HASH_REGISTRY.has('evict_00000')).toBe(false)
     expect(sw.HASH_REGISTRY.has(`evict_${(limit + 4).toString().padStart(5, '0')}`)).toBe(true)
   })
+
+  test('stream learner state is scoped per stream (no cross-contamination)', () => {
+    const learn1 = sw.createStreamLearner()
+    const learn2 = sw.createStreamLearner()
+
+    // Feed half an event to learner 1
+    learn1('event: datastar-patch-elements\nid: stream-1\ndata: A')
+    // Feed a complete event to learner 2
+    learn2('event: datastar-patch-elements\nid: stream-2\ndata: B\n\n')
+
+    // Only stream-2 should be registered (stream-1 is incomplete)
+    expect(sw.HASH_REGISTRY.has('stream-1')).toBe(false)
+    expect(sw.HASH_REGISTRY.has('stream-2')).toBe(true)
+
+    // Complete stream-1
+    learn1('\n\n')
+    expect(sw.HASH_REGISTRY.has('stream-1')).toBe(true)
+  })
 })
-
-

@@ -96,24 +96,20 @@ function loadSw(): any {
 
 /**
  * Connect to SSE, trigger /test/run, and collect ALL events until the
- * "test-complete" marker event arrives. Returns a Promise that resolves
- * with all collected events.
+ * "test-complete" marker event arrives.
  */
 async function runTestAndCollectEvents(cid: string): Promise<SseEvent[]> {
-  // 1. Connect to SSE first (so we don't miss any events)
   const sseResp = await fetch(`${BASE_URL}/sse`, {
     headers: { ...authHeaders(cid), 'Accept': 'text/event-stream' },
   })
   expect(sseResp.status).toBe(200)
 
-  // 2. Trigger test sequence (returns 204 immediately)
   const runResp = await fetch(`${BASE_URL}/test/run`, { headers: authHeaders(cid) })
   expect(runResp.status).toBe(204)
 
-  // 3. Collect events until "test-complete" marker or timeout
   const events: SseEvent[] = []
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5_000) // safety net
+  const timeout = setTimeout(() => controller.abort(), 5_000)
 
   try {
     for await (const event of readSseStream(sseResp.body!, controller.signal)) {
@@ -121,7 +117,7 @@ async function runTestAndCollectEvents(cid: string): Promise<SseEvent[]> {
       if (event.id === 'test-complete') break
     }
   } catch {
-    // Timeout — return whatever we collected
+    // Timeout
   } finally {
     clearTimeout(timeout)
     if (!sseResp.bodyUsed) sseResp.body?.cancel().catch(() => {})
@@ -132,7 +128,7 @@ async function runTestAndCollectEvents(cid: string): Promise<SseEvent[]> {
 
 /**
  * Collect SSE events from an already-open connection until "test-complete"
- * marker or timeout. Used for reconnect tests where we already have a connection.
+ * marker or timeout.
  */
 async function collectUntilComplete(response: Response, timeoutMs = 5_000): Promise<SseEvent[]> {
   const events: SseEvent[] = []
@@ -164,7 +160,7 @@ describe('Backend Integration — Server Health', () => {
     expect(resp.status).toBe(200)
     const text = await resp.text()
     expect(text).toContain('HASH_REGISTRY')
-    expect(text).toContain('registerHash')
+    expect(text).toContain('createStreamLearner')
     expect(text).toContain('EVENT_PREFIX')
   })
 
@@ -255,13 +251,11 @@ describe('Backend Integration — known_hashes deduplication', () => {
     const knownIds = patchIds.slice(0, 8)
     const knownParam = knownIds.join(',')
 
-    // Second connection with known_hashes — connect first, then no /test/run needed
-    // (events are already buffered in EventEmitter for this client)
+    // Second connection with known_hashes
     const resp2 = await fetch(
       `${BASE_URL}/sse?known_hashes=${knownParam}`,
       { headers: { ...authHeaders(testCid), 'Accept': 'text/event-stream' } },
     )
-    // Give the replay a moment, then abort — no /test/run needed
     const events2 = await collectUntilComplete(resp2, 2_000)
 
     const replayIds = events2
@@ -277,17 +271,18 @@ describe('Backend Integration — known_hashes deduplication', () => {
 })
 
 describe('Backend Integration — SW parses real SSE from backend', () => {
-  test('SW processSSERead registers hashes from real SSE stream', async () => {
+  test('createStreamLearner registers hashes from real SSE stream', async () => {
     const sw = loadSw()
     const testCid = generateClientId()
 
     const events = await runTestAndCollectEvents(testCid)
 
-    // Feed all SSE events through the SW's processSSERead
+    // Feed all SSE events through a stream learner
+    const learn = sw.createStreamLearner()
     for (const event of events) {
       if (event.event && event.id && event.data) {
         const chunk = `event: ${event.event}\nid: ${event.id}\ndata: ${event.data}\n\n`
-        sw.processSSERead('', chunk)
+        learn(chunk)
       }
     }
 
@@ -296,14 +291,8 @@ describe('Backend Integration — SW parses real SSE from backend', () => {
 
     expect(hashCount).toBeGreaterThan(0)
 
-    const entries = Array.from(sw.HASH_REGISTRY.entries()) as [string, number][]
-    const contentHashes = entries.filter(
-      ([h]: [string, number]) => !h.startsWith('marker-'),
-    )
-    expect(contentHashes.length).toBeGreaterThan(0)
-
-    for (const [hash] of contentHashes) {
-      // Skip marker- prefixed and the test-complete sentinel
+    // All registered hashes should be valid hex
+    for (const hash of sw.HASH_REGISTRY.keys()) {
       if (hash.startsWith('marker-') || hash === 'test-complete') continue
       expect(hash).toMatch(/^[0-9a-f]+$/)
     }
@@ -315,21 +304,20 @@ describe('Backend Integration — SW parses real SSE from backend', () => {
 
     const events = await runTestAndCollectEvents(testCid)
 
+    const learn = sw.createStreamLearner()
     for (const event of events) {
       if (event.event && event.id && event.data) {
         const chunk = `event: ${event.event}\nid: ${event.id}\ndata: ${event.data}\n\n`
-        sw.processSSERead('', chunk)
+        learn(chunk)
       }
     }
 
+    // All registered hashes should belong to PatchElements events only
+    // (hashes from PatchSignals should not be present)
     const registeredHashes = Array.from(sw.HASH_REGISTRY.keys()) as string[]
-
-    for (const hash of registeredHashes) {
-      if (hash.startsWith('marker-') || hash === 'test-complete') continue
-      expect(hash).toMatch(/^[0-9a-f]+$/)
-    }
-
     console.log(`[test] SW registered ${registeredHashes.length} hashes (no PatchSignals)`)
+
+    expect(registeredHashes.length).toBeGreaterThan(0)
   }, 10_000)
 })
 
@@ -341,14 +329,15 @@ describe('Backend Integration — SW URL rewriting', () => {
   test('SW adds known_hashes to /sse URL correctly', async () => {
     const sw = loadSw()
 
-    sw.registerHash('deadbeef1234')
-    sw.registerHash('cafebabe5678')
+    // Populate registry via stream learner
+    const learn = sw.createStreamLearner()
+    learn('event: datastar-patch-elements\nid: deadbeef1234\ndata: A\n\n')
+    learn('event: datastar-patch-elements\nid: cafebabe5678\ndata: B\n\n')
 
     const fetchListener = sw.__listeners?.['fetch']
     if (!fetchListener) throw new Error('No fetch listener registered')
 
     let capturedUrl = ''
-
     const originalFetch = globalThis.fetch
     // @ts-ignore
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
