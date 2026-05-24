@@ -68,6 +68,7 @@ pub async fn run() {
             ))
             // Session-only: no auth check
             .with_get("/test", handlers::test::test_page)
+            .with_get("/test/auth", handlers::test::test_auth)
             .with_get("/test/run", handlers::test::test_run)
             .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json)
             .with_post("/login", handlers::auth::login)

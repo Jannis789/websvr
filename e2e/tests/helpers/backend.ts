@@ -127,8 +127,23 @@ export function generateClientId(): string {
 
 /**
  * Create standard headers for requests to protected routes.
+ * Also authenticates the session by calling /test/auth first.
  */
-export function authHeaders(clientId?: string): Record<string, string> {
+export async function authHeaders(clientId?: string): Promise<Record<string, string>> {
+  const cid = clientId ?? generateClientId()
+  const headers: Record<string, string> = {
+    Cookie: `platform_cid=${cid}`,
+    'Accept': 'text/event-stream, text/html',
+  }
+  // Authenticate the session for this client_id
+  await fetch(`${BASE_URL}/test/auth`, { headers })
+  return headers
+}
+
+/**
+ * Synchronous version for non-protected routes or when auth was already done.
+ */
+export function authHeadersSync(clientId?: string): Record<string, string> {
   const cid = clientId ?? generateClientId()
   return {
     Cookie: `platform_cid=${cid}`,

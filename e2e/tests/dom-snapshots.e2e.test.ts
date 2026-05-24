@@ -48,15 +48,17 @@ async function navigateAndCollect(
   navPath: string,
   durationMs = 3_000,
 ): Promise<{ events: SseEvent[]; navStatus: number }> {
-  // 1. Connect to SSE first (so we don't miss events)
+  // 1. Authenticate session first
+  const auth = await authHeaders(cid)
+  // 2. Connect to SSE (so we don't miss events)
   const sseResp = await fetch(`${BASE_URL}/sse`, {
-    headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+    headers: { ...auth, Accept: 'text/event-stream' },
   })
   expect(sseResp.status).toBe(200)
 
   // 2. Trigger navigation endpoint
   const navResp = await fetch(`${BASE_URL}${navPath}`, {
-    headers: authHeaders(cid),
+    headers: await authHeaders(cid),
   })
 
   // 3. Collect events
@@ -256,7 +258,7 @@ describe('E2E Navigation — Page reload', () => {
     // Simulate page reload: reconnect WITHOUT known_hashes
     // Server should replay the full buffered state
     const sseResp2 = await fetch(`${BASE_URL}/sse`, {
-      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+      headers: { ...(await authHeaders(cid)), Accept: 'text/event-stream' },
     })
     expect(sseResp2.status).toBe(200)
 
@@ -283,14 +285,14 @@ describe('E2E Navigation — Page reload', () => {
 
     // Reconnect, then navigate to movies
     const sseResp2 = await fetch(`${BASE_URL}/sse`, {
-      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+      headers: { ...(await authHeaders(cid)), Accept: 'text/event-stream' },
     })
 
     // Wait for replay to settle, then navigate
     await new Promise((r) => setTimeout(r, 500))
 
     const navResp = await fetch(`${BASE_URL}/home/movies`, {
-      headers: authHeaders(cid),
+      headers: await authHeaders(cid),
     })
     expect(navResp.status).toBe(303)
 
@@ -314,13 +316,13 @@ describe('E2E Navigation — Force reload scenario', () => {
 
     // === Phase 1: Initial page load ===
     const sseResp1 = await fetch(`${BASE_URL}/sse`, {
-      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+      headers: { ...(await authHeaders(cid)), Accept: 'text/event-stream' },
     })
     expect(sseResp1.status).toBe(200)
 
     // Trigger /home to populate shell
     const homeResp = await fetch(`${BASE_URL}/home`, {
-      headers: authHeaders(cid),
+      headers: await authHeaders(cid),
     })
     expect(homeResp.status).toBe(200)
 
@@ -335,7 +337,7 @@ describe('E2E Navigation — Force reload scenario', () => {
 
     // === Phase 2: Reconnect without known_hashes (full reload) ===
     const sseResp2 = await fetch(`${BASE_URL}/sse`, {
-      headers: { ...authHeaders(cid), Accept: 'text/event-stream' },
+      headers: { ...(await authHeaders(cid)), Accept: 'text/event-stream' },
     })
     expect(sseResp2.status).toBe(200)
 
@@ -359,7 +361,7 @@ describe('E2E Navigation — Force reload scenario', () => {
 
         // Navigate to movies
         const navResp1 = await fetch(`${BASE_URL}/home/movies`, {
-          headers: authHeaders(cid),
+          headers: await authHeaders(cid),
         })
         expect(navResp1.status).toBe(303)
 
@@ -367,7 +369,7 @@ describe('E2E Navigation — Force reload scenario', () => {
 
         // Navigate to series
         const navResp2 = await fetch(`${BASE_URL}/home/series`, {
-          headers: authHeaders(cid),
+          headers: await authHeaders(cid),
         })
         expect(navResp2.status).toBe(303)
 

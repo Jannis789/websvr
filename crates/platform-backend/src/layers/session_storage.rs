@@ -4,24 +4,31 @@ use rama::http::Request;
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
 use rama::http::response::Response;
 use platform_core::{ClientId, SessionStorage};
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::future::Future;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-/// Service that rehydrates or creates a `SessionStorage` and injects it
-/// into `req.extensions()`.
-///
-/// Reads `ClientId` from extensions (injected by `AuthService`),
-/// loads persisted session data from DB, creates fresh if none exists.
-///
-/// Wrapped as a layer via `rama::layer::layer_fn`.
+/// Shared in-memory session store. Keyed by ClientId.
+pub type SessionMap = Arc<Mutex<HashMap<ClientId, Arc<Mutex<SessionStorage>>>>>;
+
+/// Create the shared session map (call once in server::run).
+pub fn new_session_map() -> SessionMap {
+    Arc::new(Mutex::new(HashMap::new()))
+}
+
+/// Service that rehydrates or creates a shared `SessionStorage`
+/// and injects it into request extensions.
 #[derive(Debug, Clone)]
 pub struct SessionStorageService<S> {
     inner: S,
+    sessions: SessionMap,
 }
 
 impl<S> SessionStorageService<S> {
-    pub fn new(inner: S) -> Self {
-        Self { inner }
+    pub fn new(inner: S, sessions: SessionMap) -> Self {
+        Self { inner, sessions }
     }
 }
 
@@ -37,22 +44,29 @@ where
         &self,
         req: Request,
     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
+        let sessions = self.sessions.clone();
         async move {
             let client_id = req.extensions()
                 .get::<ClientId>()
                 .copied()
-                .expect("ClientId must be injected by AuthService");
+                .expect("ClientId must be injected by preceding layer");
 
-            // TODO: Load persisted session from DB via SharedState.db
-            // Currently creates a fresh SessionStorage per request.
-            // Full implementation needs SharedState access through the layer chain.
-            let session = SessionStorage::new(client_id);
-            elog!(Debug, "SessionStorage → created for client_id={}", client_id);
+            // Load existing or create fresh shared session
+            let session: Arc<Mutex<SessionStorage>> = {
+                let mut map = sessions.lock().await;
+                map.entry(client_id)
+                    .or_insert_with(|| {
+                        elog!(Debug, "SessionStorage → new for {}", client_id);
+                        Arc::new(Mutex::new(SessionStorage::new(client_id)))
+                    })
+                    .clone()
+            };
 
+            // Inject the Arc<Mutex<SessionStorage>> into request
             let mut req = req;
             req.extensions_mut().insert(session);
 
-            Ok(self.inner.serve(req).await.unwrap())
+            self.inner.serve(req).await
         }
     }
 }

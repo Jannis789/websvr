@@ -16,6 +16,21 @@ pub async fn test_page(
     html_response(include_str!("../../assets/templates/test.html"))
 }
 
+/// GET /test/auth — Mark the session as authenticated (for E2E tests).
+/// Must be called before accessing protected routes like /home or /sse.
+pub async fn test_auth(
+    State(_state): State<SharedState>,
+    req: Request,
+) -> Response {
+    let ctx = extract_context(&req);
+    {
+        let mut session = ctx.session_storage.lock().await;
+        session.set_volatile("authenticated", serde_json::Value::Bool(true));
+    }
+    elog!(Info, "Test → authenticated session for {}", ctx.client_id);
+    empty_response(StatusCode::NO_CONTENT)
+}
+
 /// GET /test/run — Execute the automated hash-sync test sequence
 ///
 /// Fires all events immediately (no artificial delays).

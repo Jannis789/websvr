@@ -51,7 +51,7 @@ pub async fn login(
     State(state): State<SharedState>,
     req: Request,
 ) -> Response {
-    let mut ctx = extract_context(&req);
+    let ctx = extract_context(&req);
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
@@ -87,7 +87,10 @@ pub async fn login(
     let _ = state;
 
     // Placeholder: mark session as authenticated and redirect to home
-    ctx.session_storage.set_volatile("authenticated", serde_json::Value::Bool(true));
+    {
+        let mut session = ctx.session_storage.lock().await;
+        session.set_volatile("authenticated", serde_json::Value::Bool(true));
+    }
     elog!(Info, "Session → authenticated for {}", ctx.client_id);
     redirect("/home")
 }

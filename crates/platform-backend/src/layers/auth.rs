@@ -16,8 +16,11 @@ pub fn require_auth(
     ValidateRequestHeaderLayer::custom_fn(|req: rama::http::Request| async move {
         let authenticated = req.extensions()
             .get::<crate::client_context::ClientContext>()
-            .and_then(|ctx| ctx.session_storage.get("authenticated"))
-            .and_then(|v: &serde_json::Value| v.as_bool())
+            .and_then(|ctx| {
+                ctx.session_storage.try_lock().ok().and_then(|guard| {
+                    guard.get("authenticated").and_then(|v| v.as_bool())
+                })
+            })
             .unwrap_or(false);
 
         if authenticated {

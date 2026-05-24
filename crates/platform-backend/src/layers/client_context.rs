@@ -7,7 +7,9 @@ use rama::http::Request;
 use rama::http::header;
 use rama::http::response::Response;
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
-use platform_core::{ClientId, SessionStorage, Config};
+use platform_core::{ClientId, Config};
+use tokio::sync::Mutex as AsyncMutex;
+use platform_core::SessionStorage;
 use crate::client_context::ClientContext;
 use crate::sse::{SseBroadcaster, EventEmitter};
 use std::convert::Infallible;
@@ -15,14 +17,11 @@ use std::future::Future;
 
 /// Service that assembles the full `ClientContext` from:
 ///   - `ClientId` (injected by `ValidateRequestHeaderLayer::custom_fn`)
-///   - `SessionStorage` (injected by `SessionStorageService`)
+///   - `Arc<Mutex<SessionStorage>>` (injected by `SessionStorageService`)
 ///   - Per-client `EventEmitter` (reused across requests)
 ///   - `Arc<SseBroadcaster>` (shared from `SharedState`)
 ///
-/// Also handles `Set-Cookie` for new clients — if the `platform_cid`
-/// cookie was not present on the request, the response gets one.
-///
-/// Wrapped as a layer via `rama::layer::layer_fn`.
+/// Also handles `Set-Cookie` for new clients.
 #[derive(Debug, Clone)]
 pub struct ClientContextService<S> {
     inner: S,
@@ -59,11 +58,10 @@ where
                 .expect("ClientId must be injected by ValidateRequestHeaderLayer");
 
             let session = req.extensions()
-                .get::<SessionStorage>()
+                .get::<Arc<AsyncMutex<SessionStorage>>>()
                 .cloned()
                 .expect("SessionStorage must be injected by SessionStorageService");
 
-            // Check if cookie was already present (set by ValidateRequestLayer)
             let had_cookie = req.extensions()
                 .get::<CookieWasPresent>()
                 .map(|c| c.0)
@@ -78,12 +76,17 @@ where
                 emitters.entry(client_id).or_insert_with(EventEmitter::new).clone()
             };
 
-            let ctx = ClientContext::with_session_and_emitter(
+            let ctx = ClientContext::with_session(
                 client_id,
                 session,
                 self.sse_broadcaster.clone(),
-                event_emitter,
             );
+
+            // Also store the event_emitter on the context
+            let ctx = ClientContext {
+                event_emitter,
+                ..ctx
+            };
 
             let mut req = req;
             req.extensions_mut().insert(ctx);
@@ -91,7 +94,7 @@ where
 
             let mut response = self.inner.serve(req).await.unwrap();
 
-            // Set cookie only for new clients (no existing cookie)
+            // Set cookie only for new clients
             if !had_cookie {
                 let ttl_days = Config::global().client_id_ttl_days;
                 let max_age = ttl_days as u64 * 24 * 60 * 60;
@@ -113,7 +116,6 @@ where
     }
 }
 
-/// Marker extension injected by the ValidateRequest closure to signal
-/// whether the cookie was already present (so we don't re-set it).
+/// Marker extension injected by the ValidateRequest closure.
 #[derive(Debug, Clone)]
 pub struct CookieWasPresent(pub bool);
