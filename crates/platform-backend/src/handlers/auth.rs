@@ -1,11 +1,15 @@
 use crate::elog;
-use rama::http::{Request, Response, StatusCode};
+use rama::http::{Request, Response, header};
 use rama::http::service::web::extract::State;
-use rama::http::header;
 use crate::server::SharedState;
 use serde::Deserialize;
+use serde_json::json;
 use crate::utils::request::extract_context;
 use crate::utils::response::redirect;
+use crate::context::{ClientContextSseExt, sse_response};
+use crate::entities::users;
+use platform_core::PasswordUtil;
+use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, ActiveModelTrait, Set};
 
 /// Maximum allowed body size for login/register forms (10 KiB).
 const MAX_BODY_SIZE: usize = 10 * 1024;
@@ -44,30 +48,12 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     }
 }
 
-/// SSE response that merges the `error` signal on the client.
-fn error_sse(message: &str) -> Response {
-    let body = format!(
-        "event: datastar-merge-signals\ndata: {{\"error\":\"{}\"}}\n\n",
-        message.replace('\\', "\\\\").replace('"', "\\\"")
-    );
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
-        .body(body.into())
-        .unwrap()
-}
-
-/// SSE response that executes a client-side redirect via script.
-fn redirect_sse(url: &str) -> Response {
-    let body = format!(
-        "event: datastar-execute-script\ndata: window.location.href = '{}'\n\n",
-        url.replace('\'', "\\'")
-    );
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
-        .body(body.into())
-        .unwrap()
+/// Emit a `datastar-patch-signals` event via the event emitter and return
+/// the SSE response for Datastar's `@post` handler.
+fn emit_signals_json(ctx: &crate::client_context::ClientContext, value: serde_json::Value) -> Response {
+    let signals_json = serde_json::to_string(&value).unwrap();
+    let event = ctx.emit_signals(&signals_json);
+    sse_response(&event)
 }
 
 /// POST /login — authenticate user via email + password
@@ -80,36 +66,58 @@ pub async fn login(
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
-        None => return error_sse("Request too large"),
+        None => return emit_signals_json(&ctx, json!({"error": "Request too large"})),
     };
 
     let form: LoginPayload = match serde_json::from_slice(&all_bytes) {
         Ok(f) => f,
-        Err(_) => return error_sse("Invalid request"),
+        Err(_) => return emit_signals_json(&ctx, json!({"error": "Invalid request"})),
     };
 
     let email = match form.email {
         Some(ref e) if !e.is_empty() => e,
-        _ => return error_sse("Email is required"),
+        _ => return emit_signals_json(&ctx, json!({"error": "Email is required"})),
     };
 
     if form.password.as_ref().map_or(true, |p| p.is_empty()) {
-        return error_sse("Password is required");
+        return emit_signals_json(&ctx, json!({"error": "Password is required"}));
     }
 
     elog!(Info, "Login attempt for: {}", email);
 
-    // TODO Phase 2: Query DB via SeaORM, verify password
-    let _ = state;
+    // Query user by email
+    let user = match users::Entity::find()
+        .filter(users::Column::Email.eq(email))
+        .one(&state.db)
+        .await
+    {
+        Ok(Some(u)) => u,
+        Ok(None) => {
+            return emit_signals_json(&ctx, json!({"error": "Invalid email or password"}));
+        }
+        Err(e) => {
+            elog!(Error, "DB query failed during login: {e}");
+            return emit_signals_json(&ctx, json!({"error": "Internal server error"}));
+        }
+    };
 
-    // Placeholder: mark session as authenticated
+    // Verify password via constant-time comparison
+    if !PasswordUtil::verify_password(form.password.as_deref().unwrap(), &user.password_hash) {
+        return emit_signals_json(&ctx, json!({"error": "Invalid email or password"}));
+    }
+
+    // Mark session as authenticated
     {
         let mut session = ctx.session_storage.lock().await;
         session.set_volatile("authenticated", serde_json::Value::Bool(true));
     }
-    elog!(Info, "Session → authenticated for {}", ctx.client_id);
+    elog!(Info, "Session → authenticated for {} (user_id={})", ctx.client_id, user.id);
 
-    redirect_sse("/home")
+    emit_signals_json(&ctx, json!({
+        "error": "",
+        "message": "Login successful — redirecting…",
+        "redirect": "/home",
+    }))
 }
 
 /// POST /register — create new user account
@@ -117,39 +125,90 @@ pub async fn register(
     State(state): State<SharedState>,
     req: Request,
 ) -> Response {
+    let ctx = extract_context(&req);
+
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
-        None => return error_sse("Request too large"),
+        None => return emit_signals_json(&ctx, json!({"error": "Request too large"})),
     };
 
     let form: RegisterPayload = match serde_json::from_slice(&all_bytes) {
         Ok(f) => f,
-        Err(_) => return error_sse("Invalid request"),
+        Err(_) => return emit_signals_json(&ctx, json!({"error": "Invalid request"})),
     };
 
     let username = match form.username {
         Some(ref u) if !u.is_empty() => u,
-        _ => return error_sse("Username is required"),
+        _ => return emit_signals_json(&ctx, json!({"error": "Username is required"})),
     };
 
     let email = match form.email {
         Some(ref e) if !e.is_empty() => e,
-        _ => return error_sse("Email is required"),
+        _ => return emit_signals_json(&ctx, json!({"error": "Email is required"})),
     };
 
     let password = match form.password {
         Some(ref p) if p.len() >= 8 => p,
-        Some(ref p) if !p.is_empty() => return error_sse("Password must be at least 8 characters"),
-        _ => return error_sse("Password is required"),
+        Some(ref p) if !p.is_empty() => return emit_signals_json(&ctx, json!({"error": "Password must be at least 8 characters"})),
+        _ => return emit_signals_json(&ctx, json!({"error": "Password is required"})),
     };
 
     elog!(Info, "Register attempt: {} <{}>", username, email);
 
-    // TODO Phase 2: Check uniqueness, hash password, insert user via SeaORM
-    let _ = (state, password);
+    // Check email uniqueness
+    match users::Entity::find()
+        .filter(users::Column::Email.eq(email))
+        .one(&state.db)
+        .await
+    {
+        Ok(Some(_)) => {
+            return emit_signals_json(&ctx, json!({"error": "Email already registered"}));
+        }
+        Err(e) => {
+            elog!(Error, "DB query failed during register (email check): {e}");
+            return emit_signals_json(&ctx, json!({"error": "Internal server error"}));
+        }
+        _ => {}
+    }
 
-    elog!(Info, "Registration placeholder — redirecting to login");
-    redirect_sse("/login")
+    // Check username uniqueness
+    match users::Entity::find()
+        .filter(users::Column::Username.eq(username))
+        .one(&state.db)
+        .await
+    {
+        Ok(Some(_)) => {
+            return emit_signals_json(&ctx, json!({"error": "Username already taken"}));
+        }
+        Err(e) => {
+            elog!(Error, "DB query failed during register (username check): {e}");
+            return emit_signals_json(&ctx, json!({"error": "Internal server error"}));
+        }
+        _ => {}
+    }
+
+    // Hash password with ring HMAC-SHA256
+    let password_hash = PasswordUtil::hash_new(password);
+
+    // Insert new user
+    let active = users::ActiveModel {
+        username: Set(username.clone()),
+        email: Set(email.clone()),
+        password_hash: Set(password_hash),
+        ..Default::default()
+    };
+
+    if let Err(e) = active.insert(&state.db).await {
+        elog!(Error, "Failed to insert user during register: {e}");
+        return emit_signals_json(&ctx, json!({"error": "Registration failed — please try again"}));
+    }
+
+    elog!(Info, "User registered: {} <{}>", username, email);
+    emit_signals_json(&ctx, json!({
+        "error": "",
+        "message": "Registration successful — redirecting to login…",
+        "redirect": "/login",
+    }))
 }
 
 /// POST /logout — clear session and redirect to login

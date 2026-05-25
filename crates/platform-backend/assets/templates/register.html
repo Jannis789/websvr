@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/assets/css/pages/register.css">
   <script type="module" src="/assets/js/datastar.js"></script>
 </head>
-<body data-signals="{lightMode:false, username:'', email:'', password:'', error:''}" data-class:light-mode="$lightMode">
+<body data-signals="{lightMode:false, username:'', email:'', password:'', error:'', message:''}" data-class:light-mode="$lightMode" data-on-signal-patch="window.location.href = $redirect" data-on-signal-patch-filter='{"include":/^redirect$/}'>
 
   <div class="auth-container">
     <div class="auth-card">
@@ -18,8 +18,9 @@
       </div>
 
       <div id="auth-feedback" data-show="$error" class="form-message message-error" data-text="$error"></div>
+      <div id="auth-success" data-show="$message" class="form-message message-success" data-text="$message"></div>
 
-      <form class="auth-form" data-on:submit.prevent="@post('/register')">
+      <form class="auth-form" data-on:submit="@post('/register')">
         <div class="form-group">
           <label for="username">Username</label>
           <input type="text" id="username" name="username" required data-bind:username />
