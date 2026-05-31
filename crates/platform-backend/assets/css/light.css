@@ -1,30 +1,30 @@
 /* ===== Tokyo Night Light Theme ===== */
 :root {
-  /* Background hierarchy */
-  --bg-primary: #d5d6db;
-  --bg-secondary: #e0e1e6;
-  --bg-header: #cbccd1;
-  --bg-sidebar: #d5d6db;
-  --bg-card: #c8cad3;
-  --bg-hover: #cbccd1;
+    /* Background hierarchy */
+    --bg-primary: #d5d6db;
+    --bg-secondary: #e0e1e6;
+    --bg-header: #cbccd1;
+    --bg-sidebar: #d5d6db;
+    --bg-card: #c8cad3;
+    --bg-hover: #cbccd1;
 
-  /* Foreground */
-  --fg-primary: #565f89;
-  --fg-secondary: #6a7399;
-  --fg-muted: #a9b1d6;
+    /* Foreground */
+    --fg-primary: #565f89;
+    --fg-secondary: #6a7399;
+    --fg-muted: #a9b1d6;
 
-  /* Borders */
-  --border-color: #a9b1d6;
+    /* Borders */
+    --border-color: #a9b1d6;
 
-  /* Accent — blue */
-  --accent: #2e7de9;
-  --accent-hover: #1a6fd4;
-  --accent-bg: rgba(46, 125, 233, 0.12);
-  --accent-fg: #2e7de9;
+    /* Accent — blue */
+    --accent: #2e7de9;
+    --accent-hover: #1a6fd4;
+    --accent-bg: rgba(46, 125, 233, 0.12);
+    --accent-fg: #2e7de9;
 
-  /* Semantic */
-  --danger: #c6262e;
-  --danger-hover: #a51d2b;
-  --danger-bg: rgba(198, 38, 46, 0.1);
-  --success: #587d0c;
+    /* Semantic */
+    --danger: #c6262e;
+    --danger-hover: #a51d2b;
+    --danger-bg: rgba(198, 38, 46, 0.1);
+    --success: #587d0c;
 }

@@ -1,0 +1,103 @@
+<div class="settings-section">
+    <div class="auth-card">
+        <div class="auth-card-header">
+            <span
+                class="icon icon-person auth-card-icon"
+                role="img"
+                aria-hidden="true"
+            ></span>
+            <h1 data-text="$settings_account"></h1>
+            <p class="auth-card-subtitle" data-text="$settings_account_subtitle">
+            </p>
+        </div>
+
+        <div
+            data-show="$errors.error"
+            class="form-message message-error"
+            data-text="$errors.error"
+            style="display: none"
+        >
+        </div>
+        <div
+            data-show="$settingsSuccess"
+            class="form-message message-success"
+            data-text="$settingsSuccess"
+            style="display: none"
+        >
+        </div>
+
+        <form
+            class="auth-form"
+            data-on:submit="$errors=''; @post('/settings/account')"
+        >
+            <div class="form-group">
+                <label for="username" data-text="$settings_username"></label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    required=""
+                    data-bind:username=""
+                >
+                <div
+                    class="field-error"
+                    data-show="$errors.username"
+                    data-text="$errors.username"
+                    style="display: none"
+                >
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="email" data-text="$settings_email"></label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required=""
+                    data-bind:email=""
+                >
+                <div
+                    class="field-error"
+                    data-show="$errors.email"
+                    data-text="$errors.email"
+                    style="display: none"
+                >
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="new-password"
+                data-text="$settings_new_password"></label>
+                <input
+                    type="password"
+                    id="new-password"
+                    name="new_password"
+                    data-bind:new_password=""
+                    data-attr:placeholder="$settings_password_placeholder"
+                >
+            </div>
+            <div class="form-group">
+                <label for="confirm-password"
+                data-text="$settings_confirm_password"></label>
+                <input
+                    type="password"
+                    id="confirm-password"
+                    name="confirm_password"
+                    data-bind:confirm_password=""
+                >
+                <div
+                    class="field-error"
+                    data-show="$errors.confirm_password"
+                    data-text="$errors.confirm_password"
+                    style="display: none"
+                >
+                </div>
+            </div>
+            <button
+                type="submit"
+                class="btn btn-primary auth-submit"
+            >
+                <span data-text="$settings_password_change"></span>
+            </button>
+        </form>
+    </div>
+</div>

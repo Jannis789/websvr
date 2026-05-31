@@ -1,41 +1,53 @@
-use rama::http::Request;
+use crate::context::SharedState;
 use rama::http::service::web::extract::State;
-use crate::server::SharedState;
+use rama::http::Request;
 
 use crate::components::Shell;
-use crate::utils::request::{extract_context};
-use crate::utils::response::{Response, empty_response};
+use crate::utils::request::extract_context;
 
 static HOME_OVERVIEW_HTML: &str = include_str!("../../assets/fragments/content/overview.html");
 static HOME_MOVIES_HTML: &str = include_str!("../../assets/fragments/content/movies.html");
 static HOME_SERIES_HTML: &str = include_str!("../../assets/fragments/content/series.html");
 
+const I18N_KEYS_OVERVIEW: &[&str] = &["nav_overview", "content_overview"];
+const I18N_KEYS_MOVIES: &[&str] = &["nav_movies", "content_movies"];
+const I18N_KEYS_SERIES: &[&str] = &["nav_series", "content_series"];
+
 /// GET /home/overview
 pub async fn get_home_overview(
-    State(_state): State<SharedState>,
+    State(state): State<SharedState>,
     req: Request,
-) -> Response {
+) -> crate::utils::response::Response {
     let ctx = extract_context(&req);
-    Shell::empty().content(HOME_OVERVIEW_HTML).emit(&ctx);
-    empty_response(rama::http::StatusCode::SEE_OTHER)
+    let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS_OVERVIEW);
+    Shell::empty()
+        .content(HOME_OVERVIEW_HTML)
+        .signals(&i18n_signals)
+        .emit_response(&ctx)
 }
 
 /// GET /home/movies
 pub async fn get_home_movies(
-    State(_state): State<SharedState>,
+    State(state): State<SharedState>,
     req: Request,
-) -> Response {
+) -> crate::utils::response::Response {
     let ctx = extract_context(&req);
-    Shell::empty().content(HOME_MOVIES_HTML).emit(&ctx);
-    empty_response(rama::http::StatusCode::SEE_OTHER)
+    let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS_MOVIES);
+    Shell::empty()
+        .content(HOME_MOVIES_HTML)
+        .signals(&i18n_signals)
+        .emit_response(&ctx)
 }
 
 /// GET /home/series
 pub async fn get_home_series(
-    State(_state): State<SharedState>,
+    State(state): State<SharedState>,
     req: Request,
-) -> Response {
+) -> crate::utils::response::Response {
     let ctx = extract_context(&req);
-    Shell::empty().content(HOME_SERIES_HTML).emit(&ctx);
-    empty_response(rama::http::StatusCode::SEE_OTHER)
+    let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS_SERIES);
+    Shell::empty()
+        .content(HOME_SERIES_HTML)
+        .signals(&i18n_signals)
+        .emit_response(&ctx)
 }

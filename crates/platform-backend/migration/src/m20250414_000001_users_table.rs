@@ -15,14 +15,8 @@ impl MigrationTrait for Migration {
                     .col(string(Users::Username))
                     .col(string(Users::Email))
                     .col(string(Users::PasswordHash))
-                    .col(
-                        timestamp_with_time_zone(Users::CreatedAt)
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        timestamp_with_time_zone(Users::UpdatedAt)
-                            .default(Expr::current_timestamp()),
-                    )
+                    .col(timestamp_with_time_zone(Users::CreatedAt).default(Expr::current_timestamp()))
+                    .col(timestamp_with_time_zone(Users::UpdatedAt).default(Expr::current_timestamp()))
                     .to_owned(),
             )
             .await?;

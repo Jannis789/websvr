@@ -1,0 +1,74 @@
+<div class="auth-card" data-class:is-leaving="$success">
+    <div class="auth-card-header">
+        <span
+            class="icon icon-person auth-card-icon"
+            role="img"
+            aria-hidden="true"
+        ></span>
+        <h1 data-text="$login_title"></h1>
+        <p class="auth-card-subtitle" data-text="$login_subtitle"></p>
+    </div>
+
+    <div
+        data-show="$errors.error"
+        class="form-message message-error"
+        data-text="$errors.error"
+    >
+    </div>
+
+    <form
+        class="auth-form"
+        data-on:submit="$errors='';$submitting=true;@post('/login')"
+    >
+        <div class="form-group">
+            <label for="email" data-text="$login_email"></label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                data-bind:email
+            />
+            <div
+                class="field-error"
+                data-show="$errors.email"
+                data-text="$errors.email"
+            >
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="password" data-text="$login_password"></label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                data-bind:password
+            />
+            <div
+                class="field-error"
+                data-show="$errors.password"
+                data-text="$errors.password"
+            >
+            </div>
+        </div>
+        <button
+            type="submit"
+            class="btn btn-primary auth-submit"
+            data-on:click="$submitting=true"
+            data-class:is-loading="$submitting && !$success"
+            data-class:is-success="$success"
+        >
+            <span data-show="!$submitting && !$success" data-text="$login_submit"></span>
+            <span class="loading-text" data-show="$submitting && !$success"><span data-text="$login_submit"></span><span class="loading-dots"><span></span><span></span><span></span></span></span>
+            <span class="success-check" data-show="$success"><span class="icon icon-circle-check"></span></span>
+        </button>
+    </form>
+
+    <div class="auth-card-footer">
+        <a
+            href="/register"
+            class="auth-link"
+        ><span data-text="$login_create_account"></span></a>
+    </div>
+</div>

@@ -1,68 +1,71 @@
 /* ===== Feature: Buttons ===== */
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
-  text-decoration: none;
-  font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition:
+        background-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.1s ease;
+    text-decoration: none;
+    font-family: inherit;
 }
 
 .btn:active {
-  transform: scale(0.97);
+    transform: scale(0.97);
 }
 
 .btn-primary {
-  background-color: var(--accent);
-  color: #fff;
+    background-color: var(--accent);
+    color: #fff;
 }
 
 .btn-primary:hover {
-  background-color: var(--accent-hover);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    background-color: var(--accent-hover);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn-secondary {
-  background-color: var(--bg-hover);
-  color: var(--fg-primary);
+    background-color: var(--bg-hover);
+    color: var(--fg-primary);
 }
 
 .btn-secondary:hover {
-  background-color: var(--border-color);
+    background-color: var(--border-color);
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--fg-muted);
-  padding: 8px 14px;
+    background: transparent;
+    color: var(--fg-muted);
+    padding: 8px 14px;
 }
 
 .btn-ghost:hover {
-  background-color: var(--bg-hover);
-  color: var(--fg-primary);
+    background-color: var(--bg-hover);
+    color: var(--fg-primary);
 }
 
 .btn-logout {
-  width: 100%;
-  justify-content: flex-start;
-  font-weight: 500;
-  font-size: 0.95rem;
+    width: 100%;
+    justify-content: flex-start;
+    font-weight: 500;
+    font-size: 0.95rem;
 }
 
 .btn-danger {
-  background-color: var(--danger);
-  color: #fff;
+    background-color: var(--danger);
+    color: #fff;
 }
 
 .btn-danger:hover {
-  background-color: var(--danger-hover);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    background-color: var(--danger-hover);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }

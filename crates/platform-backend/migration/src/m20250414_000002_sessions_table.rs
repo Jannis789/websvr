@@ -15,18 +15,9 @@ impl MigrationTrait for Migration {
                     .col(integer(Sessions::UserId))
                     .col(string(Sessions::ClientId)) // UUID
                     .col(json(Sessions::Data))
-                    .col(
-                        timestamp_with_time_zone(Sessions::ExpiresAt)
-                            .not_null(),
-                    )
-                    .col(
-                        timestamp_with_time_zone(Sessions::CreatedAt)
-                            .default(Expr::current_timestamp()),
-                    )
-                    .primary_key(
-                        Index::create()
-                            .col(Sessions::Id),
-                    )
+                    .col(timestamp_with_time_zone(Sessions::ExpiresAt).not_null())
+                    .col(timestamp_with_time_zone(Sessions::CreatedAt).default(Expr::current_timestamp()))
+                    .primary_key(Index::create().col(Sessions::Id))
                     .to_owned(),
             )
             .await?;

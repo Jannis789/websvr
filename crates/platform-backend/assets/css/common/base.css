@@ -1,31 +1,31 @@
 /* ===== Base Reset ===== */
 
 *, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-user-select: none;
-  user-select: none;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 html {
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  background-color: var(--bg-outer, var(--bg-primary));
-  color: var(--fg-primary);
-  height: 100%;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    background-color: var(--bg-outer, var(--bg-primary));
+    color: var(--fg-primary);
+    height: 100%;
 }
 
 body {
-  min-height: 100vh;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background-color: var(--bg-outer, var(--bg-primary));
-  overflow: auto;
-  transition: background-color 0.25s ease;
+    min-height: 100vh;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background-color: var(--bg-outer, var(--bg-primary));
+    overflow: auto;
+    transition: background-color 0.25s ease;
 }
 
 /* ===== Icon System (mask-image for GNOME SVGs) ===== */
@@ -34,18 +34,18 @@ body {
    This makes icons respect theme colors without modifying SVGs. */
 
 .icon {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  background-color: currentColor;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  flex-shrink: 0;
-  color: var(--fg-primary);
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    flex-shrink: 0;
+    color: var(--fg-primary);
 }
 
 /* ── Logo ── */
@@ -56,13 +56,82 @@ body {
 }
 
 /* ── Icon name → SVG file mapping ── */
-.icon-exit         { -webkit-mask-image: url("/assets/icons/exit.svg");        mask-image: url("/assets/icons/exit.svg"); }
-.icon-moon         { -webkit-mask-image: url("/assets/icons/moon.svg");        mask-image: url("/assets/icons/moon.svg"); }
-.icon-open-menu    { -webkit-mask-image: url("/assets/icons/open-menu.svg");   mask-image: url("/assets/icons/open-menu.svg"); }
-.icon-pan-start    { -webkit-mask-image: url("/assets/icons/pan-start.svg");    mask-image: url("/assets/icons/pan-start.svg"); }
-.icon-person       { -webkit-mask-image: url("/assets/icons/person.svg");      mask-image: url("/assets/icons/person.svg"); }
-.icon-shield       { -webkit-mask-image: url("/assets/icons/shield.svg");      mask-image: url("/assets/icons/shield.svg"); }
-.icon-sun          { -webkit-mask-image: url("/assets/icons/sun.svg");         mask-image: url("/assets/icons/sun.svg"); }
-.icon-tv           { -webkit-mask-image: url("/assets/icons/tv.svg");          mask-image: url("/assets/icons/tv.svg"); }
-.icon-video        { -webkit-mask-image: url("/assets/icons/video.svg");       mask-image: url("/assets/icons/video.svg"); }
-.icon-view-grid    { -webkit-mask-image: url("/assets/icons/view-grid.svg");   mask-image: url("/assets/icons/view-grid.svg"); }
+.icon-exit {
+    -webkit-mask-image: url("/assets/icons/exit.svg");
+    mask-image: url("/assets/icons/exit.svg");
+}
+.icon-moon {
+    -webkit-mask-image: url("/assets/icons/moon.svg");
+    mask-image: url("/assets/icons/moon.svg");
+}
+.icon-open-menu {
+    -webkit-mask-image: url("/assets/icons/open-menu.svg");
+    mask-image: url("/assets/icons/open-menu.svg");
+}
+.icon-pan-start {
+    -webkit-mask-image: url("/assets/icons/pan-start.svg");
+    mask-image: url("/assets/icons/pan-start.svg");
+}
+.icon-person {
+    -webkit-mask-image: url("/assets/icons/person.svg");
+    mask-image: url("/assets/icons/person.svg");
+}
+.icon-person-new {
+    -webkit-mask-image: url("/assets/icons/person-new.svg");
+    mask-image: url("/assets/icons/person-new.svg");
+}
+.icon-shield {
+    -webkit-mask-image: url("/assets/icons/shield.svg");
+    mask-image: url("/assets/icons/shield.svg");
+}
+.icon-sun {
+    -webkit-mask-image: url("/assets/icons/sun.svg");
+    mask-image: url("/assets/icons/sun.svg");
+}
+.icon-tv {
+    -webkit-mask-image: url("/assets/icons/tv.svg");
+    mask-image: url("/assets/icons/tv.svg");
+}
+.icon-video {
+    -webkit-mask-image: url("/assets/icons/video.svg");
+    mask-image: url("/assets/icons/video.svg");
+}
+.icon-view-grid {
+    -webkit-mask-image: url("/assets/icons/view-grid.svg");
+    mask-image: url("/assets/icons/view-grid.svg");
+}
+.icon-cogged-wheel {
+    -webkit-mask-image: url("/assets/icons/cogged-wheel.svg");
+    mask-image: url("/assets/icons/cogged-wheel.svg");
+}
+
+.icon-circle-check {
+    -webkit-mask-image: url("/assets/icons/circle-check.svg");
+    mask-image: url("/assets/icons/circle-check.svg");
+}
+.icon-camera {
+    -webkit-mask-image: url("/assets/icons/camera.svg");
+    mask-image: url("/assets/icons/camera.svg");
+}
+.icon-go-previous {
+    -webkit-mask-image: url("/assets/icons/go-previous.svg");
+    mask-image: url("/assets/icons/go-previous.svg");
+}
+.icon-key {
+    -webkit-mask-image: url("/assets/icons/key.svg");
+    mask-image: url("/assets/icons/key.svg");
+}
+.icon-mail-unread {
+    -webkit-mask-image: url("/assets/icons/mail-unread.svg");
+    mask-image: url("/assets/icons/mail-unread.svg");
+}
+.icon-pencil {
+    -webkit-mask-image: url("/assets/icons/pencil.svg");
+    mask-image: url("/assets/icons/pencil.svg");
+}
+
+/* ===== Content Scrollbox ===== */
+#content-slot {
+    flex: 1;
+    overflow-y: auto;
+}

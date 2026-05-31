@@ -1,14 +1,13 @@
 // platform-backend — HTTP server, layer stack, handlers, SSE.
 pub mod components;
-pub mod server;
-pub mod layers;
-pub mod handlers;
-pub mod sse;
-pub mod db;
-pub mod entities;
-pub mod client_context;
 pub mod context;
 pub mod crypto;
+pub mod db;
+pub mod entities;
+pub mod handlers;
+pub mod layers;
+pub mod routes;
+pub mod sse;
 pub mod utils;
 
 /// Centralized logging macro. Captures file:line automatically.

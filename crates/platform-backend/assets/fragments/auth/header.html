@@ -1,0 +1,32 @@
+<header class="auth-header-bar">
+    <div class="auth-header-brand">
+        <img
+            class="logo"
+            src="/assets/icons/logo.svg"
+            data-attr:alt="$app_name"
+        />
+        <span class="auth-header-title" data-text="$app_brand"></span>
+    </div>
+    <div class="theme-switch-wrapper">
+        <div
+            class="theme-switch"
+            data-on:click="$lightMode = !$lightMode"
+        >
+            <div
+                class="slider"
+                data-class:checked="$lightMode"
+            >
+                <span
+                    class="icon icon-moon switch-icon"
+                    role="img"
+                    aria-hidden="true"
+                ></span>
+                <span
+                    class="icon icon-sun switch-icon"
+                    role="img"
+                    aria-hidden="true"
+                ></span>
+            </div>
+        </div>
+    </div>
+</header>

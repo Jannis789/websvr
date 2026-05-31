@@ -1,0 +1,62 @@
+<div class="settings-section">
+    <h2 class="settings-title" data-text="$settings_avatar"></h2>
+    <p class="settings-desc" data-text="$settings_avatar_desc">
+    </p>
+
+    <div
+        data-show="$errors.error"
+        class="form-message message-error"
+        data-text="$errors.error"
+        style="display: none"
+    >
+    </div>
+    <div
+        data-show="$settingsSuccess"
+        class="form-message message-success"
+        data-text="$settingsSuccess"
+        style="display: none"
+    >
+    </div>
+
+    <div class="avatar-upload">
+        <div class="avatar-preview">
+            <span
+                class="avatar icon icon-person"
+                role="img"
+                aria-hidden="true"
+            ></span>
+        </div>
+        <form
+            class="settings-form"
+            data-on:submit="$errors=''; @post('/settings/avatar')"
+        >
+            <div class="form-group">
+                <label
+                    for="avatar-file"
+                    class="avatar-file-label"
+                >
+                    <span
+                        class="icon icon-camera"
+                        role="img"
+                        aria-hidden="true"
+                    ></span>
+                    <span data-text="$settings_avatar_choose"></span>
+                </label>
+                <input
+                    type="file"
+                    id="avatar-file"
+                    name="avatar"
+                    accept="image/*"
+                    data-bind:avatar=""
+                    style="display: none"
+                >
+            </div>
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                <span data-text="$settings_avatar_upload"></span>
+            </button>
+        </form>
+    </div>
+</div>

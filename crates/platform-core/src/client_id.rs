@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use serde::{Serialize, Deserialize};
 
 pub const CLIENT_ID_COOKIE: &str = "platform_cid";
 

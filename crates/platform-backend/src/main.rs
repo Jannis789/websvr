@@ -1,5 +1,5 @@
-use platform_backend::server;
 use platform_backend::elog;
+use platform_backend::routes;
 
 #[tokio::main]
 async fn main() {
@@ -7,5 +7,5 @@ async fn main() {
     dotenvy::dotenv().ok();
 
     elog!(Info, "Starting Rama Platform server");
-    server::run().await;
+    routes::run().await;
 }

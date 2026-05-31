@@ -125,19 +125,17 @@ describe('E2E Navigation — Home page initial load', () => {
     expect(navStatus).toBe(200)
 
     const patchEvents = filterPatch(events)
-    expect(patchEvents.length).toBeGreaterThanOrEqual(5)
+    expect(patchEvents.length).toBeGreaterThanOrEqual(3)
 
     // Verify each component slot was patched
     const selectors = patchEvents.map((e) => parsePatch(e).selector)
 
-    expect(selectors).toContain('#sidebar-header')
-    expect(selectors).toContain('#sidebar-menu')
-    expect(selectors).toContain('#sidebar-footer')
-    expect(selectors).toContain('#main-header')
-    expect(selectors).toContain('#content-body')
+    expect(selectors).toContain('#sidebar-slot')
+    expect(selectors).toContain('#header-slot')
+    expect(selectors).toContain('#content-slot')
 
-    // Verify content-body has overview content
-    const contentPatch = lastPatchFor(events, '#content-body')
+    // Verify content-slot has overview content
+    const contentPatch = lastPatchFor(events, '#content-slot')
     expect(contentPatch).toBeDefined()
 
     const { elements } = parsePatch(contentPatch!)
@@ -154,50 +152,50 @@ describe('E2E Navigation — Home page initial load', () => {
 // ─────────────────────────────────────────────
 
 describe('E2E Navigation — Content-body swap', () => {
-  test('GET /home/movies pushes movies content to #content-body', async () => {
+  test('GET /home/movies pushes movies content to #content-slot', async () => {
     const cid = generateClientId()
     const { events, navStatus } = await navigateAndCollect(cid, '/home/movies')
-    // Navigate handlers return 303 (content pushed via SSE, not in HTTP response)
-    expect(navStatus).toBe(303)
+    // Navigate handlers return 200 with SSE body (content in HTTP response)
+    expect(navStatus).toBe(200)
 
-    const contentPatch = lastPatchFor(events, '#content-body')
+    const contentPatch = lastPatchFor(events, '#content-slot')
     expect(contentPatch).toBeDefined()
 
     const { selector, elements } = parsePatch(contentPatch!)
-    expect(selector).toBe('#content-body')
+    expect(selector).toBe('#content-slot')
     expect(elements).toContain('MOVIES')
 
-    console.log(`[e2e] /home/movies: content-body patched with movies HTML`)
+    console.log(`[e2e] /home/movies: content-slot patched with movies HTML`)
   }, 10_000)
 
-  test('GET /home/series pushes series content to #content-body', async () => {
+  test('GET /home/series pushes series content to #content-slot', async () => {
     const cid = generateClientId()
     const { events, navStatus } = await navigateAndCollect(cid, '/home/series')
-    expect(navStatus).toBe(303)
+    expect(navStatus).toBe(200)
 
-    const contentPatch = lastPatchFor(events, '#content-body')
+    const contentPatch = lastPatchFor(events, '#content-slot')
     expect(contentPatch).toBeDefined()
 
     const { selector, elements } = parsePatch(contentPatch!)
-    expect(selector).toBe('#content-body')
+    expect(selector).toBe('#content-slot')
     expect(elements).toContain('SERIES')
 
-    console.log(`[e2e] /home/series: content-body patched with series HTML`)
+    console.log(`[e2e] /home/series: content-slot patched with series HTML`)
   }, 10_000)
 
-  test('GET /home/overview pushes overview content to #content-body', async () => {
+  test('GET /home/overview pushes overview content to #content-slot', async () => {
     const cid = generateClientId()
     const { events, navStatus } = await navigateAndCollect(cid, '/home/overview')
-    expect(navStatus).toBe(303)
+    expect(navStatus).toBe(200)
 
-    const contentPatch = lastPatchFor(events, '#content-body')
+    const contentPatch = lastPatchFor(events, '#content-slot')
     expect(contentPatch).toBeDefined()
 
     const { selector, elements } = parsePatch(contentPatch!)
-    expect(selector).toBe('#content-body')
+    expect(selector).toBe('#content-slot')
     expect(elements).toContain('OVERVIEW')
 
-    console.log(`[e2e] /home/overview: content-body patched with overview HTML`)
+    console.log(`[e2e] /home/overview: content-slot patched with overview HTML`)
   }, 10_000)
 })
 
@@ -211,13 +209,13 @@ describe('E2E Navigation — Sequential content swaps', () => {
 
     // Step 1: overview (uses same SSE connection)
     const { events: ev1 } = await navigateAndCollect(cid, '/home/overview')
-    const overviewPatch = lastPatchFor(ev1, '#content-body')
+    const overviewPatch = lastPatchFor(ev1, '#content-slot')
     expect(overviewPatch).toBeDefined()
     expect(parsePatch(overviewPatch!).elements).toContain('OVERVIEW')
 
     // Step 2: movies — new SSE connection, new events
     const { events: ev2 } = await navigateAndCollect(cid, '/home/movies')
-    const moviesPatch = lastPatchFor(ev2, '#content-body')
+    const moviesPatch = lastPatchFor(ev2, '#content-slot')
     expect(moviesPatch).toBeDefined()
     const moviesElements = parsePatch(moviesPatch!).elements
     expect(moviesElements).toContain('MOVIES')
@@ -225,7 +223,7 @@ describe('E2E Navigation — Sequential content swaps', () => {
 
     // Step 3: series — new SSE connection
     const { events: ev3 } = await navigateAndCollect(cid, '/home/series')
-    const seriesPatch = lastPatchFor(ev3, '#content-body')
+    const seriesPatch = lastPatchFor(ev3, '#content-slot')
     expect(seriesPatch).toBeDefined()
     const seriesElements = parsePatch(seriesPatch!).elements
     expect(seriesElements).toContain('SERIES')
@@ -252,8 +250,7 @@ describe('E2E Navigation — Page reload', () => {
       .map((e) => e.id)
       .filter((id): id is string => !!id)
 
-    expect(patchIds1.length).toBeGreaterThanOrEqual(5)
-    console.log(`[e2e] First visit: ${patchIds1.length} events`)
+    expect(patchIds1.length).toBeGreaterThanOrEqual(3)
 
     // Simulate page reload: reconnect WITHOUT known_hashes
     // Server should replay the full buffered state
@@ -266,10 +263,10 @@ describe('E2E Navigation — Page reload', () => {
     const patches2 = filterPatch(events2)
 
     // Should receive buffered events (the full shell state)
-    expect(patches2.length).toBeGreaterThanOrEqual(5)
+    expect(patches2.length).toBeGreaterThanOrEqual(3)
 
-    // Last content-body should be OVERVIEW (not a stale navigation)
-    const lastContent = lastPatchFor(events2, '#content-body')
+    // Last content-slot should be OVERVIEW (not a stale navigation)
+    const lastContent = lastPatchFor(events2, '#content-slot')
     expect(lastContent).toBeDefined()
     expect(parsePatch(lastContent!).elements).toContain('OVERVIEW')
 
@@ -294,11 +291,11 @@ describe('E2E Navigation — Page reload', () => {
     const navResp = await fetch(`${BASE_URL}/home/movies`, {
       headers: await authHeaders(cid),
     })
-    expect(navResp.status).toBe(303)
+    expect(navResp.status).toBe(200)
 
     const events2 = await collectSseEvents(sseResp2, 3_000)
 
-    const moviesPatch = lastPatchFor(events2, '#content-body')
+    const moviesPatch = lastPatchFor(events2, '#content-slot')
     expect(moviesPatch).toBeDefined()
     expect(parsePatch(moviesPatch!).elements).toContain('MOVIES')
 
@@ -329,9 +326,9 @@ describe('E2E Navigation — Force reload scenario', () => {
     // Collect initial events
     const events1 = await collectSseEvents(sseResp1, 2_000)
     const patches1 = filterPatch(events1)
-    expect(patches1.length).toBeGreaterThanOrEqual(5)
+    expect(patches1.length).toBeGreaterThanOrEqual(3)
 
-    const initialContentPatch = lastPatchFor(events1, '#content-body')
+    const initialContentPatch = lastPatchFor(events1, '#content-slot')
     expect(initialContentPatch).toBeDefined()
     console.log(`[e2e] Phase 1: ${patches1.length} events`)
 
@@ -363,7 +360,7 @@ describe('E2E Navigation — Force reload scenario', () => {
         const navResp1 = await fetch(`${BASE_URL}/home/movies`, {
           headers: await authHeaders(cid),
         })
-        expect(navResp1.status).toBe(303)
+        expect(navResp1.status).toBe(200)
 
         await new Promise((r) => setTimeout(r, 2_000))
 
@@ -371,7 +368,7 @@ describe('E2E Navigation — Force reload scenario', () => {
         const navResp2 = await fetch(`${BASE_URL}/home/series`, {
           headers: await authHeaders(cid),
         })
-        expect(navResp2.status).toBe(303)
+        expect(navResp2.status).toBe(200)
 
         await new Promise((r) => setTimeout(r, 2_000))
 
@@ -395,7 +392,7 @@ describe('E2E Navigation — Force reload scenario', () => {
     const moviesOnly = allEvents.filter(
       (e) =>
         e.event === 'datastar-patch-elements' &&
-        (e.data ?? '').includes('#content-body') &&
+        (e.data ?? '').includes('#content-slot') &&
         (e.data ?? '').includes('MOVIES'),
     )
     expect(moviesOnly.length).toBeGreaterThanOrEqual(1)
@@ -405,13 +402,13 @@ describe('E2E Navigation — Force reload scenario', () => {
     const seriesOnly = allEvents.filter(
       (e) =>
         e.event === 'datastar-patch-elements' &&
-        (e.data ?? '').includes('#content-body') &&
+        (e.data ?? '').includes('#content-slot') &&
         (e.data ?? '').includes('SERIES'),
     )
     expect(seriesOnly.length).toBeGreaterThanOrEqual(1)
     expect(parsePatch(seriesOnly[0]).elements).toContain('SERIES')
 
-    console.log(`[e2e] Phase 4: series patch received, content-body still targetable`)
+    console.log(`[e2e] Phase 4: series patch received, content-slot still targetable`)
   }, 25_000)
 })
 

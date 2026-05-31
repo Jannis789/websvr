@@ -2,115 +2,146 @@
 
 /* Full-screen invisible overlay to catch clicks outside popup */
 .popup-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
 }
 
 /* Popup centered above settings button */
 .popup-menu {
-  position: absolute;
-  bottom: 100%;
-  right: 32px;
-  transform: translateX(50%) translateY(6px);
-  width: max-content;
-  min-width: 150px;
-  background-color: var(--bg-popup);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  padding: 4px;
-  z-index: 100;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 4px;
+    position: absolute;
+    bottom: 100%;
+    right: 32px;
+    transform: translateX(50%) translateY(6px);
+    width: max-content;
+    min-width: 150px;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    z-index: 100;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 4px;
 
-  /* Hidden by default */
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+    /* Hidden by default */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 /* Visible state */
 .popup-menu.popup-visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(50%) translateY(0);
 }
 
 .popup-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--fg-primary);
-  cursor: pointer;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-  transition: background-color 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--fg-primary);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    transition: background-color 0.15s ease;
 }
 
 .popup-item:hover {
-  background-color: var(--bg-hover);
+    background-color: var(--bg-hover);
 }
 
 .popup-item .icon {
-  width: 16px;
-  height: 16px;
-  color: var(--fg-muted);
+    width: 16px;
+    height: 16px;
+    color: var(--fg-muted);
 }
 
 .popup-item:hover .icon {
-  color: var(--fg-primary);
+    color: var(--fg-primary);
 }
 
 .popup-item--danger {
-  color: var(--danger);
-  border-top: 1px solid var(--border-color);
-  margin-top: 2px;
-  padding-top: 6px;
+    color: var(--danger);
+    border-top: 1px solid var(--border-color);
+    margin-top: 2px;
+    padding-top: 6px;
 }
 
 .popup-item--danger .icon {
-  color: var(--danger);
+    color: var(--danger);
 }
 
 .popup-item--danger:hover {
-  background-color: var(--danger-bg);
+    background-color: var(--danger-bg);
 }
 
 /* Form inside popup item — zero inherited spacing */
 .popup-form {
-  display: flex;
-  width: 100%;
-  margin: 0;
-  padding: 0;
+    display: flex;
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 .popup-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
 }
 
 .popup-btn .icon {
-  width: 16px;
-  height: 16px;
-  color: var(--danger);
+    width: 16px;
+    height: 16px;
+    color: var(--danger);
+}
+
+/* Link inside popup item — reset browser defaults, fill entire li */
+.popup-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--fg-primary);
+    text-decoration: none;
+    font-size: inherit;
+    font-weight: inherit;
+    padding: 0;
+    margin: -8px -12px;
+    width: calc(100% + 24px);
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+        background-color: var(--bg-hover);
+    }
+
+    & .icon {
+        width: 16px;
+        height: 16px;
+        color: var(--fg-muted);
+    }
+
+    &:hover .icon {
+        color: var(--fg-primary);
+    }
 }

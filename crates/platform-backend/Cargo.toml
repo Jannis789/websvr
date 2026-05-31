@@ -20,3 +20,4 @@ migration = { path = "./migration" }
 serde_urlencoded = "0.7"
 uuid = { version = "1", features = ["v4"] }
 dotenvy = "0.15"
+regex = "1.12.3"

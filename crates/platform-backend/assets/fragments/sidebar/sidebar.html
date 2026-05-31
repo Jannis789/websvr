@@ -1,0 +1,124 @@
+<div class="sidebar">
+    <div class="sidebar-top">
+        <div class="sidebar-header">
+            <img
+                class="logo"
+                src="/assets/icons/logo.svg"
+                data-attr:alt="$app_name"
+            />
+            <span class="sidebar-title" data-text="$app_brand"></span>
+            <button
+                class="sidebar-close"
+                data-on:click="$sidebarOpen=false"
+                data-attr:aria-label="$aria_close"
+            >
+                <span class="icon icon-pan-start"></span>
+            </button>
+        </div>
+        <ul class="sidebar-menu">
+            <li
+                class="menu-item"
+                data-class:active="$activePage === 'overview'"
+                data-on:click="$activePage = 'overview'; @get('/home/overview')"
+            >
+                <span
+                    class="icon icon-view-grid"
+                    role="img"
+                    aria-hidden="true"
+                ></span>
+                <span class="nav-label" data-text="$nav_overview"></span>
+            </li>
+            <li
+                class="menu-item"
+                data-class:active="$activePage === 'movies'"
+                data-on:click="$activePage = 'movies'; @get('/home/movies')"
+            >
+                <span
+                    class="icon icon-video"
+                    role="img"
+                    aria-hidden="true"
+                ></span>
+                <span class="nav-label" data-text="$nav_movies"></span>
+            </li>
+            <li
+                class="menu-item"
+                data-class:active="$activePage === 'series'"
+                data-on:click="$activePage = 'series'; @get('/home/series')"
+            >
+                <span
+                    class="icon icon-tv"
+                    role="img"
+                    aria-hidden="true"
+                ></span>
+                <span class="nav-label" data-text="$nav_series"></span>
+            </li>
+        </ul>
+    </div>
+    <div class="sidebar-footer">
+        <div class="user-profile">
+            <span
+                class="avatar icon icon-person"
+                role="img"
+                aria-hidden="true"
+            ></span>
+            <span class="username">John Doe</span>
+        </div>
+        <button
+            class="settings-btn"
+            data-class:active="$popupOpen"
+            data-on:click="$popupOpen = !$popupOpen"
+        >
+            <span
+                class="icon icon-open-menu"
+                role="img"
+                aria-hidden="true"
+            ></span>
+        </button>
+        <div
+            class="popup-overlay"
+            data-show="$popupOpen"
+            data-on:click="$popupOpen = false"
+        >
+        </div>
+        <ul
+            class="popup-menu"
+            data-class:popup-visible="$popupOpen"
+        >
+            <li class="popup-item">
+                <a
+                    href="/settings"
+                    class="popup-link"
+                >
+                    <span
+                        class="icon icon-cogged-wheel"
+                        role="img"
+                        aria-hidden="true"
+                    ></span>
+                    <span data-text="$settings_title"></span>
+                </a>
+            </li>
+            <li class="popup-item popup-item--danger">
+                <form
+                    method="post"
+                    action="/logout"
+                    class="popup-form"
+                >
+                    <button
+                        type="submit"
+                        class="popup-btn"
+                        data-on:click="$popupOpen = false"
+                    >
+                        <span
+                            class="icon icon-exit"
+                            role="img"
+                            aria-hidden="true"
+                        ></span>
+                        <span data-text="$settings_logout"></span>
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</div>
+<div class="sidebar-backdrop">
+</div>

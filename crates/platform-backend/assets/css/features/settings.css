@@ -1,0 +1,19 @@
+/* ===== Feature: Settings ===== */
+
+#content-slot:has(.settings-section) {
+    flex: 1;
+    display: flex;
+}
+
+.settings-section {
+    padding: clamp(16px, 3vw, 32px);
+    display: flex;
+    justify-content: center;
+    flex: 1;
+}
+
+.settings-section .auth-card {
+    width: 100%;
+    max-width: 480px;
+    align-self: flex-start;
+}

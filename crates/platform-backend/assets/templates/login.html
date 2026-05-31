@@ -1,50 +1,37 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/svg+xml" href="/assets/icons/logo.svg">
-  <title>Login — Rama Platform</title>
-  <link rel="stylesheet" href="/assets/css/pages/login.css">
-  <script type="module" src="/assets/js/datastar.js"></script>
-</head>
-<body data-signals="{lightMode:false, email:'', password:'', error:'', message:''}" data-class:light-mode="$lightMode" data-on-signal-patch="window.location.href = $redirect" data-on-signal-patch-filter='{"include":/^redirect$/}'>
-
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="auth-header">
-        <img class="logo" src="/assets/icons/logo.svg" alt="Rama Platform" />
-        <h1>Rama Platform</h1>
-      </div>
-
-      <div id="auth-feedback" data-show="$error" class="form-message message-error" data-text="$error"></div>
-      <div id="auth-success" data-show="$message" class="form-message message-success" data-text="$message"></div>
-
-      <form class="auth-form" data-on:submit="@post('/login')">
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" name="email" required data-bind:email />
-        </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" required data-bind:password />
-        </div>
-        <button type="submit" class="auth-submit">Login</button>
-      </form>
-
-      <div class="auth-footer">
-        <a href="/register" class="auth-link">Create account</a>
-        <div class="theme-switch-wrapper">
-          <div class="theme-switch" data-on:click="$lightMode = !$lightMode">
-            <div class="slider" data-class:checked="$lightMode">
-              <span class="icon icon-moon switch-icon" role="img" aria-hidden="true"></span>
-              <span class="icon icon-sun switch-icon" role="img" aria-hidden="true"></span>
+    <head>
+        <meta charset="UTF-8">
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        >
+        <link
+            rel="icon"
+            type="image/svg+xml"
+            href="/assets/icons/logo.svg"
+        >
+        <title>Login — Rama Platform</title>
+        <link
+            rel="stylesheet"
+            href="/assets/css/pages/login.css"
+        >
+        <script
+            type="module"
+            src="/assets/js/datastar.js"
+        ></script>
+    </head>
+    <body data-class:light-mode="$lightMode">
+        <div class="auth-shell">
+            <div id="main-header">
             </div>
-          </div>
+            <div class="auth-body">
+                <div id="content-body">
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
 
-</body>
+        <div data-init="@get('/sse')">
+        </div>
+    </body>
 </html>

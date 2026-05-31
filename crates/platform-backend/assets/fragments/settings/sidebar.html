@@ -1,0 +1,99 @@
+<div class="sidebar">
+    <div class="sidebar-top">
+        <div class="sidebar-header">
+            <img
+                class="logo"
+                src="/assets/icons/logo.svg"
+                data-attr:alt="$app_name"
+            />
+            <span class="sidebar-title" data-text="$settings_title"></span>
+        </div>
+        <ul class="sidebar-menu">
+            <li
+                class="menu-item"
+                data-class:active="$settingsPage === 'account'"
+                data-on:click="$settingsPage = 'account'; @get('/settings/account')"
+            >
+                <span
+                    class="icon icon-person"
+                    role="img"
+                    aria-hidden="true"
+                ></span>
+                <span class="nav-label" data-text="$settings_account"></span>
+            </li>
+        </ul>
+    </div>
+    <div class="sidebar-footer">
+        <div class="user-profile">
+            <span
+                class="avatar icon icon-person"
+                role="img"
+                aria-hidden="true"
+            ></span>
+            <span
+                class="username"
+                data-text="$username"
+            >John Doe</span>
+        </div>
+        <button
+            class="settings-btn"
+            data-class:active="$popupOpen"
+            data-on:click="$popupOpen = !$popupOpen"
+        >
+            <span
+                class="icon icon-open-menu"
+                role="img"
+                aria-hidden="true"
+            ></span>
+        </button>
+        <div
+            class="popup-overlay"
+            data-show="$popupOpen"
+            data-on:click="$popupOpen = false"
+        >
+        </div>
+        <ul
+            class="popup-menu"
+            data-class:popup-visible="$popupOpen"
+        >
+            <li
+                class="popup-item"
+                data-on:click="$popupOpen = false"
+            >
+                <a
+                    href="/settings"
+                    class="popup-link"
+                >
+                    <span
+                        class="icon icon-cogged-wheel"
+                        role="img"
+                        aria-hidden="true"
+                    ></span>
+                    <span data-text="$settings_title"></span>
+                </a>
+            </li>
+            <li class="popup-item popup-item--danger">
+                <form
+                    method="post"
+                    action="/logout"
+                    class="popup-form"
+                >
+                    <button
+                        type="submit"
+                        class="popup-btn"
+                        data-on:click="$popupOpen = false"
+                    >
+                        <span
+                            class="icon icon-exit"
+                            role="img"
+                            aria-hidden="true"
+                        ></span>
+                        <span data-text="$settings_logout"></span>
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</div>
+<div class="sidebar-backdrop">
+</div>

@@ -1,18 +1,23 @@
+use crate::context::SharedState;
 use crate::elog;
-use rama::http::{Request, Response, header};
-use rama::http::service::web::extract::State;
-use crate::server::SharedState;
-use serde::Deserialize;
-use serde_json::json;
+use crate::entities::users;
 use crate::utils::request::extract_context;
 use crate::utils::response::redirect;
-use crate::context::{ClientContextSseExt, sse_response};
-use crate::entities::users;
 use platform_core::PasswordUtil;
-use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, ActiveModelTrait, Set};
+use rama::http::service::web::extract::State;
+use rama::http::{header, Request, Response};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use serde::Deserialize;
+use serde_json::json;
 
 /// Maximum allowed body size for login/register forms (10 KiB).
 const MAX_BODY_SIZE: usize = 10 * 1024;
+
+/// Minimum password length.
+const MIN_PASSWORD_LEN: usize = 8;
+
+/// RFC 5322-ish email pattern — compiled once.
+static EMAIL_PATTERN: &str = r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$";
 
 #[derive(Debug, Deserialize)]
 struct LoginPayload {
@@ -25,6 +30,7 @@ struct RegisterPayload {
     username: Option<String>,
     email: Option<String>,
     password: Option<String>,
+    confirm_password: Option<String>,
 }
 
 /// Read the request body with a size limit.
@@ -48,40 +54,56 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     }
 }
 
-/// Emit a `datastar-patch-signals` event via the event emitter and return
-/// the SSE response for Datastar's `@post` handler.
-fn emit_signals_json(ctx: &crate::client_context::ClientContext, value: serde_json::Value) -> Response {
-    let signals_json = serde_json::to_string(&value).unwrap();
-    let event = ctx.emit_signals(&signals_json);
-    sse_response(&event)
+/// Push error signals into the SSE broadcaster, return 303 → /sse.
+fn emit_error(ctx: &crate::context::ClientContext, field: &str, message: impl AsRef<str>) -> Response {
+    let msg = message.as_ref();
+    let signals = json!({ "errors": { field: msg }, "submitting": false, "success": false });
+    let signals_json = serde_json::to_string(&signals).unwrap();
+    ctx.event_emitter.emit_signals(&signals_json);
+    redirect("/sse")
 }
 
-/// POST /login — authenticate user via email + password
+/// Push success signals + redirect script into the broadcaster, return 303 → /sse.
+fn emit_success(ctx: &crate::context::ClientContext, redirect_url: &str) -> Response {
+    let signals = json!({ "errors": "", "success": true });
+    let signals_json = serde_json::to_string(&signals).unwrap();
+    ctx.event_emitter.emit_signals(&signals_json);
+    ctx.event_emitter.emit_script(&format!(
+        "setTimeout(() => {{ window.location.href = '{}'; }}, 1200);",
+        redirect_url
+    ));
+    redirect("/sse")
+}
+
+/// POST /login — authenticate user via email + password.
 /// Datastar @post sends signals as JSON body.
-pub async fn login(
-    State(state): State<SharedState>,
-    req: Request,
-) -> Response {
+/// Returns 303 → /sse; the Dreifaltigkeit arrives via the SSE stream.
+pub async fn login(State(state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
-        None => return emit_signals_json(&ctx, json!({"error": "Request too large"})),
+        None => return emit_error(&ctx, "error", "Request too large"),
     };
 
     let form: LoginPayload = match serde_json::from_slice(&all_bytes) {
         Ok(f) => f,
-        Err(_) => return emit_signals_json(&ctx, json!({"error": "Invalid request"})),
+        Err(_) => return emit_error(&ctx, "error", "Invalid request"),
     };
 
     let email = match form.email {
         Some(ref e) if !e.is_empty() => e,
-        _ => return emit_signals_json(&ctx, json!({"error": "Email is required"})),
+        _ => return emit_error(&ctx, "email", "E-Mail erforderlich"),
     };
 
-    if form.password.as_ref().map_or(true, |p| p.is_empty()) {
-        return emit_signals_json(&ctx, json!({"error": "Password is required"}));
+    if !regex::Regex::new(EMAIL_PATTERN).unwrap().is_match(email) {
+        return emit_error(&ctx, "email", "Ungueltige E-Mail-Adresse");
     }
+
+    let password = match form.password {
+        Some(ref p) if !p.is_empty() => p,
+        _ => return emit_error(&ctx, "password", "Passwort erforderlich"),
+    };
 
     elog!(Info, "Login attempt for: {}", email);
 
@@ -93,65 +115,91 @@ pub async fn login(
     {
         Ok(Some(u)) => u,
         Ok(None) => {
-            return emit_signals_json(&ctx, json!({"error": "Invalid email or password"}));
+            return emit_error(&ctx, "email", "Kein Account mit dieser E-Mail");
         }
         Err(e) => {
             elog!(Error, "DB query failed during login: {e}");
-            return emit_signals_json(&ctx, json!({"error": "Internal server error"}));
+            return emit_error(&ctx, "error", "Interner Fehler");
         }
     };
 
     // Verify password via constant-time comparison
-    if !PasswordUtil::verify_password(form.password.as_deref().unwrap(), &user.password_hash) {
-        return emit_signals_json(&ctx, json!({"error": "Invalid email or password"}));
+    if !PasswordUtil::verify_password(password, &user.password_hash) {
+        return emit_error(&ctx, "password", "Falsches Passwort");
     }
 
     // Mark session as authenticated
     {
         let mut session = ctx.session_storage.lock().await;
         session.set_volatile("authenticated", serde_json::Value::Bool(true));
+        session.set_volatile("user_id", serde_json::Value::Number(user.id.into()));
     }
-    elog!(Info, "Session → authenticated for {} (user_id={})", ctx.client_id, user.id);
+    elog!(
+        Info,
+        "Session authenticated for {} (user_id={})",
+        ctx.client_id,
+        user.id
+    );
 
-    emit_signals_json(&ctx, json!({
-        "error": "",
-        "message": "Login successful — redirecting…",
-        "redirect": "/home",
-    }))
+    emit_success(&ctx, "/home")
 }
 
-/// POST /register — create new user account
-pub async fn register(
-    State(state): State<SharedState>,
-    req: Request,
-) -> Response {
+/// POST /register — create new user account.
+/// Returns 303 → /sse; the Dreifaltigkeit arrives via the SSE stream.
+pub async fn register(State(state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
-        None => return emit_signals_json(&ctx, json!({"error": "Request too large"})),
+        None => return emit_error(&ctx, "error", "Request too large"),
     };
 
     let form: RegisterPayload = match serde_json::from_slice(&all_bytes) {
         Ok(f) => f,
-        Err(_) => return emit_signals_json(&ctx, json!({"error": "Invalid request"})),
+        Err(_) => return emit_error(&ctx, "error", "Invalid request"),
     };
 
     let username = match form.username {
         Some(ref u) if !u.is_empty() => u,
-        _ => return emit_signals_json(&ctx, json!({"error": "Username is required"})),
+        _ => return emit_error(&ctx, "username", "Benutzername erforderlich"),
     };
 
     let email = match form.email {
         Some(ref e) if !e.is_empty() => e,
-        _ => return emit_signals_json(&ctx, json!({"error": "Email is required"})),
+        _ => return emit_error(&ctx, "email", "E-Mail erforderlich"),
     };
 
+    if !regex::Regex::new(EMAIL_PATTERN).unwrap().is_match(email) {
+        return emit_error(&ctx, "email", "Ungueltige E-Mail-Adresse");
+    }
+
     let password = match form.password {
-        Some(ref p) if p.len() >= 8 => p,
-        Some(ref p) if !p.is_empty() => return emit_signals_json(&ctx, json!({"error": "Password must be at least 8 characters"})),
-        _ => return emit_signals_json(&ctx, json!({"error": "Password is required"})),
+        Some(ref p) if !p.is_empty() => p,
+        _ => return emit_error(&ctx, "password", "Passwort erforderlich"),
     };
+
+    if password.len() < MIN_PASSWORD_LEN {
+        return emit_error(
+            &ctx,
+            "password",
+            format!("Mindestens {} Zeichen", MIN_PASSWORD_LEN),
+        );
+    }
+    if !password.chars().any(|c| c.is_uppercase()) {
+        return emit_error(&ctx, "password", "Grossbuchstabe erforderlich");
+    }
+    if !password.chars().any(|c| c.is_ascii_digit()) {
+        return emit_error(&ctx, "password", "Ziffer erforderlich");
+    }
+
+    let confirm = match form.confirm_password {
+        Some(ref p) if !p.is_empty() => p,
+        _ => return emit_error(&ctx, "confirm", "Passwort bestaetigen"),
+    };
+
+    if password != confirm {
+        return emit_error(&ctx, "confirm", "Passwoerter stimmen nicht");
+    }
 
     elog!(Info, "Register attempt: {} <{}>", username, email);
 
@@ -162,11 +210,11 @@ pub async fn register(
         .await
     {
         Ok(Some(_)) => {
-            return emit_signals_json(&ctx, json!({"error": "Email already registered"}));
+            return emit_error(&ctx, "email", "Bereits registriert");
         }
         Err(e) => {
             elog!(Error, "DB query failed during register (email check): {e}");
-            return emit_signals_json(&ctx, json!({"error": "Internal server error"}));
+            return emit_error(&ctx, "error", "Interner Fehler");
         }
         _ => {}
     }
@@ -178,11 +226,11 @@ pub async fn register(
         .await
     {
         Ok(Some(_)) => {
-            return emit_signals_json(&ctx, json!({"error": "Username already taken"}));
+            return emit_error(&ctx, "username", "Bereits vergeben");
         }
         Err(e) => {
             elog!(Error, "DB query failed during register (username check): {e}");
-            return emit_signals_json(&ctx, json!({"error": "Internal server error"}));
+            return emit_error(&ctx, "error", "Interner Fehler");
         }
         _ => {}
     }
@@ -200,30 +248,34 @@ pub async fn register(
 
     if let Err(e) = active.insert(&state.db).await {
         elog!(Error, "Failed to insert user during register: {e}");
-        return emit_signals_json(&ctx, json!({"error": "Registration failed — please try again"}));
+        return emit_error(&ctx, "error", "Registrierung fehlgeschlagen");
     }
 
     elog!(Info, "User registered: {} <{}>", username, email);
-    emit_signals_json(&ctx, json!({
-        "error": "",
-        "message": "Registration successful — redirecting to login…",
-        "redirect": "/login",
-    }))
+    emit_success(&ctx, "/login")
 }
 
-/// POST /logout — clear session and redirect to login
-pub async fn logout(
-    State(_state): State<SharedState>,
-    _req: Request,
-) -> Response {
-    let mut resp = redirect("/login");
+/// POST /logout — clear session and redirect to login via 303 → /sse.
+pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response {
+    let ctx = extract_context(&req);
+
+    // Clear session
+    {
+        let mut session = ctx.session_storage.lock().await;
+        session.set_volatile("authenticated", serde_json::Value::Null);
+        session.set_volatile("user_id", serde_json::Value::Null);
+    }
+
+    // Push redirect script into broadcaster
+    ctx.event_emitter
+        .emit_script("setTimeout(() => { window.location.href = '/login'; }, 500);");
+
+    let mut resp = redirect("/sse");
     let clear_cookie = format!(
         "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
         platform_core::client_id::CLIENT_ID_COOKIE
     );
-    resp.headers_mut().insert(
-        header::SET_COOKIE,
-        clear_cookie.parse().unwrap(),
-    );
+    resp.headers_mut()
+        .insert(header::SET_COOKIE, clear_cookie.parse().unwrap());
     resp
 }

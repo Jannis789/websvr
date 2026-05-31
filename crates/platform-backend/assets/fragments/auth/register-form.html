@@ -1,0 +1,110 @@
+<div class="auth-card" data-class:is-leaving="$success">
+    <div class="auth-card-header">
+        <span
+            class="icon icon-person-new auth-card-icon"
+            role="img"
+            aria-hidden="true"
+        ></span>
+        <h1 data-text="$register_title"></h1>
+        <p class="auth-card-subtitle" data-text="$register_subtitle">
+        </p>
+    </div>
+
+    <div
+        data-show="$errors.error"
+        class="form-message message-error"
+        data-text="$errors.error"
+    >
+    </div>
+
+    <form
+        class="auth-form"
+        data-on:submit="$errors='';$submitting=true;@post('/register')"
+    >
+        <div class="form-group">
+            <label for="username" data-text="$register_username"></label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                maxlength="32"
+                data-bind:username
+            />
+            <div
+                class="field-error"
+                data-show="$errors.username"
+                data-text="$errors.username"
+            >
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="email" data-text="$register_email"></label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                data-bind:email
+            />
+            <div
+                class="field-error"
+                data-show="$errors.email"
+                data-text="$errors.email"
+            >
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="password" data-text="$register_password"></label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                minlength="8"
+                data-bind:password
+            />
+            <div
+                class="field-error"
+                data-show="$errors.password"
+                data-text="$errors.password"
+            >
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="confirm_password"
+            data-text="$register_confirm_password"></label>
+            <input
+                type="password"
+                id="confirm_password"
+                name="confirm_password"
+                required
+                data-bind:confirm_password
+            />
+            <div
+                class="field-error"
+                data-show="$errors.confirm"
+                data-text="$errors.confirm"
+            >
+            </div>
+        </div>
+        <button
+            type="submit"
+            class="btn btn-primary auth-submit"
+            data-on:click="$submitting=true"
+            data-class:is-loading="$submitting && !$success"
+            data-class:is-success="$success"
+        >
+            <span data-show="!$submitting && !$success" data-text="$register_submit"></span>
+            <span class="loading-text" data-show="$submitting && !$success"><span data-text="$register_submit"></span><span class="loading-dots"><span></span><span></span><span></span></span></span>
+            <span class="success-check" data-show="$success"><span class="icon icon-circle-check"></span></span>
+        </button>
+    </form>
+
+    <div class="auth-card-footer">
+        <a
+            href="/login"
+            class="auth-link"
+        ><span data-text="$register_has_account"></span></a>
+    </div>
+</div>

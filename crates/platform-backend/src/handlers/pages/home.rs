@@ -1,37 +1,36 @@
-use crate::elog;
-use rama::http::Request;
-use rama::http::service::web::extract::State;
-use crate::server::SharedState;
-use crate::components::Shell;
 use crate::components::sidebar::Sidebar;
-use crate::utils::request::{extract_context};
-use crate::utils::response::{Response, html_response};
+use crate::components::Shell;
+use crate::context::SharedState;
+use crate::elog;
+use crate::utils::request::extract_context;
+use crate::utils::response::{html_response, Response};
+use rama::http::service::web::extract::State;
+use rama::http::Request;
 
 static SHELL: &str = include_str!("../../../assets/fragments/shell.html");
 
-static SIDEBAR_HEADER: &str = include_str!("../../../assets/fragments/sidebar/header.html");
-static SIDEBAR_MENU: &str = include_str!("../../../assets/fragments/sidebar/menu.html");
-static SIDEBAR_FOOTER: &str = include_str!("../../../assets/fragments/sidebar/footer.html");
+static SIDEBAR: &str = include_str!("../../../assets/fragments/sidebar/sidebar.html");
 static MAIN_HEADER: &str = include_str!("../../../assets/fragments/main/header.html");
 static CONTENT_OVERVIEW: &str = include_str!("../../../assets/fragments/content/overview.html");
 
+const I18N_KEYS: &[&str] = &[
+    "app_name", "aria_menu", "app_brand", "aria_close",
+    "nav_overview", "nav_movies", "nav_series", "content_overview",
+    "settings_title", "settings_logout",
+].as_slice();
+
 /// GET /home — main application shell, pushes all components via SSE
-pub async fn home_page(
-    State(_state): State<SharedState>,
-    req: Request,
-) -> Response {
+pub async fn home_page(State(state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
     elog!(Debug, "Handler → home_page (client_id={})", ctx.client_id);
 
+    let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS);
+
     Shell::empty()
-        .sidebar(
-            Sidebar::empty()
-                .header(SIDEBAR_HEADER)
-                .menu(SIDEBAR_MENU)
-                .footer(SIDEBAR_FOOTER)
-        )
+        .add(Sidebar::full(SIDEBAR))
         .header(MAIN_HEADER)
-        .content_cached(CONTENT_OVERVIEW)
+        .content(CONTENT_OVERVIEW)
+        .signals(&i18n_signals)
         .emit(&ctx);
 
     html_response(SHELL)

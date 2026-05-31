@@ -1,13 +1,10 @@
-use rama::http::{Request, Response, StatusCode};
+use crate::context::SharedState;
 use rama::http::header;
 use rama::http::service::web::extract::State;
-use crate::server::SharedState;
+use rama::http::{Request, Response, StatusCode};
 
 /// GET /i18n/{lang}.json — serve translation JSON
-pub async fn i18n_json(
-    State(state): State<SharedState>,
-    req: Request,
-) -> Response {
+pub async fn i18n_json(State(state): State<SharedState>, req: Request) -> Response {
     let path = req.uri().path();
     let lang = path
         .strip_prefix("/i18n/")

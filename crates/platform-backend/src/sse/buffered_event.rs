@@ -1,36 +1,39 @@
-use serde::{Serialize, Deserialize};
+use crate::crypto::compute_content_hash;
+use rama::http::body::sse::datastar::EventData;
+use rama::http::body::sse::EventDataWrite;
 
-/// Bridge between Rama's native SSE types and our HMAC hash for deduplication.
+/// A single SSE event with content hash for SW dedup.
 ///
-/// Rama's `PatchElements` / `PatchSignals` / `ExecuteScript` have no
-/// field for a custom hash.  `BufferedEvent` wraps them together with
-/// the deterministic HMAC-SHA256 hash (16 bytes / 128 bit, hex-encoded)
-/// so the Service Worker can skip already-known content.
-///
-/// Defined in `platform-core` even though the payload is a Rama type;
-/// the payload is stored as a generic `String` (the serialised SSE data)
-/// to keep `platform-core` free of a Rama dependency.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// The hash is computed from the `write_data()` payload — the same
+/// bytes that get serialized into the SSE `data:` lines.
+/// The SW reads `id: <hash>` to populate its HASH_REGISTRY.
+#[derive(Debug, Clone)]
 pub struct BufferedEvent {
-    /// HMAC-SHA256 hash, truncated to 16 bytes (128 bit), hex-encoded.
     pub hash: String,
-    /// The SSE payload (e.g. PatchElements data) as a raw string.
-    pub payload: String,
-    /// The Datastar event type as a string (e.g. "datastar-patch-elements").
-    pub event_type: String,
+    pub data: EventData,
 }
 
 impl BufferedEvent {
-    /// Extract the CSS selector from the payload (e.g. "#content-body").
-    /// The selector line looks like: `data: selector #content-body`
-    pub fn extract_selector(&self) -> Option<String> {
-        for line in self.payload.lines() {
-            let trimmed = line.trim();
-            // Line format: "data: selector #content-body"
-            if trimmed.starts_with("data: selector ") {
-                return Some(trimmed.strip_prefix("data: selector ")?.trim().to_string());
-            }
+    pub fn new(data: EventData, secret: &str) -> Self {
+        let payload = Self::serialize_payload(&data);
+        let hash = compute_content_hash(&payload, secret);
+        Self { hash, data }
+    }
+
+    fn serialize_payload(data: &EventData) -> String {
+        let mut buf = Vec::new();
+        match data {
+            EventData::PatchElements(pe) => { let _ = pe.write_data(&mut buf); }
+            EventData::ExecuteScript(es) => { let _ = es.write_data(&mut buf); }
+            EventData::PatchSignals(ps) => { let _ = ps.write_data(&mut buf); }
         }
-        None
+        String::from_utf8(buf).unwrap_or_default()
+    }
+
+    /// Build the SSE wire format using Datastar's `try_into_sse_event()`.
+    pub fn to_sse_event(
+        &self,
+    ) -> Result<rama::http::sse::Event<EventData>, rama::http::sse::EventBuildError> {
+        self.data.clone().try_into_sse_event()
     }
 }

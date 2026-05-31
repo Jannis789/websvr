@@ -1,0 +1,193 @@
+/* ===== Auth (login, register) ===== */
+
+/* ── Auth layout: full-width header, centered card ── */
+.app-layout:not(:has(.sidebar)) > .main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-layout:not(:has(.sidebar)) > .main-container > #header-slot {
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.app-layout:not(:has(.sidebar)) > .main-container > #content-slot {
+    flex: 1;
+    display: flex;
+    align-items: safe center;
+    justify-content: safe center;
+    padding: clamp(16px, 3vw, 32px);
+}
+
+/* ── Header bar ── */
+.auth-header-bar {
+    height: 56px;
+    width: 100%;
+    padding: 0 clamp(16px, 3vw, 24px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-header);
+}
+
+.auth-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.auth-header-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg-primary);
+}
+
+/* ── Card ── */
+.auth-card {
+    width: min(420px, 100%);
+    background-color: var(--bg-card);
+    border-radius: 16px;
+    padding: 32px 28px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.auth-card-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.auth-card-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+
+.auth-card-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--fg-primary);
+}
+
+.auth-card-subtitle {
+    font-size: 0.9rem;
+    color: var(--fg-muted);
+    margin-top: 4px;
+}
+
+.auth-submit {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.auth-card-footer {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.auth-link {
+    font-size: 0.88rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Submit-Button States ── */
+.auth-submit.is-loading {
+    background-color: var(--accent);
+    pointer-events: none;
+}
+
+.auth-submit.is-success {
+    background-color: #2ec4a0;
+    pointer-events: none;
+}
+
+/* ── Loading-Dots ── */
+.loading-text {
+    display: inline-flex;
+    align-items: baseline;
+}
+
+.loading-dots {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 2px;
+}
+
+.loading-dots span {
+    opacity: 0;
+    animation: dot-bounce 1.4s infinite ease-in-out;
+}
+
+.loading-dots span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.loading-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+.loading-dots span::after {
+    content: ".";
+}
+
+@keyframes dot-bounce {
+    0%, 80%, 100% {
+        opacity: 0;
+    }
+    40% {
+        opacity: 1;
+    }
+}
+
+/* ── Success Checkmark ── */
+.success-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.success-check .icon {
+    width: 22px;
+    height: 22px;
+    background-color: #fff;
+    animation: check-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes check-pop {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Card Leave-Animation ── */
+.auth-card.is-leaving {
+    animation: card-leave 0.5s ease-out 0.2s forwards;
+}
+
+@keyframes card-leave {
+    to {
+        opacity: 0;
+        transform: scale(0.96) translateY(-8px);
+    }
+}

@@ -1,11 +1,14 @@
 /* ===== Home Page ===== */
-@import '../common/theme.css';
-@import '../common/base.css';
-@import '../features/window.css';
-@import '../features/sidebar.css';
-@import '../features/popup.css';
-@import '../features/switch.css';
-@import '../features/content.css';
-@import '../features/button.css';
-@import '../features/card.css';
-@import '../features/utility.css';
+@import "../common/theme.css";
+@import "../common/base.css";
+@import "../features/window.css";
+@import "../features/sidebar.css";
+@import "../features/popup.css";
+@import "../features/switch.css";
+@import "../features/content.css";
+@import "../features/button.css";
+@import "../features/card.css";
+@import "../features/auth.css";
+@import "../features/form.css";
+@import "../features/utility.css";
+@import "../features/settings.css";

@@ -2,91 +2,91 @@
 /* Dark is the default (:root), Light overrides via html.light-mode */
 
 :root {
-  /* Background hierarchy */
-  --bg-primary: #1f2335;
-  --bg-secondary: #24283b;
-  --bg-header: #29304d;
-  --bg-sidebar: #29304d;
-  --bg-card: #363c50;
-  --bg-hover: #3b4261;
+    /* Background hierarchy */
+    --bg-primary: #1f2335;
+    --bg-secondary: #24283b;
+    --bg-header: #29304d;
+    --bg-sidebar: #29304d;
+    --bg-card: #363c50;
+    --bg-hover: #3b4261;
 
-  /* Background extras (from mockup) */
-  --bg-outer: #16161e;
-  --bg-footer: #1f2335;
-  --bg-popup: #24283b;
-  --bg-sidebar-active: rgba(122, 162, 247, 0.12);
+    /* Background extras (from mockup) */
+    --bg-outer: #16161e;
+    --bg-footer: #1f2335;
+    --bg-popup: #24283b;
+    --bg-sidebar-active: rgba(122, 162, 247, 0.12);
 
-  /* Foreground */
-  --fg-primary: #c0caf5;
-  --fg-secondary: #a9b1d6;
-  --fg-muted: #565f89;
+    /* Foreground */
+    --fg-primary: #c0caf5;
+    --fg-secondary: #a9b1d6;
+    --fg-muted: #565f89;
 
-  /* Borders */
-  --border-color: #3b4261;
+    /* Borders */
+    --border-color: #3b4261;
 
-  /* Accent — blue */
-  --accent: #7aa2f7;
-  --accent-hover: #89b4ff;
-  --accent-bg: rgba(122, 162, 247, 0.12);
-  --accent-fg: #7aa2f7;
+    /* Accent — blue */
+    --accent: #7aa2f7;
+    --accent-hover: #89b4ff;
+    --accent-bg: rgba(122, 162, 247, 0.12);
+    --accent-fg: #7aa2f7;
 
-  /* Semantic */
-  --danger: #f7768e;
-  --danger-hover: #ff8da1;
-  --danger-bg: rgba(247, 118, 142, 0.12);
-  --success: #9ece6a;
+    /* Semantic */
+    --danger: #f7768e;
+    --danger-hover: #ff8da1;
+    --danger-bg: rgba(247, 118, 142, 0.12);
+    --success: #9ece6a;
 
-  /* Switch / Toggle */
-  --switch-active-bg: #343b4f;
-  --switch-active-border: #414868;
-  --switch-inactive-bg: #3b4261;
-  --switch-icon-color: #a9b1d6;
+    /* Switch / Toggle */
+    --switch-active-bg: #343b4f;
+    --switch-active-border: #414868;
+    --switch-inactive-bg: #3b4261;
+    --switch-icon-color: #a9b1d6;
 
-  /* Aliases (used by mockup-derived components) */
-  --text-active: var(--fg-primary);
-  --text-muted: var(--fg-muted);
-  --text-color: var(--fg-secondary);
+    /* Aliases (used by mockup-derived components) */
+    --text-active: var(--fg-primary);
+    --text-muted: var(--fg-muted);
+    --text-color: var(--fg-secondary);
 }
 
 /* ── Light Mode Override ── */
 body.light-mode {
-  /* Background hierarchy */
-  --bg-primary: #d5d6db;
-  --bg-secondary: #e0e1e6;
-  --bg-header: #cbccd1;
-  --bg-sidebar: #d5d6db;
-  --bg-card: #c8cad3;
-  --bg-hover: #cbccd1;
+    /* Background hierarchy */
+    --bg-primary: #d5d6db;
+    --bg-secondary: #e0e1e6;
+    --bg-header: #cbccd1;
+    --bg-sidebar: #d5d6db;
+    --bg-card: #c8cad3;
+    --bg-hover: #cbccd1;
 
-  /* Background extras (from mockup) */
-  --bg-outer: #c4c6cc;
-  --bg-footer: #d5d6db;
-  --bg-popup: #e0e1e6;
-  --bg-sidebar-active: rgba(46, 125, 233, 0.12);
+    /* Background extras (from mockup) */
+    --bg-outer: #c4c6cc;
+    --bg-footer: #d5d6db;
+    --bg-popup: #e0e1e6;
+    --bg-sidebar-active: rgba(46, 125, 233, 0.12);
 
-  /* Foreground */
-  --fg-primary: #343b58;
-  --fg-secondary: #4b526a;
-  --fg-muted: #787c99;
+    /* Foreground */
+    --fg-primary: #343b58;
+    --fg-secondary: #4b526a;
+    --fg-muted: #787c99;
 
-  /* Borders */
-  --border-color: #a9b1d6;
+    /* Borders */
+    --border-color: #a9b1d6;
 
-  /* Accent — blue */
-  --accent: #2e7de9;
-  --accent-hover: #1a6fd4;
-  --accent-bg: rgba(46, 125, 233, 0.12);
-  --accent-fg: #2e7de9;
+    /* Accent — blue */
+    --accent: #2e7de9;
+    --accent-hover: #1a6fd4;
+    --accent-bg: rgba(46, 125, 233, 0.12);
+    --accent-fg: #2e7de9;
 
-  /* Semantic */
-  --danger: #c6262e;
-  --danger-hover: #a51d2b;
-  --danger-bg: rgba(198, 38, 46, 0.1);
-  --success: #587d0c;
+    /* Semantic */
+    --danger: #c6262e;
+    --danger-hover: #a51d2b;
+    --danger-bg: rgba(198, 38, 46, 0.1);
+    --success: #587d0c;
 
-  /* Switch / Toggle */
-  --switch-active-bg: #cbccd1;
-  --switch-active-border: #a9b1d6;
-  --switch-inactive-bg: #a9b1d6;
-  --switch-icon-color: #565f89;
+    /* Switch / Toggle */
+    --switch-active-bg: #cbccd1;
+    --switch-active-border: #a9b1d6;
+    --switch-inactive-bg: #a9b1d6;
+    --switch-icon-color: #565f89;
 }

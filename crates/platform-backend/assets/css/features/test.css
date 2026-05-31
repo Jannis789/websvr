@@ -1,100 +1,100 @@
 /* ===== Test Harness ===== */
 
 .test-harness {
-  width: min(720px, 95vw);
+    width: min(720px, 95vw);
 }
 
 .test-harness .app-header {
-  margin-bottom: 20px;
+    margin-bottom: 20px;
 }
 
 .test-controls {
-  margin-bottom: 20px;
-  text-align: center;
+    margin-bottom: 20px;
+    text-align: center;
 }
 
 .test-results {
-  background-color: var(--bg-primary);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  padding: 20px;
-  min-height: 120px;
-  max-height: 400px;
-  overflow-y: auto;
-  font-size: 0.9rem;
+    background-color: var(--bg-primary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    min-height: 120px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 0.9rem;
 }
 
 .test-results .text-muted {
-  text-align: center;
-  padding: 20px 0;
+    text-align: center;
+    padding: 20px 0;
 }
 
 /* Test result indicators */
 .test-pass {
-  background-color: var(--success);
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: 0.85rem;
+    background-color: var(--success);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
 }
 
 .test-fail {
-  background-color: var(--danger);
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: 0.85rem;
+    background-color: var(--danger);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
 }
 
 .test-info {
-  background-color: var(--accent-bg);
-  color: var(--accent-fg);
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: 0.85rem;
+    background-color: var(--accent-bg);
+    color: var(--accent-fg);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
 }
 
 .test-score {
-  text-align: center;
-  font-size: 1.2rem;
-  font-weight: 700;
-  padding: 16px;
-  margin-top: 12px;
-  border-radius: 10px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 16px;
+    margin-top: 12px;
+    border-radius: 10px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
 }
 
 .test-marker {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-  vertical-align: middle;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
 }
 
 .test-marker.pass {
-  background-color: var(--success);
+    background-color: var(--success);
 }
 
 .test-marker.fail {
-  background-color: var(--danger);
+    background-color: var(--danger);
 }
 
 .test-marker.info {
-  background-color: var(--accent);
+    background-color: var(--accent);
 }
 
 .test-phase-summary {
-  padding: 12px 16px;
-  border-radius: 8px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  margin-bottom: 12px;
-  font-size: 0.9rem;
-  color: var(--fg-primary);
+    padding: 12px 16px;
+    border-radius: 8px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--fg-primary);
 }

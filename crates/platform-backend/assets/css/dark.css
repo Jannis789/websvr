@@ -1,30 +1,30 @@
 /* ===== Tokyo Night Dark Theme ===== */
 :root {
-  /* Background hierarchy */
-  --bg-primary: #1f2335;
-  --bg-secondary: #24283b;
-  --bg-header: #29304d;
-  --bg-sidebar: #29304d;
-  --bg-card: #363c50;
-  --bg-hover: #3b4261;
+    /* Background hierarchy */
+    --bg-primary: #1f2335;
+    --bg-secondary: #24283b;
+    --bg-header: #29304d;
+    --bg-sidebar: #29304d;
+    --bg-card: #363c50;
+    --bg-hover: #3b4261;
 
-  /* Foreground */
-  --fg-primary: #c0caf5;
-  --fg-secondary: #a9b1d6;
-  --fg-muted: #565f89;
+    /* Foreground */
+    --fg-primary: #c0caf5;
+    --fg-secondary: #a9b1d6;
+    --fg-muted: #565f89;
 
-  /* Borders */
-  --border-color: #3b4261;
+    /* Borders */
+    --border-color: #3b4261;
 
-  /* Accent — blue */
-  --accent: #7aa2f7;
-  --accent-hover: #89b4ff;
-  --accent-bg: rgba(122, 162, 247, 0.12);
-  --accent-fg: #7aa2f7;
+    /* Accent — blue */
+    --accent: #7aa2f7;
+    --accent-hover: #89b4ff;
+    --accent-bg: rgba(122, 162, 247, 0.12);
+    --accent-fg: #7aa2f7;
 
-  /* Semantic */
-  --danger: #f7768e;
-  --danger-hover: #ff8da1;
-  --danger-bg: rgba(247, 118, 142, 0.12);
-  --success: #9ece6a;
+    /* Semantic */
+    --danger: #f7768e;
+    --danger-hover: #ff8da1;
+    --danger-bg: rgba(247, 118, 142, 0.12);
+    --success: #9ece6a;
 }

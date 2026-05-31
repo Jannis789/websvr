@@ -1,9 +1,9 @@
 use crate::elog;
-use rama::service::Service;
-use rama::http::Request;
+use platform_core::{ClientId, SessionStorage};
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
 use rama::http::response::Response;
-use platform_core::{ClientId, SessionStorage};
+use rama::http::Request;
+use rama::service::Service;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::future::Future;
@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 /// Shared in-memory session store. Keyed by ClientId.
 pub type SessionMap = Arc<Mutex<HashMap<ClientId, Arc<Mutex<SessionStorage>>>>>;
 
-/// Create the shared session map (call once in server::run).
+/// Create the shared session map (call once in routes::run).
 pub fn new_session_map() -> SessionMap {
     Arc::new(Mutex::new(HashMap::new()))
 }
@@ -40,13 +40,11 @@ where
     type Output = Response<ResBody>;
     type Error = Infallible;
 
-    fn serve(
-        &self,
-        req: Request,
-    ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
+    fn serve(&self, req: Request) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
         let sessions = self.sessions.clone();
         async move {
-            let client_id = req.extensions()
+            let client_id = req
+                .extensions()
                 .get::<ClientId>()
                 .copied()
                 .expect("ClientId must be injected by preceding layer");

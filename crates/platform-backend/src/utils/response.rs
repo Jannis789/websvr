@@ -1,5 +1,5 @@
-use rama::http::StatusCode;
 use rama::http::header;
+use rama::http::StatusCode;
 
 /// Common response type for all handlers.
 pub type Response = rama::http::Response<rama::http::Body>;
@@ -13,10 +13,8 @@ pub fn empty_response(status: StatusCode) -> Response {
 pub fn redirect(url: &str) -> Response {
     let mut resp = Response::new(rama::http::Body::empty());
     *resp.status_mut() = StatusCode::SEE_OTHER;
-    resp.headers_mut().insert(
-        header::LOCATION,
-        url.parse().expect("invalid header value"),
-    );
+    resp.headers_mut()
+        .insert(header::LOCATION, url.parse().expect("invalid header value"));
     resp
 }
 

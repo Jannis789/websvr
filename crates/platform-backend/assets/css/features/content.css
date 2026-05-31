@@ -1,72 +1,70 @@
 /* ===== Feature: Content Area ===== */
 
 .main-container {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .main-header {
-  height: 56px;
-  padding: 0 clamp(12px, 3vw, 24px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+    height: 56px;
+    padding: 0 clamp(12px, 3vw, 24px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .header-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--fg-primary);
-  flex: 1;
-  text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg-primary);
+    flex: 1;
+    text-align: center;
 }
 
 /* Offset title when theme switch is present */
 .main-header .header-title.with-switch {
-  margin-right: -46px;
+    margin-right: -46px;
 }
 
 .content-body {
-  flex: 1;
-  padding: clamp(12px, 3vw, 24px);
-  overflow-y: auto;
+    padding: clamp(12px, 3vw, 24px);
 }
 
 .content-body h2 {
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin-bottom: 8px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
 }
 
 /* ── Hamburger Button (mobile only) ── */
 .hamburger {
-  display: none;
+    display: none;
 
-  @media (width < 768px) {
-    & {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 8px;
-      background: transparent;
-      cursor: pointer;
-      color: var(--fg-primary);
-      flex-shrink: 0;
-      transition: background-color 0.15s ease;
-    }
+    @media (width < 768px) {
+        & {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            color: var(--fg-primary);
+            flex-shrink: 0;
+            transition: background-color 0.15s ease;
+        }
 
-    &:hover {
-      background-color: var(--bg-hover);
+        &:hover {
+            background-color: var(--bg-hover);
+        }
     }
-  }
 }
 
 .hamburger .icon {
-  width: 22px;
-  height: 22px;
+    width: 22px;
+    height: 22px;
 }

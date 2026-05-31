@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 /// Supported UI languages.
@@ -56,8 +56,20 @@ impl I18n {
     /// Returns `None` if the key doesn't exist.
     pub fn resolve(&self, lang: Lang, key: &str) -> Option<String> {
         let map = self.get(lang);
-        map.get(key)
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+        map.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+    }
+
+    /// Resolve multiple flat keys into a JSON string suitable for PatchSignals.
+    /// Returns `{"key1":"value1","key2":"value2",...}`.
+    /// Missing keys are silently skipped.
+    pub fn resolve_signals(&self, lang: Lang, keys: &[&str]) -> String {
+        let map = self.get(lang);
+        let mut result = serde_json::Map::new();
+        for key in keys {
+            if let Some(val) = map.get(key).and_then(|v| v.as_str()) {
+                result.insert(key.to_string(), serde_json::Value::String(val.to_string()));
+            }
+        }
+        serde_json::Value::Object(result).to_string()
     }
 }

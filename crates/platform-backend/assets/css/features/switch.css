@@ -1,83 +1,83 @@
 /* ===== Theme Switch ===== */
 
 .theme-switch-wrapper {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 .theme-switch {
-  position: relative;
-  display: inline-block;
-  width: 42px;
-  height: 24px;
-  cursor: pointer;
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    cursor: pointer;
 }
 
 /* Track — inactive */
 .theme-switch .slider {
-  position: absolute;
-  inset: 0;
-  background-color: var(--switch-inactive-bg);
-  border-radius: 12px;
-  transition: background-color 0.25s ease;
+    position: absolute;
+    inset: 0;
+    background-color: var(--switch-inactive-bg);
+    border-radius: 12px;
+    transition: background-color 0.25s ease;
 }
 
 /* Knob — inactive */
 .theme-switch .slider::after {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background-color: var(--switch-icon-color);
-  left: 3px;
-  top: 3px;
-  transition: transform 0.25s ease, background-color 0.25s ease;
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--switch-icon-color);
+    left: 3px;
+    top: 3px;
+    transition: transform 0.25s ease, background-color 0.25s ease;
 }
 
 /* Active: accent track, white knob slides right */
 .theme-switch .slider.checked {
-  background-color: var(--accent);
+    background-color: var(--accent);
 }
 
 .theme-switch .slider.checked::after {
-  transform: translateX(18px);
-  background-color: #fff;
+    transform: translateX(18px);
+    background-color: #fff;
 }
 
 /* Moon — left, visible in dark mode */
 .switch-icon.icon-moon {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 14px;
-  height: 14px;
-  color: var(--bg-primary);
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0.6;
-  transition: opacity 0.25s ease;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 14px;
+    height: 14px;
+    color: var(--bg-primary);
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.6;
+    transition: opacity 0.25s ease;
 }
 
 /* Sun — right, hidden in dark mode */
 .switch-icon.icon-sun {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 14px;
-  height: 14px;
-  color: var(--bg-primary);
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.25s ease;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 14px;
+    height: 14px;
+    color: var(--bg-primary);
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
 }
 
 /* Light mode: moon hidden, sun visible */
 .theme-switch .slider.checked .icon-moon {
-  opacity: 0;
+    opacity: 0;
 }
 
 .theme-switch .slider.checked .icon-sun {
-  opacity: 0.9;
+    opacity: 0.9;
 }

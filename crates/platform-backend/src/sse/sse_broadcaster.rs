@@ -28,7 +28,10 @@ impl SseBroadcaster {
 
     /// Broadcast an event to all subscribers.
     /// Returns the number of subscribers that received the event.
-    pub fn broadcast(&self, event: BufferedEvent) -> Result<usize, broadcast::error::SendError<BufferedEvent>> {
+    pub fn broadcast(
+        &self,
+        event: BufferedEvent,
+    ) -> Result<usize, broadcast::error::SendError<BufferedEvent>> {
         self.sender.send(event)
     }
 }

@@ -37,14 +37,12 @@ impl Config {
         Config {
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://platform.db?mode=rwc".to_string()),
-            host: std::env::var("HOST")
-                .unwrap_or_else(|_| "0.0.0.0".to_string()),
+            host: std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             port: std::env::var("PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(3000),
-            rust_log: std::env::var("RUST_LOG")
-                .unwrap_or_else(|_| "info".to_string()),
+            rust_log: std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
             client_id_ttl_days: std::env::var("CLIENT_ID_TTL_DAYS")
                 .ok()
                 .and_then(|v| v.parse().ok())

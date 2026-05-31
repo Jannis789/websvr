@@ -1,0 +1,52 @@
+{
+  "incremental": true,
+
+  "includes": [
+    "**/*.{html,css,scss,less,rs}"
+  ],
+  "excludes": [
+    "**/target/**",
+    "**/node_modules/**"
+  ],
+
+  "plugins": [
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm",
+    "https://plugins.dprint.dev/g-plane/malva-v0.15.3.wasm",
+    "https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463"
+  ],
+
+  "exec": {
+    "commands": [
+      {
+        "command": "rustfmt --edition 2021 --config-path rustfmt.toml",
+        "exts": ["rs"]
+      }
+    ]
+  },
+
+  "lineWidth": 100,
+  "indentWidth": 4,
+  "useTabs": false,
+
+  "markup": {
+    "printWidth": 60,
+
+    "maxAttrsPerLine": 1,
+    "preferAttrsSingleLine": false,
+    "singleAttrSameLine": false,
+
+    "closingBracketSameLine": false,
+    "closingTagLineBreakForEmpty": "always",
+
+    "whitespaceSensitivity": "css",
+
+    "scriptFormatter": "dprint",
+
+    "scriptIndent": true,
+    "styleIndent": true
+  },
+
+  "malva": {
+    "printWidth": 80
+  }
+}

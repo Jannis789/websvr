@@ -1,8 +1,20 @@
 /* ===== Utilities ===== */
 
-.spacer { flex: 1; }
-.text-muted { color: var(--fg-muted); }
-.text-center { text-align: center; }
-.mt-2 { margin-top: 8px; }
-.mt-4 { margin-top: 16px; }
-.mt-6 { margin-top: 24px; }
+.spacer {
+    flex: 1;
+}
+.text-muted {
+    color: var(--fg-muted);
+}
+.text-center {
+    text-align: center;
+}
+.mt-2 {
+    margin-top: 8px;
+}
+.mt-4 {
+    margin-top: 16px;
+}
+.mt-6 {
+    margin-top: 24px;
+}
