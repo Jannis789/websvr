@@ -23,14 +23,21 @@ self.addEventListener('activate', () => {
   self.clients.claim();
 });
 
-// ── Per-Client State ──
 const clients = new Map();
+const MAX_CACHE_SIZE = 200;
+const MAX_CLIENTS = 10;
 
 function getClient(id) {
+  // Alte Clients evicted wenn zu viele
+  if (clients.size >= MAX_CLIENTS) {
+    const oldest = clients.keys().next().value;
+    swLog('EVICT CLIENT', oldest.slice(0,8));
+    clients.delete(oldest);
+  }
   let c = clients.get(id);
   if (!c) {
     swLog('NEW CLIENT', id.slice(0,8));
-    c = { cache: new Map(), ver: 0, epoch: null };
+    c = { cache: new Map(), ver: 0, epoch: null, gen: 0 };
     clients.set(id, c);
   }
   return c;
@@ -44,32 +51,36 @@ function evictIfNeeded(cache) {
 }
 
 // ── ReadableStream — wrappt SSE-Response, cached Events beim Durchreichen ──
-function wrapStream(body, clientId) {
+function wrapStream(body, clientId, gen) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let totalChunks = 0;
+  let active = true;
 
   return new ReadableStream({
     pull(controller) {
       return reader.read().then(({ done, value }) => {
         const client = clients.get(clientId);
-        // Client wurde inzwischen geleert (neuer Cycle) — Events ignorieren
-        if (!client) {
-          controller.close();
+        
+        // Stream ist veraltet (neuerer Connect hat gen überschrieben)
+        if (!client || client.gen !== gen) {
+          active = false;
           reader.releaseLock();
+          controller.close();
           return;
         }
 
         if (done) {
-          // Letzten Rest verarbeiten
+          active = false;
           if (buffer.trim()) {
-            const result = processChunk(buffer.replace(/\r\n/g, '\n'), client);
+            const norm = buffer.replace(/\r\n/g, '\n');
+            const result = processChunk(norm, client);
             if (result) controller.enqueue(new TextEncoder().encode(result));
           }
           swLog('STREAM DONE', 'client:', clientId.slice(0,8), 'total_chunks:', totalChunks);
-          controller.close();
           reader.releaseLock();
+          controller.close();
           return;
         }
 
@@ -77,28 +88,22 @@ function wrapStream(body, clientId) {
         const decoded = decoder.decode(value, { stream: true });
         buffer += decoded;
 
-        // Events aus dem Buffer extrahieren (getrennt durch \n\n)
+        // Events aus dem Buffer extrahieren — NUR auf RAW Buffer
         while (true) {
-          const norm = buffer.replace(/\r\n/g, '\n');
-          const idx = norm.indexOf('\n\n');
-          if (idx === -1) break; // warten auf mehr Daten
-
-          const raw = norm.slice(0, idx);
-          const origLen = buffer.length;
-          const normLen = norm.length;
-          const consumed = idx + 2 + (origLen - normLen);
-          buffer = buffer.slice(Math.min(consumed, buffer.length));
-
+          const idx = buffer.indexOf('\n\n');
+          if (idx === -1) break;
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
           if (raw.trim()) {
-            const result = processChunk(raw, client);
+            const norm = raw.replace(/\r\n/g, '\n');
+            const result = processChunk(norm, client);
             if (result) controller.enqueue(new TextEncoder().encode(result));
           }
         }
       });
     },
     cancel() {
-      // KEIN reader.cancel() — der HTTP-Connection stirbt von selbst.
-      // Sonst: ERR_INCOMPLETE_CHUNKED_ENCODING / NS_BINDING_ABORTED.
+      active = false;
       reader.releaseLock();
     },
   });
@@ -189,6 +194,11 @@ self.addEventListener('fetch', (event) => {
         }
         client.lastUrl = currentUrl;
 
+        // Neue Generation für diesen Connect
+        // Alte wrapStreams erkennen daran dass sie veraltet sind
+        client.gen++;
+        swLog('  gen:', client.gen, 'cache:', client.cache.size, 'ver:', client.ver);
+
         // URL modifizieren — Datastar-Parameter erhalten, Resume-Parameter setzen
         const cleanUrl = new URL(url.origin + url.pathname);
         const origParams = new URLSearchParams(url.search);
@@ -216,7 +226,7 @@ self.addEventListener('fetch', (event) => {
 
         // Response wrappen — KEIN response.clone()!
         // Der ReadableStream ist der EINZIGE Konsument des Bodys.
-        return new Response(wrapStream(response.body, event.clientId), {
+        return new Response(wrapStream(response.body, event.clientId, client.gen), {
           status: response.status,
           statusText: response.statusText,
           headers: response.headers,
