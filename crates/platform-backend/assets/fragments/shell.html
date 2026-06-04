@@ -20,56 +20,23 @@
             type="module"
             src="/assets/js/datastar.js"
         ></script>
+        <script
+            type="module"
+            src="/assets/js/ds-cache.js"
+        ></script>
         <script>
         if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          // SW message listener — logs SW messages in normal page console
+          navigator.serviceWorker.addEventListener('message', (evt) => {
+            if (evt.data?.type === 'sw-log') {
+              console.log('[sw]', ...evt.data.args);
+            }
+          });
+          navigator.serviceWorker.register('/sw2.js', {
+            scope: '/',
+            updateViaCache: 'none',
+          });
         }
-
-        // ── Datastar lifecycle cache ──
-        // Listen to 'datastar-fetch' (fires for every SSE event before watcher processes it)
-        // Cache last PatchElements per selector + last PatchSignals.
-        // On reconnect: replay cached events → instant render, no server round-trip.
-
-        const CACHE_SLOTS = new Map();   // selector → { type, argsRaw }
-        let CACHE_SIGNALS = null;         // { type, argsRaw } | null
-
-        document.addEventListener('datastar-fetch', (e) => {
-          const { type, argsRaw } = e.detail;
-          if (type === 'datastar-patch-elements') {
-            const sel = argsRaw.selector || '';
-            if (sel) CACHE_SLOTS.set(sel, { type, argsRaw });
-          } else if (type === 'datastar-patch-signals') {
-            CACHE_SIGNALS = { type, argsRaw };
-          }
-        });
-
-        // Persist to sessionStorage before unload
-        window.addEventListener('beforeunload', () => {
-          const state = { slots: [...CACHE_SLOTS], signals: CACHE_SIGNALS };
-          try { sessionStorage.setItem('ds-cache', JSON.stringify(state)); } catch {}
-        });
-
-        // Restore from sessionStorage on load, replay before /sse connects
-        (function restoreCache() {
-          try {
-            const raw = sessionStorage.getItem('ds-cache');
-            if (!raw) return;
-            const { slots, signals } = JSON.parse(raw);
-            console.info('[ds-cache] Restoring %d slot(s) from sessionStorage', slots.length);
-            for (const [sel, entry] of slots) {
-              console.info('[ds-cache] Replaying slot "%s" (%s)', sel, entry.type);
-              document.dispatchEvent(new CustomEvent('datastar-fetch', {
-                detail: { type: entry.type, el: document.documentElement, argsRaw: entry.argsRaw },
-              }));
-            }
-            if (signals) {
-              console.info('[ds-cache] Replaying signals:', signals.argsRaw);
-              document.dispatchEvent(new CustomEvent('datastar-fetch', {
-                detail: { type: signals.type, el: document.documentElement, argsRaw: signals.argsRaw },
-              }));
-            }
-          } catch {}
-        })();
         </script>
     </head>
     <body data-class:light-mode="$lightMode">

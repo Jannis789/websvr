@@ -1,7 +1,12 @@
 <div class="settings-section">
-    <h2 class="settings-title" data-text="$settings_email_change"></h2>
+    <h2
+        class="settings-title"
+        data-text="$settings_email_change"
+    >
+    </h2>
     <p class="settings-desc">
-        <span data-text="$settings_email_current"></span> <strong>john@example.com</strong>
+        <span data-text="$settings_email_current"></span>
+        <strong>john@example.com</strong>
     </p>
 
     <div
@@ -24,7 +29,10 @@
         data-on:submit="$errors=''; @post('/settings/email')"
     >
         <div class="form-group">
-            <label for="new-email" data-text="$settings_email_new"></label>
+            <label
+                for="new-email"
+                data-text="$settings_email_new"
+            ></label>
             <input
                 type="email"
                 id="new-email"
@@ -41,8 +49,10 @@
             </div>
         </div>
         <div class="form-group">
-            <label for="current-password"
-            data-text="$settings_current_password"></label>
+            <label
+                for="current-password"
+                data-text="$settings_current_password"
+            ></label>
             <input
                 type="password"
                 id="current-password"

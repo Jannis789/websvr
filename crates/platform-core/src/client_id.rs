@@ -31,3 +31,37 @@ impl std::fmt::Display for ClientId {
         write!(f, "{}", self.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_is_unique() {
+        let a = ClientId::generate();
+        let b = ClientId::generate();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_parse_valid_uuid() {
+        let id = ClientId::generate();
+        let s = id.to_string();
+        let parsed = ClientId::parse(&s);
+        assert_eq!(parsed, Some(id));
+    }
+
+    #[test]
+    fn test_parse_invalid() {
+        assert_eq!(ClientId::parse("not-a-uuid"), None);
+        assert_eq!(ClientId::parse(""), None);
+    }
+
+    #[test]
+    fn test_display_is_hyphenated_hex() {
+        let id = ClientId::generate();
+        let s = id.to_string();
+        assert_eq!(s.len(), 36); // standard UUID format
+        assert_eq!(s.chars().filter(|c| *c == '-').count(), 4);
+    }
+}

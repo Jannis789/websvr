@@ -4,4 +4,5 @@ pub mod sse_broadcaster;
 
 pub use buffered_event::BufferedEvent;
 pub use event_emitter::EventEmitter;
+pub use event_emitter::ReplayPlan;
 pub use sse_broadcaster::SseBroadcaster;

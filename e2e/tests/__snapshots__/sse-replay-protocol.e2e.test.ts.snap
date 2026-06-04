@@ -1,0 +1,39 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SSE Replay Protocol — Phase 2: Click sends live PatchElement (with id) > GET /test/1 sends PatchElement WITH id in SSE stream > phase-2-click-live 1`] = `
+"id: 1
+event: datastar-patch-elements
+selector #content-slot
+mode inner
+elements <div data-marker='test-1'>Test Action 1</div>
+
+id: 1
+event: datastar-patch-signals
+signals {"activePage":"movies"}
+
+id: 2
+event: datastar-patch-signals
+signals {"content_movies":"WIP: MOVIES","nav_movies":"Movies"}
+
+id: 3
+event: datastar-patch-elements
+selector #content-slot
+mode inner
+elements <h1 data-text="$content_movies">
+elements </h1>
+
+id: 7
+event: datastar-patch-signals
+signals {"activePage":"movies"}
+
+id: 8
+event: datastar-patch-signals
+signals {"content_movies":"WIP: MOVIES","nav_movies":"Movies"}
+
+id: 9
+event: datastar-patch-elements
+selector #content-slot
+mode inner
+elements <h1 data-text="$content_movies">
+elements </h1>"
+`;

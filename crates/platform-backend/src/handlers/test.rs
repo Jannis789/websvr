@@ -1,9 +1,8 @@
 use crate::context::SharedState;
 use crate::elog;
-use crate::sse::BufferedEvent;
 use crate::utils::request::extract_context;
 use crate::utils::response::{empty_response, html_response};
-use rama::http::body::sse::datastar::{EventData, PatchElements};
+use rama::http::body::sse::datastar::{ElementPatchMode, PatchElements};
 use rama::http::service::web::extract::State;
 use rama::http::{Request, Response, StatusCode};
 
@@ -31,44 +30,73 @@ pub async fn test_run(State(_state): State<SharedState>, req: Request) -> Respon
     elog!(Info, "Test → running state replay test");
 
     tokio::spawn(async move {
-        let secret = event_emitter.secret().to_string();
+        let html = |id: &str, msg: &str| format!("<div class='test-info' data-marker='{}'>{}</div>", id, msg);
 
-        // Phase A: Fresh events
-        let _ = event_emitter.broadcast(marker_event("phase-a-start", "Phase A: Fresh events", &secret));
+        // Marker via emit_element (proper patch_ver, cached per selector)
+        let marker_patch =
+            PatchElements::new(html("phase-a-start", "Phase A: Fresh events").try_into().unwrap())
+                .with_selector("#content-slot".try_into().unwrap())
+                .with_mode(ElementPatchMode::Inner);
+        event_emitter.emit_element(marker_patch);
 
         for i in 1..=4 {
-            let html = format!(
+            let h = format!(
                 "<div id='test-{}' class='test-pass' data-phase='A'>Fresh A: Event {}</div>",
                 i, i
             );
-            let patch = PatchElements::new(html.try_into().unwrap())
-                .with_selector("#content-slot".try_into().unwrap());
+            let patch = PatchElements::new(h.try_into().unwrap())
+                .with_selector("#content-slot".try_into().unwrap())
+                .with_mode(ElementPatchMode::Inner);
             event_emitter.emit_element(patch);
         }
 
-        let _ = event_emitter.broadcast(marker_event("phase-a-end", "Phase A complete", &secret));
-
-        // Phase B: State replay (get_state returns last event per slot)
-        let _ = event_emitter.broadcast(marker_event("phase-b-start", "Phase B: State replay", &secret));
-        for event in event_emitter.get_state() {
-            let _ = event_emitter.broadcast(event);
-        }
-        let _ = event_emitter.broadcast(marker_event("phase-b-end", "Phase B complete", &secret));
-
-        // Completion
-        let _ = event_emitter.broadcast(marker_event(
-            "test-done",
-            &format!("Done. {} events in state cache.", event_emitter.cached_count()),
-            &secret,
-        ));
+        let end_patch = PatchElements::new(html("phase-a-end", "Phase A complete").try_into().unwrap())
+            .with_selector("#content-slot".try_into().unwrap())
+            .with_mode(ElementPatchMode::Inner);
+        event_emitter.emit_element(end_patch);
     });
 
     empty_response(StatusCode::NO_CONTENT)
 }
 
-fn marker_event(id: &str, msg: &str, secret: &str) -> BufferedEvent {
-    let html = format!("<div class='test-info' data-marker='{}'>{}</div>", id, msg);
-    let patch =
-        PatchElements::new(html.try_into().unwrap()).with_selector("#content-slot".try_into().unwrap());
-    BufferedEvent::new(EventData::PatchElements(patch), secret)
+/// GET /test/1 — Emit a single PatchElement for replay protocol testing.
+pub async fn test_action(State(_state): State<SharedState>, req: Request) -> Response {
+    let ctx = extract_context(&req);
+    let event_emitter = ctx.event_emitter.clone();
+
+    let html = "<div data-marker='test-1'>Test Action 1</div>";
+    let patch = PatchElements::new(html.try_into().unwrap())
+        .with_selector("#content-slot".try_into().unwrap())
+        .with_mode(ElementPatchMode::Inner);
+    event_emitter.emit_element(patch);
+
+    empty_response(StatusCode::NO_CONTENT)
+}
+
+/// GET /test/clear — Clear the SSE event cache (simulates login/logout cache reset).
+pub async fn test_clear(State(_state): State<SharedState>, req: Request) -> Response {
+    let ctx = extract_context(&req);
+    ctx.event_emitter.clear();
+    empty_response(StatusCode::NO_CONTENT)
+}
+
+/// GET /test/stats — Cache diagnostics for memory leak detection.
+/// Returns JSON with cached event count and current patch_ver counter.
+pub async fn test_stats(State(_state): State<SharedState>, req: Request) -> Response {
+    let ctx = extract_context(&req);
+    let cached = ctx.event_emitter.cached_count();
+    let ver = ctx.event_emitter.current_ver();
+    let epoch = ctx.event_emitter.epoch();
+
+    let json = serde_json::json!({
+        "cached_count": cached,
+        "current_ver": ver,
+        "epoch": epoch,
+    });
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", "application/json")
+        .body(json.to_string().into())
+        .unwrap()
 }

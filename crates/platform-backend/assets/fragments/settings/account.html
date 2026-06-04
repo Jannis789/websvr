@@ -6,8 +6,12 @@
                 role="img"
                 aria-hidden="true"
             ></span>
-            <h1 data-text="$settings_account"></h1>
-            <p class="auth-card-subtitle" data-text="$settings_account_subtitle">
+            <h1 data-text="$settings_account">
+            </h1>
+            <p
+                class="auth-card-subtitle"
+                data-text="$settings_account_subtitle"
+            >
             </p>
         </div>
 
@@ -31,7 +35,10 @@
             data-on:submit="$errors=''; @post('/settings/account')"
         >
             <div class="form-group">
-                <label for="username" data-text="$settings_username"></label>
+                <label
+                    for="username"
+                    data-text="$settings_username"
+                ></label>
                 <input
                     type="text"
                     id="username"
@@ -48,7 +55,10 @@
                 </div>
             </div>
             <div class="form-group">
-                <label for="email" data-text="$settings_email"></label>
+                <label
+                    for="email"
+                    data-text="$settings_email"
+                ></label>
                 <input
                     type="email"
                     id="email"
@@ -65,8 +75,10 @@
                 </div>
             </div>
             <div class="form-group">
-                <label for="new-password"
-                data-text="$settings_new_password"></label>
+                <label
+                    for="new-password"
+                    data-text="$settings_new_password"
+                ></label>
                 <input
                     type="password"
                     id="new-password"
@@ -76,8 +88,10 @@
                 >
             </div>
             <div class="form-group">
-                <label for="confirm-password"
-                data-text="$settings_confirm_password"></label>
+                <label
+                    for="confirm-password"
+                    data-text="$settings_confirm_password"
+                ></label>
                 <input
                     type="password"
                     id="confirm-password"
@@ -96,7 +110,9 @@
                 type="submit"
                 class="btn btn-primary auth-submit"
             >
-                <span data-text="$settings_password_change"></span>
+                <span
+                    data-text="$settings_password_change"
+                ></span>
             </button>
         </form>
     </div>

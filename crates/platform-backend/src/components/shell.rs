@@ -1,25 +1,22 @@
-use super::{sidebar, Fragment, Patch, PatchEntry};
-use crate::context::sse_response;
-use crate::context::ClientContext;
-use crate::utils::response::Response;
+use super::{sidebar, Fragment, Patch};
+use rama::http::body::sse::datastar::EventData;
 
-/// Collects patches from components, emits them all via SSE on consume.
+/// Builds a list of PatchElement events from composable components.
+/// Does NOT emit — the handler passes `into_events()` to `event_emitter.emit_elements()`.
 pub struct Shell {
-    patches: Vec<PatchEntry>,
-    signals_json: Option<String>,
+    pub(crate) events: Vec<EventData>,
 }
 
 impl Shell {
     pub fn empty() -> Self {
-        Shell {
-            patches: vec![],
-            signals_json: None,
-        }
+        Shell { events: vec![] }
     }
 
     /// Add any component that implements Patch.
     pub fn add(mut self, component: impl Patch) -> Self {
-        self.patches.extend(component.into_patches());
+        for entry in component.into_patches() {
+            self.events.push(entry.data);
+        }
         self
     }
 
@@ -38,34 +35,41 @@ impl Shell {
         self.add(sidebar)
     }
 
-    /// Set initial signals to emit alongside patches.
-    pub fn signals(mut self, json: &str) -> Self {
-        self.signals_json = Some(json.to_string());
-        self
+    /// Consume the shell and return the collected PatchElement events.
+    pub fn into_events(self) -> Vec<EventData> {
+        self.events
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::components::Fragment;
+
+    #[test]
+    fn test_shell_empty() {
+        assert!(Shell::empty().into_events().is_empty());
     }
 
-    /// Broadcast all patches via SSE (for initial page load via /sse stream).
-    pub fn emit(self, ctx: &ClientContext) {
-        if let Some(ref json) = self.signals_json {
-            ctx.event_emitter.emit_signals(json);
-        }
-        for entry in self.patches {
-            ctx.event_emitter.emit_element(entry.elements);
-        }
+    #[test]
+    fn test_shell_add_fragment() {
+        let frag = Fragment::new("#slot", "<span>x</span>");
+        let shell = Shell::empty().add(frag);
+        assert_eq!(shell.into_events().len(), 1);
     }
 
-    /// Return patches as SSE response body (for @get navigation via Datastar).
-    /// Broadcasts events AND returns them as the HTTP response body.
-    pub fn emit_response(self, ctx: &ClientContext) -> Response {
-        let mut events = Vec::new();
-        if let Some(ref json) = self.signals_json {
-            let event = ctx.event_emitter.emit_signals(json);
-            events.push(event);
-        }
-        for entry in self.patches {
-            let event = ctx.event_emitter.emit_element(entry.elements);
-            events.push(event);
-        }
-        sse_response(&events)
+    #[test]
+    fn test_shell_header_creates_event() {
+        let shell = Shell::empty().header("<div>test</div>");
+        assert_eq!(shell.into_events().len(), 1);
+    }
+
+    #[test]
+    fn test_shell_chain() {
+        let events = Shell::empty()
+            .header("<header />")
+            .content("<main />")
+            .into_events();
+        assert_eq!(events.len(), 2);
     }
 }

@@ -12,7 +12,6 @@ use rama::http::response::Response;
 use rama::http::Request;
 use rama::service::Service;
 use std::convert::Infallible;
-use std::future::Future;
 use tokio::sync::Mutex as AsyncMutex;
 
 /// Service that assembles the full `ClientContext` from:
@@ -47,82 +46,93 @@ where
     type Output = Response<ResBody>;
     type Error = Infallible;
 
-    fn serve(&self, req: Request) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send + '_ {
-        async move {
-            let client_id = req
-                .extensions()
-                .get::<ClientId>()
-                .copied()
-                .expect("ClientId must be injected by ValidateRequestHeaderLayer");
+    async fn serve(&self, req: Request) -> Result<Self::Output, Self::Error> {
+        let client_id = req
+            .extensions()
+            .get::<ClientId>()
+            .copied()
+            .expect("ClientId must be injected by ValidateRequestHeaderLayer");
 
-            let session = req
-                .extensions()
-                .get::<Arc<AsyncMutex<SessionStorage>>>()
-                .cloned()
-                .expect("SessionStorage must be injected by SessionStorageService");
+        let session = req
+            .extensions()
+            .get::<Arc<AsyncMutex<SessionStorage>>>()
+            .cloned()
+            .expect("SessionStorage must be injected by SessionStorageService");
 
-            let had_cookie = req
-                .extensions()
-                .get::<CookieWasPresent>()
-                .map(|c| c.0)
-                .unwrap_or(true);
+        let had_cookie = req
+            .extensions()
+            .get::<CookieWasPresent>()
+            .map(|c| c.0)
+            .unwrap_or(false);
 
-            let mut ctx = ClientContext::with_session(client_id, session, self.sse_broadcaster.clone());
+        let mut ctx = ClientContext::with_session(client_id, session, self.sse_broadcaster.clone());
 
-            // Detect language from Accept-Language header
-            let lang = Lang::from_header(
-                req.headers()
-                    .get(header::ACCEPT_LANGUAGE)
-                    .and_then(|v| v.to_str().ok()),
-            );
-            ctx = ctx.with_lang(lang);
+        // Detect language from Accept-Language header
+        let lang = Lang::from_header(
+            req.headers()
+                .get(header::ACCEPT_LANGUAGE)
+                .and_then(|v| v.to_str().ok()),
+        );
+        ctx = ctx.with_lang(lang);
 
-            // Reuse the per-client EventEmitter so the buffer persists across requests
-            {
-                let mut emitters = match self.emitters.lock() {
-                    Ok(guard) => guard,
-                    Err(poisoned) => poisoned.into_inner(),
-                };
-                ctx.event_emitter = emitters
-                    .entry(client_id)
-                    .or_insert_with(|| {
-                        EventEmitter::new(self.sse_broadcaster.clone(), client_id.to_string())
-                    })
-                    .clone();
-            }
-
-            let mut req = req;
-            req.extensions_mut().insert(ctx);
-            elog!(Debug, "ClientContext → assembled for client_id={}", client_id);
-
-            let mut response = self.inner.serve(req).await.unwrap();
-
-            // Set cookie only for new clients
-            if !had_cookie {
-                let ttl_days = Config::global().client_id_ttl_days;
-                let max_age = ttl_days as u64 * 24 * 60 * 60;
-                elog!(
-                    Debug,
-                    "ClientContext → new cookie for {} (TTL={}d)",
-                    client_id,
-                    ttl_days
-                );
-                let cookie = format!(
-                    "{}={}; Path=/; SameSite=Lax; Max-Age={}",
-                    platform_core::client_id::CLIENT_ID_COOKIE,
-                    client_id,
-                    max_age,
-                );
-                response
-                    .headers_mut()
-                    .insert(header::SET_COOKIE, cookie.parse().unwrap());
-            }
-
-            Ok(response)
+        // Reuse the per-client EventEmitter so the buffer persists across requests
+        {
+            let mut emitters = match self.emitters.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            ctx.event_emitter = emitters
+                .entry(client_id)
+                .or_insert_with(|| EventEmitter::new(self.sse_broadcaster.clone()))
+                .clone();
         }
+
+        // Mark all cached events as untouched — ausser fuer /sse (sonst generation mismatch)
+        let is_sse = req.uri().path() == "/sse";
+        if !is_sse {
+            ctx.event_emitter.begin_request();
+        } else {
+            elog!(Debug, "SSE request — skip begin_request (gen={})", ctx.event_emitter.current_gen());
+        }
+
+        let mut req = req;
+        req.extensions_mut().insert(ctx);
+        elog!(Debug, "ClientContext → assembled for client_id={}", client_id);
+
+        let mut response = self.inner.serve(req).await.unwrap();
+
+        // Set cookie only for new clients
+        if !had_cookie {
+            let ttl_days = Config::global().client_id_ttl_days;
+            let max_age = ttl_days as u64 * 24 * 60 * 60;
+            elog!(
+                Debug,
+                "ClientContext → new cookie for {} (TTL={}d)",
+                client_id,
+                ttl_days
+            );
+            let cookie = format!(
+                "{}={}; Path=/; SameSite=Lax; Max-Age={}",
+                platform_core::client_id::CLIENT_ID_COOKIE,
+                client_id,
+                max_age,
+            );
+            response
+                .headers_mut()
+                .insert(header::SET_COOKIE, cookie.parse().unwrap());
+        }
+
+        Ok(response)
     }
 }
 
-/// Marker extension injected by the ValidateRequest closure.
+/// Marker extension injected by the ValidateRequestHeader closure.
+///
+/// Tracks whether the `platform_cid` cookie was already present in the
+/// request (true) or is being set for the first time (false).
+/// Used to decide whether to send a `Set-Cookie` header in the response.
+///
+/// If this extension is missing (e.g. layer stack changed), we assume
+/// the cookie was NOT present — the safe default is to always set it.
 #[derive(Debug, Clone)]
 pub struct CookieWasPresent(pub bool);

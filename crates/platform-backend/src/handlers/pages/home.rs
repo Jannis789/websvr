@@ -2,22 +2,25 @@ use crate::components::sidebar::Sidebar;
 use crate::components::Shell;
 use crate::context::SharedState;
 use crate::elog;
+use crate::ui::constants::{elements, signals};
 use crate::utils::request::extract_context;
 use crate::utils::response::{html_response, Response};
 use rama::http::service::web::extract::State;
 use rama::http::Request;
 
-static SHELL: &str = include_str!("../../../assets/fragments/shell.html");
-
-static SIDEBAR: &str = include_str!("../../../assets/fragments/sidebar/sidebar.html");
-static MAIN_HEADER: &str = include_str!("../../../assets/fragments/main/header.html");
-static CONTENT_OVERVIEW: &str = include_str!("../../../assets/fragments/content/overview.html");
-
 const I18N_KEYS: &[&str] = &[
-    "app_name", "aria_menu", "app_brand", "aria_close",
-    "nav_overview", "nav_movies", "nav_series", "content_overview",
-    "settings_title", "settings_logout",
-].as_slice();
+    "app_name",
+    "aria_menu",
+    "app_brand",
+    "aria_close",
+    "nav_overview",
+    "nav_movies",
+    "nav_series",
+    "content_overview",
+    "settings_title",
+    "settings_logout",
+]
+.as_slice();
 
 /// GET /home — main application shell, pushes all components via SSE
 pub async fn home_page(State(state): State<SharedState>, req: Request) -> Response {
@@ -25,13 +28,15 @@ pub async fn home_page(State(state): State<SharedState>, req: Request) -> Respon
     elog!(Debug, "Handler → home_page (client_id={})", ctx.client_id);
 
     let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS);
+    let patches = Shell::empty()
+        .add(Sidebar::full(elements::HOME_SIDEBAR))
+        .header(elements::HOME_HEADER)
+        .content(elements::HOME_CONTENT_OVERVIEW)
+        .into_events();
 
-    Shell::empty()
-        .add(Sidebar::full(SIDEBAR))
-        .header(MAIN_HEADER)
-        .content(CONTENT_OVERVIEW)
-        .signals(&i18n_signals)
-        .emit(&ctx);
+    ctx.event_emitter
+        .emit_signals(&[signals::ACTIVE_PAGE_OVERVIEW, &i18n_signals].as_slice());
+    ctx.event_emitter.emit_elements(&patches);
 
-    html_response(SHELL)
+    html_response(elements::SHELL)
 }

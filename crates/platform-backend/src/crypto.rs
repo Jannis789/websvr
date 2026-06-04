@@ -10,3 +10,37 @@ pub fn compute_content_hash(data: &str, secret: &str) -> String {
     let tag = hmac::sign(&key, data.as_bytes());
     hex::encode(&tag.as_ref()[..16])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash_deterministic() {
+        let a = compute_content_hash("hello", "secret");
+        let b = compute_content_hash("hello", "secret");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_hash_different_data() {
+        let a = compute_content_hash("hello", "secret");
+        let b = compute_content_hash("world", "secret");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_hash_different_secret() {
+        let a = compute_content_hash("hello", "secret1");
+        let b = compute_content_hash("hello", "secret2");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_hash_length_is_32_hex_chars() {
+        // 16 bytes = 32 hex characters
+        let hash = compute_content_hash("test", "key");
+        assert_eq!(hash.len(), 32);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+}

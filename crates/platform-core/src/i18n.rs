@@ -26,6 +26,26 @@ impl Lang {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_header_de() {
+        assert_eq!(Lang::from_header(Some("de")), Lang::De);
+        assert_eq!(Lang::from_header(Some("de-DE")), Lang::De);
+        assert_eq!(Lang::from_header(Some("de,en;q=0.9")), Lang::De);
+    }
+
+    #[test]
+    fn test_from_header_en() {
+        assert_eq!(Lang::from_header(Some("en")), Lang::En);
+        assert_eq!(Lang::from_header(Some("en-US")), Lang::En);
+        assert_eq!(Lang::from_header(Some("fr")), Lang::En);
+        assert_eq!(Lang::from_header(None), Lang::En);
+    }
+}
+
 /// Immutable i18n translation map.
 ///
 /// Loaded once at startup from `assets/i18n/{de,en}.json`.

@@ -8,6 +8,7 @@ pub mod handlers;
 pub mod layers;
 pub mod routes;
 pub mod sse;
+pub mod ui;
 pub mod utils;
 
 /// Centralized logging macro. Captures file:line automatically.

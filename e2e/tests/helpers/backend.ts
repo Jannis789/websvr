@@ -198,8 +198,8 @@ export async function* readSseStream(
         } else if (line.startsWith('data: ')) {
           currentEvent.data = (currentEvent.data ? currentEvent.data + '\n' : '') + line.slice(6)
         } else if (line === '') {
-          // Empty line ends the event
-          if (currentEvent.event || currentEvent.data) {
+          // Empty line ends the event — yield even if only id is set (id-only replay)
+          if (currentEvent.event || currentEvent.data || currentEvent.id) {
             yield { ...currentEvent }
           }
           currentEvent = {}
@@ -218,7 +218,7 @@ export async function* readSseStream(
         currentEvent.data = (currentEvent.data ?? '') + line.slice(6)
       }
     }
-    if (currentEvent.event || currentEvent.data) {
+    if (currentEvent.event || currentEvent.data || currentEvent.id) {
       yield currentEvent
     }
   } finally {

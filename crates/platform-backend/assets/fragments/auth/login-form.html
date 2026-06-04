@@ -1,12 +1,20 @@
-<div class="auth-card" data-class:is-leaving="$success">
+<div
+    class="auth-card"
+    data-class:is-leaving="$success"
+>
     <div class="auth-card-header">
         <span
             class="icon icon-person auth-card-icon"
             role="img"
             aria-hidden="true"
         ></span>
-        <h1 data-text="$login_title"></h1>
-        <p class="auth-card-subtitle" data-text="$login_subtitle"></p>
+        <h1 data-text="$login_title">
+        </h1>
+        <p
+            class="auth-card-subtitle"
+            data-text="$login_subtitle"
+        >
+        </p>
     </div>
 
     <div
@@ -18,10 +26,13 @@
 
     <form
         class="auth-form"
-        data-on:submit="$errors='';$submitting=true;@post('/login')"
+        data-on:submit="console.log('[login] submit event fired', Date.now(), new Error().stack);$errors='';$submitting=true;@post('/login')"
     >
         <div class="form-group">
-            <label for="email" data-text="$login_email"></label>
+            <label
+                for="email"
+                data-text="$login_email"
+            ></label>
             <input
                 type="email"
                 id="email"
@@ -37,7 +48,10 @@
             </div>
         </div>
         <div class="form-group">
-            <label for="password" data-text="$login_password"></label>
+            <label
+                for="password"
+                data-text="$login_password"
+            ></label>
             <input
                 type="password"
                 id="password"
@@ -59,9 +73,22 @@
             data-class:is-loading="$submitting && !$success"
             data-class:is-success="$success"
         >
-            <span data-show="!$submitting && !$success" data-text="$login_submit"></span>
-            <span class="loading-text" data-show="$submitting && !$success"><span data-text="$login_submit"></span><span class="loading-dots"><span></span><span></span><span></span></span></span>
-            <span class="success-check" data-show="$success"><span class="icon icon-circle-check"></span></span>
+            <span
+                data-show="!$submitting && !$success"
+                data-text="$login_submit"
+            ></span>
+            <span
+                class="loading-text"
+                data-show="$submitting && !$success"
+            ><span data-text="$login_submit"></span><span
+                    class="loading-dots"
+                ><span></span><span></span><span></span></span></span>
+            <span
+                class="success-check"
+                data-show="$success"
+            ><span
+                    class="icon icon-circle-check"
+                ></span></span>
         </button>
     </form>
 

@@ -17,7 +17,7 @@ impl Config {
     /// Initialises on first call from environment variables.
     pub fn global() -> &'static Config {
         static CONFIG: OnceLock<Config> = OnceLock::new();
-        CONFIG.get_or_init(|| Config::from_env())
+        CONFIG.get_or_init(Config::from_env)
     }
 
     fn from_env() -> Config {

@@ -1,6 +1,8 @@
 use crate::elog;
 use rama::http::layer::compression::CompressionLayer;
+use rama::http::service::web::extract::State;
 use rama::http::service::web::Router;
+use rama::http::Request;
 use rama::Layer;
 
 use crate::context::SharedState;
@@ -22,10 +24,41 @@ pub async fn run() {
             "/assets",
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"),
         )
-        .with_file(
+        .with_get(
             "/sw.js",
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/js/sw.js"),
-            "application/javascript".parse().unwrap(),
+            |State(_state): State<SharedState>, _req: Request| async move {
+                // Also serve the updated SW code in case Chrome still
+                // has the old /sw.js registration cached
+                let sw_js = include_str!("../assets/js/sw.js");
+                let mut resp = crate::utils::response::Response::new(rama::http::Body::from(sw_js));
+                *resp.status_mut() = rama::http::StatusCode::OK;
+                resp.headers_mut().insert(
+                    rama::http::header::CONTENT_TYPE,
+                    "application/javascript".parse().unwrap(),
+                );
+                resp.headers_mut().insert(
+                    rama::http::header::CACHE_CONTROL,
+                    "no-cache".parse().unwrap(),
+                );
+                resp
+            },
+        )
+        .with_get(
+            "/sw2.js",
+            |State(_state): State<SharedState>, _req: Request| async move {
+                let sw_js = include_str!("../assets/js/sw.js");
+                let mut resp = crate::utils::response::Response::new(rama::http::Body::from(sw_js));
+                *resp.status_mut() = rama::http::StatusCode::OK;
+                resp.headers_mut().insert(
+                    rama::http::header::CONTENT_TYPE,
+                    "application/javascript".parse().unwrap(),
+                );
+                resp.headers_mut().insert(
+                    rama::http::header::CACHE_CONTROL,
+                    "no-cache".parse().unwrap(),
+                );
+                resp
+            },
         )
         // Everything below needs a session
         .with_sub_service(
@@ -53,6 +86,9 @@ pub async fn run() {
                     .with_get("/test", handlers::test::test_page)
                     .with_get("/test/auth", handlers::test::test_auth)
                     .with_get("/test/run", handlers::test::test_run)
+                    .with_get("/test/1", handlers::test::test_action)
+                    .with_get("/test/clear", handlers::test::test_clear)
+                    .with_get("/test/stats", handlers::test::test_stats)
                     .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json)
                     .with_post("/login", handlers::auth::login)
                     .with_post("/register", handlers::auth::register)

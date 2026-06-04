@@ -1,7 +1,12 @@
 <div class="settings-section">
-    <h2 class="settings-title" data-text="$settings_username_change"></h2>
+    <h2
+        class="settings-title"
+        data-text="$settings_username_change"
+    >
+    </h2>
     <p class="settings-desc">
-        <span data-text="$settings_username_current"></span> <strong>John Doe</strong>
+        <span data-text="$settings_username_current"></span>
+        <strong>John Doe</strong>
     </p>
 
     <div
@@ -24,8 +29,10 @@
         data-on:submit="$errors=''; @post('/settings/username')"
     >
         <div class="form-group">
-            <label for="new-username"
-            data-text="$settings_username_new"></label>
+            <label
+                for="new-username"
+                data-text="$settings_username_new"
+            ></label>
             <input
                 type="text"
                 id="new-username"
@@ -42,8 +49,10 @@
             </div>
         </div>
         <div class="form-group">
-            <label for="current-password"
-            data-text="$settings_current_password"></label>
+            <label
+                for="current-password"
+                data-text="$settings_current_password"
+            ></label>
             <input
                 type="password"
                 id="current-password"
@@ -63,7 +72,9 @@
             type="submit"
             class="btn btn-primary"
         >
-            <span data-text="$settings_username_change"></span>
+            <span
+                data-text="$settings_username_change"
+            ></span>
         </button>
     </form>
 </div>

@@ -1,5 +1,5 @@
 /* ===== Tokyo Night Light Theme ===== */
-:root {
+body.light-mode {
     /* Background hierarchy */
     --bg-primary: #d5d6db;
     --bg-secondary: #e0e1e6;
@@ -8,10 +8,16 @@
     --bg-card: #c8cad3;
     --bg-hover: #cbccd1;
 
+    /* Background extras */
+    --bg-outer: #c4c6cc;
+    --bg-footer: #d5d6db;
+    --bg-popup: #e0e1e6;
+    --bg-sidebar-active: rgba(46, 125, 233, 0.12);
+
     /* Foreground */
-    --fg-primary: #565f89;
-    --fg-secondary: #6a7399;
-    --fg-muted: #a9b1d6;
+    --fg-primary: #343b58;
+    --fg-secondary: #4b526a;
+    --fg-muted: #787c99;
 
     /* Borders */
     --border-color: #a9b1d6;
@@ -27,4 +33,15 @@
     --danger-hover: #a51d2b;
     --danger-bg: rgba(198, 38, 46, 0.1);
     --success: #587d0c;
+
+    /* Switch / Toggle */
+    --switch-active-bg: #cbccd1;
+    --switch-active-border: #a9b1d6;
+    --switch-inactive-bg: #a9b1d6;
+    --switch-icon-color: #565f89;
+
+    /* Aliases */
+    --text-active: var(--fg-primary);
+    --text-muted: var(--fg-muted);
+    --text-color: var(--fg-secondary);
 }

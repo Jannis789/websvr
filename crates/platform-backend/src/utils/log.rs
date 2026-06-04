@@ -45,7 +45,7 @@ fn timestamp() -> String {
 }
 
 pub fn emit(level: Level, file: &str, line: u32, msg: &str) {
-    let short_file = file.split('/').last().unwrap_or(file);
+    let short_file = file.rsplit('/').next().unwrap_or(file);
     let output = format!(
         "\x1b[2m{}\x1b[0m \x1b[{}m[{}]\x1b[0m \x1b[2m{}:{}\x1b[0m {}",
         timestamp(),

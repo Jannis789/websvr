@@ -1,0 +1,240 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SSE Communication — Phase 1: Live events (with id) > /test/run pushes PatchElements WITH id field > phase-1-live-events 1`] = `
+[
+  {
+    "elements_preview": "<div class='test-info' data-marker='phase-a-start'>Phase A: Fresh events</div>",
+    "event": "datastar-patch-elements",
+    "id": "1",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-1' class='test-pass' data-phase='A'>Fresh A: Event 1</div>",
+    "event": "datastar-patch-elements",
+    "id": "2",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-2' class='test-pass' data-phase='A'>Fresh A: Event 2</div>",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-3' class='test-pass' data-phase='A'>Fresh A: Event 3</div>",
+    "event": "datastar-patch-elements",
+    "id": "4",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-4' class='test-pass' data-phase='A'>Fresh A: Event 4</div>",
+    "event": "datastar-patch-elements",
+    "id": "5",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div class='test-info' data-marker='phase-a-end'>Phase A complete</div>",
+    "event": "datastar-patch-elements",
+    "id": "6",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div class="sidebar">
+    <div class="sidebar-top">
+        <div class="sidebar-header">
+            <img
+              ",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#sidebar-slot",
+  },
+  {
+    "elements_preview": "<header class="main-header">
+    <button
+        class="hamburger"
+        data-on:click="$sidebarOpen=!$sidebarOpen"
+  ",
+    "event": "datastar-patch-elements",
+    "id": "4",
+    "mode": "inner",
+    "selector": "#header-slot",
+  },
+  {
+    "elements_preview": "<h1 data-text="$content_overview">
+</h1>",
+    "event": "datastar-patch-elements",
+    "id": "5",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div data-marker='test-1'>Test Action 1</div>",
+    "event": "datastar-patch-elements",
+    "id": "1",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div class='test-info' data-marker='phase-a-start'>Phase A: Fresh events</div>",
+    "event": "datastar-patch-elements",
+    "id": "1",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-1' class='test-pass' data-phase='A'>Fresh A: Event 1</div>",
+    "event": "datastar-patch-elements",
+    "id": "2",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-2' class='test-pass' data-phase='A'>Fresh A: Event 2</div>",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-3' class='test-pass' data-phase='A'>Fresh A: Event 3</div>",
+    "event": "datastar-patch-elements",
+    "id": "4",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-4' class='test-pass' data-phase='A'>Fresh A: Event 4</div>",
+    "event": "datastar-patch-elements",
+    "id": "5",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div class='test-info' data-marker='phase-a-end'>Phase A complete</div>",
+    "event": "datastar-patch-elements",
+    "id": "6",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div data-marker='test-1'>Test Action 1</div>",
+    "event": "datastar-patch-elements",
+    "id": "1",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+]
+`;
+
+exports[`SSE Communication — Phase 2: Click (live, with id) > Navigate to /home/movies pushes patch WITH id > phase-2-click-live 1`] = `
+[
+  {
+    "elements_preview": "<div class='test-info' data-marker='phase-a-start'>Phase A: Fresh events</div>",
+    "event": "datastar-patch-elements",
+    "id": "1",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-1' class='test-pass' data-phase='A'>Fresh A: Event 1</div>",
+    "event": "datastar-patch-elements",
+    "id": "2",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-2' class='test-pass' data-phase='A'>Fresh A: Event 2</div>",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-3' class='test-pass' data-phase='A'>Fresh A: Event 3</div>",
+    "event": "datastar-patch-elements",
+    "id": "4",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div id='test-4' class='test-pass' data-phase='A'>Fresh A: Event 4</div>",
+    "event": "datastar-patch-elements",
+    "id": "5",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div class='test-info' data-marker='phase-a-end'>Phase A complete</div>",
+    "event": "datastar-patch-elements",
+    "id": "6",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<h1 data-text="$content_movies">
+</h1>",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<h1 data-text="$content_movies">
+</h1>",
+    "event": "datastar-patch-elements",
+    "id": "9",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<h1 data-text="$content_series">
+</h1>",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+]
+`;
+
+exports[`SSE Communication — Phase 3: Reload (replay with id) > Reconnect replays cached events WITH id field > phase-3-replay-events 1`] = `
+[
+  {
+    "elements_preview": "<h1 data-text="$content_movies">
+</h1>",
+    "event": "datastar-patch-elements",
+    "id": "9",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<div data-marker='test-1'>Test Action 1</div>",
+    "event": "datastar-patch-elements",
+    "id": "1",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+  {
+    "elements_preview": "<h1 data-text="$content_overview">
+</h1>",
+    "event": "datastar-patch-elements",
+    "id": "3",
+    "mode": "inner",
+    "selector": "#content-slot",
+  },
+]
+`;
+
+exports[`SSE Communication — Phase 4: DOM content > Replay patches produce correct DOM state > phase-4-dom-state 1`] = `
+{
+  "content_slot_html": "<h1 data-text="$content_overview">
+</h1>",
+}
+`;

@@ -21,21 +21,11 @@
           zlib
           pkg-config
           openssl
+          dprint
         ];
 
         shellHook = ''
           echo "🚀 Rust Shell geladen"
-
-          # ❗ WICHTIG: richtiger Coding Endpoint
-          export OPENAI_API_BASE="https://api.z.ai/api/coding/paas/v4"
-
-          # API Key aus Datei laden
-          if [ -f .api_key ]; then
-            export OPENAI_API_KEY=$(cat .api_key)
-            echo "🔑 API Key geladen"
-          else
-            echo "❌ .api_key fehlt!"
-          fi
         '';
       };
     };

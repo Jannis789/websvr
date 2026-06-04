@@ -2,10 +2,10 @@ use crate::context::SharedState;
 use crate::elog;
 use crate::entities::users;
 use crate::utils::request::extract_context;
-use crate::utils::response::redirect;
+use crate::utils::response::{empty_response, Response};
 use platform_core::PasswordUtil;
 use rama::http::service::web::extract::State;
-use rama::http::{header, Request, Response};
+use rama::http::{header, Request, StatusCode};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
 use serde_json::json;
@@ -16,8 +16,10 @@ const MAX_BODY_SIZE: usize = 10 * 1024;
 /// Minimum password length.
 const MIN_PASSWORD_LEN: usize = 8;
 
-/// RFC 5322-ish email pattern — compiled once.
-static EMAIL_PATTERN: &str = r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$";
+/// RFC 5322-ish email pattern — compiled once (lazy).
+static EMAIL_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$").unwrap()
+});
 
 #[derive(Debug, Deserialize)]
 struct LoginPayload {
@@ -54,32 +56,72 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     }
 }
 
-/// Push error signals into the SSE broadcaster, return 303 → /sse.
+/// Push error signals into the SSE broadcaster, return 200 OK.
+/// Events arrive through the persistent /sse stream.
 fn emit_error(ctx: &crate::context::ClientContext, field: &str, message: impl AsRef<str>) -> Response {
     let msg = message.as_ref();
     let signals = json!({ "errors": { field: msg }, "submitting": false, "success": false });
     let signals_json = serde_json::to_string(&signals).unwrap();
-    ctx.event_emitter.emit_signals(&signals_json);
-    redirect("/sse")
+    ctx.event_emitter.emit_signal(&signals_json);
+    empty_response(StatusCode::OK)
 }
 
-/// Push success signals + redirect script into the broadcaster, return 303 → /sse.
+/// Push success signals + redirect script into the broadcaster, return 200 OK.
+/// Events arrive through the persistent /sse stream.
 fn emit_success(ctx: &crate::context::ClientContext, redirect_url: &str) -> Response {
+    // Clear stale events (e.g. login form) before emitting post-login state
+    ctx.event_emitter.clear();
+
     let signals = json!({ "errors": "", "success": true });
     let signals_json = serde_json::to_string(&signals).unwrap();
-    ctx.event_emitter.emit_signals(&signals_json);
-    ctx.event_emitter.emit_script(&format!(
+    ctx.event_emitter.emit_signal(&signals_json);
+    ctx.event_emitter.try_emit_script(&format!(
         "setTimeout(() => {{ window.location.href = '{}'; }}, 1200);",
         redirect_url
     ));
-    redirect("/sse")
+    empty_response(StatusCode::OK)
 }
 
 /// POST /login — authenticate user via email + password.
 /// Datastar @post sends signals as JSON body.
-/// Returns 303 → /sse; the Dreifaltigkeit arrives via the SSE stream.
+/// Returns 200 OK; the Dreifaltigkeit arrives via the persistent /sse stream.
 pub async fn login(State(state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
+    let client_id = ctx.client_id.to_string();
+
+    // Debug: log request metadata to diagnose double-POST
+    let ct = req
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("-");
+    let cl = req
+        .headers()
+        .get("content-length")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("-");
+    elog!(
+        Info,
+        "POST /login arrived [client={}, ct={}, cl={}]",
+        client_id,
+        ct,
+        cl
+    );
+
+    // Idempotency: if already authenticated, just return OK (prevents double-click issues)
+    let already_auth = ctx
+        .session_storage
+        .try_lock()
+        .map(|g| g.get("authenticated").and_then(|v| v.as_bool()).unwrap_or(false))
+        .unwrap_or(false);
+    if already_auth {
+        elog!(
+            Info,
+            "POST /login skipped (already authenticated) [client={}]",
+            client_id
+        );
+        return empty_response(StatusCode::OK);
+    }
 
     let all_bytes = match read_body_limited(req).await {
         Some(b) => b,
@@ -96,7 +138,7 @@ pub async fn login(State(state): State<SharedState>, req: Request) -> Response {
         _ => return emit_error(&ctx, "email", "E-Mail erforderlich"),
     };
 
-    if !regex::Regex::new(EMAIL_PATTERN).unwrap().is_match(email) {
+    if !EMAIL_REGEX.is_match(email) {
         return emit_error(&ctx, "email", "Ungueltige E-Mail-Adresse");
     }
 
@@ -105,7 +147,13 @@ pub async fn login(State(state): State<SharedState>, req: Request) -> Response {
         _ => return emit_error(&ctx, "password", "Passwort erforderlich"),
     };
 
-    elog!(Info, "Login attempt for: {}", email);
+    elog!(
+        Info,
+        "Login attempt for: {} [client={}, body={} bytes]",
+        email,
+        client_id,
+        all_bytes.len()
+    );
 
     // Query user by email
     let user = match users::Entity::find()
@@ -145,7 +193,7 @@ pub async fn login(State(state): State<SharedState>, req: Request) -> Response {
 }
 
 /// POST /register — create new user account.
-/// Returns 303 → /sse; the Dreifaltigkeit arrives via the SSE stream.
+/// Returns 200 OK; events arrive via the persistent /sse stream.
 pub async fn register(State(state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
 
@@ -169,7 +217,7 @@ pub async fn register(State(state): State<SharedState>, req: Request) -> Respons
         _ => return emit_error(&ctx, "email", "E-Mail erforderlich"),
     };
 
-    if !regex::Regex::new(EMAIL_PATTERN).unwrap().is_match(email) {
+    if !EMAIL_REGEX.is_match(email) {
         return emit_error(&ctx, "email", "Ungueltige E-Mail-Adresse");
     }
 
@@ -255,7 +303,7 @@ pub async fn register(State(state): State<SharedState>, req: Request) -> Respons
     emit_success(&ctx, "/login")
 }
 
-/// POST /logout — clear session and redirect to login via 303 → /sse.
+/// POST /logout — clear session and redirect to login via SSE executeScript.
 pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
 
@@ -266,11 +314,14 @@ pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response
         session.set_volatile("user_id", serde_json::Value::Null);
     }
 
+    // Clear stale events before redirect
+    ctx.event_emitter.clear();
+
     // Push redirect script into broadcaster
     ctx.event_emitter
-        .emit_script("setTimeout(() => { window.location.href = '/login'; }, 500);");
+        .try_emit_script("setTimeout(() => { window.location.href = '/login'; }, 500);");
 
-    let mut resp = redirect("/sse");
+    let mut resp = empty_response(StatusCode::OK);
     let clear_cookie = format!(
         "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
         platform_core::client_id::CLIENT_ID_COOKIE

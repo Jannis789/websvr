@@ -108,3 +108,58 @@ impl SessionStorage {
         this
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn new_storage() -> SessionStorage {
+        SessionStorage::new(ClientId::generate())
+    }
+
+    #[test]
+    fn test_set_and_get() {
+        let mut s = new_storage();
+        s.set_volatile("name", json!("Alice"));
+        assert_eq!(s.get("name").and_then(|v| v.as_str()), Some("Alice"));
+    }
+
+    #[test]
+    fn test_get_nonexistent() {
+        let s = new_storage();
+        assert_eq!(s.get("missing"), None);
+    }
+
+    #[test]
+    fn test_persistent_data_filters() {
+        let mut s = new_storage();
+        s.set_volatile("session", json!("temp"));
+        s.set_persistent("user_id", json!(42));
+        let persisted = s.persistent_data();
+        assert!(persisted.get("user_id").is_some());
+        assert!(persisted.get("session").is_none());
+    }
+
+    #[test]
+    fn test_from_persisted_roundtrip() {
+        let mut original = new_storage();
+        let cid = original.client_id;
+        original.set_persistent("theme", json!("dark"));
+        let persisted = original.persistent_data();
+
+        let restored = SessionStorage::from_persisted(cid, persisted);
+        assert_eq!(restored.get("theme").and_then(|v| v.as_str()), Some("dark"));
+        // Restored keys have Persistent mode
+        let restored_persisted = restored.persistent_data();
+        assert!(restored_persisted.get("theme").is_some());
+    }
+
+    #[test]
+    fn test_fire_and_forget_not_in_persistent() {
+        let mut s = new_storage();
+        s.set_fire_and_forget("flash", json!("hello"));
+        let persisted = s.persistent_data();
+        assert!(persisted.get("flash").is_none());
+    }
+}

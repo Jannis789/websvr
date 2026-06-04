@@ -1,8 +1,10 @@
-use rama::http::body::sse::datastar::PatchElements;
+use rama::http::body::sse::datastar::EventData;
 
-/// A single SSE patch: HTML data + Datastar patch config.
+/// A single Datastar SSE event produced by a component.
+/// Wraps Rama's `EventData` enum for loose coupling — any component
+/// can produce any event type (PatchElements, PatchSignals, ExecuteScript).
 pub struct PatchEntry {
-    pub elements: PatchElements,
+    pub data: EventData,
 }
 
 /// Strategy interface for composable components.

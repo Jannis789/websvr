@@ -8,6 +8,12 @@
     --bg-card: #363c50;
     --bg-hover: #3b4261;
 
+    /* Background extras */
+    --bg-outer: #16161e;
+    --bg-footer: #1f2335;
+    --bg-popup: #24283b;
+    --bg-sidebar-active: rgba(122, 162, 247, 0.12);
+
     /* Foreground */
     --fg-primary: #c0caf5;
     --fg-secondary: #a9b1d6;
@@ -27,4 +33,15 @@
     --danger-hover: #ff8da1;
     --danger-bg: rgba(247, 118, 142, 0.12);
     --success: #9ece6a;
+
+    /* Switch / Toggle */
+    --switch-active-bg: #343b4f;
+    --switch-active-border: #414868;
+    --switch-inactive-bg: #3b4261;
+    --switch-icon-color: #a9b1d6;
+
+    /* Aliases */
+    --text-active: var(--fg-primary);
+    --text-muted: var(--fg-muted);
+    --text-color: var(--fg-secondary);
 }
