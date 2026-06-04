@@ -60,51 +60,62 @@ function wrapStream(body, clientId, gen) {
 
   return new ReadableStream({
     pull(controller) {
-      return reader.read().then(({ done, value }) => {
-        const client = clients.get(clientId);
-        
-        // Stream ist veraltet (neuerer Connect hat gen überschrieben)
-        if (!client || client.gen !== gen) {
-          active = false;
-          reader.releaseLock();
-          controller.close();
-          return;
-        }
-
-        if (done) {
-          active = false;
-          if (buffer.trim()) {
-            const norm = buffer.replace(/\r\n/g, '\n');
-            const result = processChunk(norm, client);
-            if (result) controller.enqueue(new TextEncoder().encode(result));
+      return reader.read()
+        .then(({ done, value }) => {
+          const client = clients.get(clientId);
+          
+          // Stream ist veraltet (neuerer Connect hat gen überschrieben)
+          if (!client || client.gen !== gen) {
+            active = false;
+            reader.releaseLock();
+            controller.close();
+            return;
           }
-          swLog('STREAM DONE', 'client:', clientId.slice(0,8), 'total_chunks:', totalChunks);
-          reader.releaseLock();
-          controller.close();
-          return;
-        }
 
-        totalChunks++;
-        const decoded = decoder.decode(value, { stream: true });
-        buffer += decoded;
-
-        // Events aus dem Buffer extrahieren — NUR auf RAW Buffer
-        while (true) {
-          const idx = buffer.indexOf('\n\n');
-          if (idx === -1) break;
-          const raw = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-          if (raw.trim()) {
-            const norm = raw.replace(/\r\n/g, '\n');
-            const result = processChunk(norm, client);
-            if (result) controller.enqueue(new TextEncoder().encode(result));
+          if (done) {
+            active = false;
+            if (buffer.trim()) {
+              const norm = buffer.replace(/\r\n/g, '\n');
+              const result = processChunk(norm, client);
+              if (result) controller.enqueue(new TextEncoder().encode(result));
+            }
+            swLog('STREAM DONE', 'client:', clientId.slice(0,8), 'total_chunks:', totalChunks);
+            reader.releaseLock();
+            controller.close();
+            return;
           }
-        }
-      });
+
+          totalChunks++;
+          const decoded = decoder.decode(value, { stream: true });
+          buffer += decoded;
+
+          // Events aus dem Buffer extrahieren — NUR auf RAW Buffer
+          while (true) {
+            const idx = buffer.indexOf('\n\n');
+            if (idx === -1) break;
+            const raw = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            if (raw.trim()) {
+              const norm = raw.replace(/\r\n/g, '\n');
+              const result = processChunk(norm, client);
+              if (result) controller.enqueue(new TextEncoder().encode(result));
+            }
+          }
+        })
+        .catch((e) => {
+          if (active) {
+            swLog('STREAM READ ERROR:', e.message);
+            active = false;
+            reader.releaseLock();
+            controller.close();
+          }
+        });
     },
     cancel() {
-      active = false;
-      reader.releaseLock();
+      if (active) {
+        active = false;
+        reader.cancel();
+      }
     },
   });
 }

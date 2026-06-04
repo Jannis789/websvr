@@ -28,7 +28,7 @@ impl SseBroadcaster {
         let epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_nanos() as u64;
+            .as_millis() as u64;
         Self { sender, epoch }
     }
 
