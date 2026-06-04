@@ -1,3 +1,4 @@
+use crate::components::sidebar::Sidebar;
 use crate::components::Shell;
 use crate::context::SharedState;
 use crate::elog;
@@ -26,6 +27,7 @@ pub async fn register_page(State(state): State<SharedState>, req: Request) -> Re
 
     let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS);
     let patches = Shell::empty()
+        .sidebar(Sidebar::clear())
         .header(elements::AUTH_HEADER)
         .content(elements::AUTH_REGISTER_FORM)
         .into_events();

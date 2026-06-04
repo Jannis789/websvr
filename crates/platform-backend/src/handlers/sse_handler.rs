@@ -45,7 +45,7 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
         ctx.client_id,
         client_ver,
         client_epoch,
-        server_epoch
+        server_epoch,
     );
 
     // Atomically subscribe + build replay plan to prevent race condition

@@ -16,9 +16,6 @@
 
 function swLog(...args) {
   console.log('[sw]', ...args);
-  self.clients.matchAll().then(clients => {
-    for (const c of clients) c.postMessage({ type: 'sw-log', args });
-  });
 }
 
 swLog('loaded');
@@ -35,6 +32,7 @@ self.addEventListener('activate', () => {
 
 let lastPatchVer = 0;
 let serverEpoch = null;
+let cacheGen = 0;
 const eventCache = new Map();
 const MAX_CACHE_SIZE = 200;
 
@@ -46,16 +44,23 @@ function evictIfNeeded() {
 }
 
 function clearCache() {
+  swLog('clear cache (gen ' + cacheGen + ' → ' + (cacheGen + 1) + ')');
   eventCache.clear();
   lastPatchVer = 0;
+  cacheGen++;
 }
 
-function processSseChunk(text) {
+function processSseChunk(text, gen) {
   const output = [];
   const rawEvents = text.split('\n\n');
 
   for (const raw of rawEvents) {
     if (!raw.trim()) continue;
+
+    // Event von einer alten Generation ignorieren
+    if (gen !== undefined && gen !== cacheGen) {
+      continue;
+    }
 
     let id = null;
     let hasData = false;
@@ -77,8 +82,10 @@ function processSseChunk(text) {
       if (hasData && !isExecuteScript) {
         const cached = eventCache.get(id);
         if (cached !== undefined) {
+          swLog('from cache:', id);
           output.push(cached);
         } else {
+          swLog('from server:', id);
           eventCache.set(id, raw + '\n\n');
           evictIfNeeded();
           output.push(raw + '\n\n');
@@ -106,13 +113,14 @@ async function learnFromStream(body) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let leftover = '';
+  const gen = cacheGen; // Generation beim Stream-Start einfrieren
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
         if (leftover.trim()) {
-          processSseChunk(leftover);
+          processSseChunk(leftover, gen);
         }
         break;
       }
@@ -121,7 +129,7 @@ async function learnFromStream(body) {
       if (lastBoundary === -1) continue;
       const complete = leftover.slice(0, lastBoundary);
       leftover = leftover.slice(lastBoundary + 2);
-      processSseChunk(complete);
+      processSseChunk(complete, gen);
     }
   } catch (e) {
     // Stream cancelled by page navigation — expected, ignore
@@ -147,6 +155,7 @@ self.addEventListener('fetch', (event) => {
     const cleanUrl = new URL(url.origin + url.pathname);
     if (lastPatchVer > 0) cleanUrl.searchParams.set('v', lastPatchVer);
     if (serverEpoch !== null) cleanUrl.searchParams.set('e', serverEpoch);
+    if (cacheGen > 0) cleanUrl.searchParams.set('g', cacheGen);
 
     event.respondWith(
       fetch(cleanUrl.toString(), { headers: event.request.headers })

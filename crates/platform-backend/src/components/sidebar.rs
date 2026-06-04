@@ -10,6 +10,14 @@ impl Sidebar {
             patches: Fragment::new("#sidebar-slot", html).into_patches(),
         }
     }
+
+    /// Clear the sidebar slot (empty content).
+    /// Uses an HTML comment instead of empty string to avoid ByteStr EmptyStrErr.
+    pub fn clear() -> Self {
+        Sidebar {
+            patches: Fragment::new("#sidebar-slot", "<!-- -->").into_patches(),
+        }
+    }
 }
 
 impl Patch for Sidebar {
