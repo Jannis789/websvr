@@ -7,12 +7,13 @@
 //
 // NUR /sse wird abgefangen — alle anderen Requests gehen normal zum Server.
 //
-// Epoch validation: Server sends X-SSE-Epoch header. If it changed
-// (server restart), the SW clears its cache and resets patch_ver.
+// Der SSE-Response-Body wird in einen ReadableStream gewrappt. Jedes Event
+// wird beim Durchreichen gecacht. Bei cancel() wird der Reader NICHT gekillt
+// — der Stream schliesst sich von selbst (verhindert ERR_INCOMPLETE_CHUNKED).
 //
-// KEINE ReadableStream-Manipulation — die Server-Response wird 1:1
-// an die Page durchgereicht. Nur ein response.clone() läuft parallel
-// zum Lernen der Event-IDs.
+// Der Cache wird bei JEDEM neuen /sse-Intercept geleert, nicht erst beim
+// document-request. Das eliminiert Race-Conditions zwischen alten und neuen
+// learnFromStream-Instanzen.
 
 function swLog(...args) {
   console.log('[sw]', ...args);
@@ -32,7 +33,6 @@ self.addEventListener('activate', () => {
 
 let lastPatchVer = 0;
 let serverEpoch = null;
-let cacheGen = 0;
 const eventCache = new Map();
 const MAX_CACHE_SIZE = 200;
 
@@ -44,23 +44,19 @@ function evictIfNeeded() {
 }
 
 function clearCache() {
-  swLog('clear cache (gen ' + cacheGen + ' → ' + (cacheGen + 1) + ')');
+  if (eventCache.size > 0 || lastPatchVer > 0) {
+    swLog('clear cache');
+  }
   eventCache.clear();
   lastPatchVer = 0;
-  cacheGen++;
 }
 
-function processSseChunk(text, gen) {
+function processSseChunk(text) {
   const output = [];
   const rawEvents = text.split('\n\n');
 
   for (const raw of rawEvents) {
     if (!raw.trim()) continue;
-
-    // Event von einer alten Generation ignorieren
-    if (gen !== undefined && gen !== cacheGen) {
-      continue;
-    }
 
     let id = null;
     let hasData = false;
@@ -82,10 +78,10 @@ function processSseChunk(text, gen) {
       if (hasData && !isExecuteScript) {
         const cached = eventCache.get(id);
         if (cached !== undefined) {
-          swLog('from cache:', id);
+          swLog('from cache', id);
           output.push(cached);
         } else {
-          swLog('from server:', id);
+          swLog('from server', id);
           eventCache.set(id, raw + '\n\n');
           evictIfNeeded();
           output.push(raw + '\n\n');
@@ -106,61 +102,63 @@ function processSseChunk(text, gen) {
   return output.join('');
 }
 
-// ── Background learner ──
-// Konsumiert einen Body-Stream parallel zur Page, lernt Event-IDs
-// und aktualisiert lastPatchVer. KEIN ReadableStream-Manipulation.
-async function learnFromStream(body) {
+function createPassthroughStream(body) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let leftover = '';
-  const gen = cacheGen; // Generation beim Stream-Start einfrieren
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        if (leftover.trim()) {
-          processSseChunk(leftover, gen);
+  return new ReadableStream({
+    pull(controller) {
+      return reader.read().then(({ done, value }) => {
+        if (done) {
+          if (leftover.trim()) {
+            const result = processSseChunk(leftover);
+            if (result) controller.enqueue(new TextEncoder().encode(result));
+          }
+          controller.close();
+          return;
         }
-        break;
-      }
-      leftover += decoder.decode(value, { stream: true });
-      const lastBoundary = leftover.lastIndexOf('\n\n');
-      if (lastBoundary === -1) continue;
-      const complete = leftover.slice(0, lastBoundary);
-      leftover = leftover.slice(lastBoundary + 2);
-      processSseChunk(complete, gen);
-    }
-  } catch (e) {
-    // Stream cancelled by page navigation — expected, ignore
-  } finally {
-    reader.releaseLock();
-  }
+
+        leftover += decoder.decode(value, { stream: true });
+        const lastBoundary = leftover.lastIndexOf('\n\n');
+        if (lastBoundary === -1) return;
+
+        const complete = leftover.slice(0, lastBoundary);
+        leftover = leftover.slice(lastBoundary + 2);
+
+        const result = processSseChunk(complete);
+        if (result) controller.enqueue(new TextEncoder().encode(result));
+      });
+    },
+    cancel() {
+      // Reader NICHT killen — der HTTP-Connection bleibt intakt.
+      // Der Browser hat den Stream selbst geschlossen (Navigation etc.).
+      // controller.close() von aussen nicht noetig — der GC raeumt auf.
+    },
+  });
 }
 
 self.addEventListener('fetch', (event) => {
   try {
     const url = new URL(event.request.url);
 
-    // Clear SSE cache on page navigation (document request)
-    if (event.request.destination === 'document') {
-      clearCache();
-    }
-
     if (url.pathname !== '/sse') return;
+
+    // Cache IMMER vor neuem SSE-Connect leeren — unabhaengig von Navigation.
+    // Das eliminiert Race-Conditions zwischen alten learnFromStream und neuen.
+    clearCache();
 
     swLog('intercept /sse');
 
-    // Nur URL modifizieren — Server-Response 1:1 durchreichen
+    // URL modifizieren (v=, e=)
     const cleanUrl = new URL(url.origin + url.pathname);
     if (lastPatchVer > 0) cleanUrl.searchParams.set('v', lastPatchVer);
     if (serverEpoch !== null) cleanUrl.searchParams.set('e', serverEpoch);
-    if (cacheGen > 0) cleanUrl.searchParams.set('g', cacheGen);
 
     event.respondWith(
       fetch(cleanUrl.toString(), { headers: event.request.headers })
         .then((response) => {
-          // Epoch prüfen
+          // Epoch pruefen
           const newEpoch = response.headers.get('x-sse-epoch');
           if (newEpoch !== null) {
             if (serverEpoch !== null && serverEpoch !== newEpoch) {
@@ -169,12 +167,15 @@ self.addEventListener('fetch', (event) => {
             serverEpoch = newEpoch;
           }
 
-          // Parallel lernen aus einem clone — Response geht UNVERÄNDERT an die Page
-          if (response.body) {
-            learnFromStream(response.clone().body);
-          }
+          const body = response.body;
+          if (!body) return response;
 
-          return response; // 1:1, kein ReadableStream, kein Passthrough
+          // Response wrappen: ReadableStream cached Events beim Durchreichen
+          return new Response(createPassthroughStream(body), {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
         })
         .catch((err) => {
           swLog('fetch error:', err.message);
