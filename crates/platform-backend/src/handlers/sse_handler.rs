@@ -30,10 +30,9 @@ fn id_only_event(ver: u64) -> SseResult {
 /// GET /sse — SSE endpoint with state replay on reconnect.
 ///
 /// Client sends `?v=N&e=E` (highest patch_ver + epoch seen by SW).
-/// - Epoch mismatch (server restart) → all events sent as full WITH `id:`.
-/// - Events the SW already has cached → send `id: <ver>` only.
-/// - Events with new content → send full SSE event WITH `id:`.
-/// - Live events (new broadcasts) → send WITHOUT `id:`.
+/// - Replay: Server sends events from the per-client EventEmitter cache.
+/// - Drain: Initial broadcast buffer events (duplicates of replay) are skipped.
+/// - Live: After draining, only new broadcast events are forwarded.
 pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
     let client_ver = query_u64(&req, "v");
@@ -54,6 +53,7 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
     let (id_only, full) = plan.into_parts();
 
     let stream = stream! {
+        // ── Phase 1: Replay from EventEmitter cache ──
         if !id_only.is_empty() {
             elog!(Debug, "SSE → {} id-only replays since ver={}", id_only.len(), client_ver);
         }
@@ -68,17 +68,39 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
             elog!(Debug, "SSE → {} full replays since ver={}", full.len(), client_ver);
         }
         for event in &full {
-            // Replay events: WITH id (SW caches by patch_ver)
             match event.to_sse_event_with_id() {
                 Ok(sse_event) => yield Ok::<_, EventBuildError>(sse_event),
                 Err(e) => elog!(Error, "SSE → failed to serialize replay: {}", e),
             }
         }
 
+        // ── Phase 2: Drain initial broadcast buffer ──
+        // When subscribe() is called, the receiver starts with all events still
+        // in the broadcast buffer. These are the SAME events we just replayed
+        // from the per-client EventEmitter cache. Sending them again would
+        // cause DUPLICATE Patches on the client (e.g. animations 2x, wrong DOM).
+        //
+        // We drain them here with try_recv() — they were already sent as replays.
+        #[allow(unused_assignments)]
+        let mut drained = 0u32;
+        loop {
+            match rx.try_recv() {
+                Ok(_) => drained += 1,
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => {
+                    elog!(Warn, "SSE → skipped {} lagged events during drain", n);
+                    break;
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+            }
+        }
+        if drained > 0 {
+            elog!(Debug, "SSE → drained {} broadcast duplicates", drained);
+        }
+
+        // ── Phase 3: Live events ──
         loop {
             match rx.recv().await {
-                // Live events: MIT id:, damit SW alles cached.
-                // Der Replay filtert trotzdem per request_gen.
                 Ok(event) => match event.to_sse_event_with_id() {
                     Ok(sse_event) => yield Ok::<_, EventBuildError>(sse_event),
                     Err(e) => elog!(Error, "SSE → failed to serialize live event: {}", e),
