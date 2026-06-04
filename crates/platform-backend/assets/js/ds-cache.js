@@ -8,17 +8,12 @@ const CACHE_KEY = 'ds-cache';
 
 const CACHE_SLOTS = new Map();
 let CACHE_SIGNALS = null;
-let CACHE_URL = null;
 
 (function restoreCache() {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (!raw) return;
-    const { url, slots, signals } = JSON.parse(raw);
-
-    // Nur restoren wenn es die SELBE Seite ist (F5/Refresh)
-    if (url !== window.location.pathname) return;
-
+    const { slots, signals } = JSON.parse(raw);
     if (!slots || !slots.length) return;
 
     for (const [sel, entry] of slots) {
@@ -50,6 +45,6 @@ document.addEventListener('datastar-fetch', (evt) => {
 });
 
 window.addEventListener('beforeunload', () => {
-  const state = { url: window.location.pathname, slots: [...CACHE_SLOTS], signals: CACHE_SIGNALS };
+  const state = { slots: [...CACHE_SLOTS], signals: CACHE_SIGNALS };
   try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch {}
 });

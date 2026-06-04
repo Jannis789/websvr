@@ -1,19 +1,11 @@
-// Service Worker — SSE patch_ver tracking + event cache with epoch validation
+// Service Worker — SSE caching via ReadableStream (kein response.clone!)
 //
-// Intercepts /sse responses, caches full events by server-assigned patch_ver.
-// On reconnect, sends ?v=<highest>&e=<epoch>. Server replies with:
-//   - Full events WITH id: for content the SW hasn't cached
-//   - id-only events (just "id: N\n\n") for content the SW already has
+// Jeder SSE-Client hat seinen eigenen Cache (Map<clientId, {cache, ver, epoch}>).
+// Die Response wird in einen ReadableStream gewrappt — der SW ist der EINZIGE
+// Konsument. Kein clone, kein paralleler Stream, kein NS_BINDING_ABORTED.
 //
-// NUR /sse wird abgefangen — alle anderen Requests gehen normal zum Server.
-//
-// Der SSE-Response-Body wird in einen ReadableStream gewrappt. Jedes Event
-// wird beim Durchreichen gecacht. Bei cancel() wird der Reader NICHT gekillt
-// — der Stream schliesst sich von selbst (verhindert ERR_INCOMPLETE_CHUNKED).
-//
-// Der Cache wird bei JEDEM neuen /sse-Intercept geleert, nicht erst beim
-// document-request. Das eliminiert Race-Conditions zwischen alten und neuen
-// learnFromStream-Instanzen.
+// Bei jedem /sse-Intercept: Cache leeren + ver=0 (Server schickt alles neu).
+// Der Cache hilft nur innerhalb EINES SSE-Streams gegen id-only replays.
 
 function swLog(...args) {
   console.log('[sw]', ...args);
@@ -31,158 +23,211 @@ self.addEventListener('activate', () => {
   self.clients.claim();
 });
 
-let lastPatchVer = 0;
-let serverEpoch = null;
-const eventCache = new Map();
-const MAX_CACHE_SIZE = 200;
+// ── Per-Client State ──
+const clients = new Map();
 
-function evictIfNeeded() {
-  while (eventCache.size > MAX_CACHE_SIZE) {
-    const oldest = eventCache.keys().next().value;
-    eventCache.delete(oldest);
+function getClient(id) {
+  let c = clients.get(id);
+  if (!c) {
+    swLog('NEW CLIENT', id.slice(0,8));
+    c = { cache: new Map(), ver: 0, epoch: null };
+    clients.set(id, c);
+  }
+  return c;
+}
+
+function evictIfNeeded(cache) {
+  while (cache.size > 200) {
+    const k = cache.keys().next().value;
+    cache.delete(k);
   }
 }
 
-function clearCache() {
-  if (eventCache.size > 0 || lastPatchVer > 0) {
-    swLog('clear cache');
-  }
-  eventCache.clear();
-  lastPatchVer = 0;
+// ── ReadableStream — wrappt SSE-Response, cached Events beim Durchreichen ──
+function wrapStream(body, clientId) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let totalChunks = 0;
+
+  return new ReadableStream({
+    pull(controller) {
+      return reader.read().then(({ done, value }) => {
+        const client = clients.get(clientId);
+        // Client wurde inzwischen geleert (neuer Cycle) — Events ignorieren
+        if (!client) {
+          controller.close();
+          reader.releaseLock();
+          return;
+        }
+
+        if (done) {
+          // Letzten Rest verarbeiten
+          if (buffer.trim()) {
+            const result = processChunk(buffer.replace(/\r\n/g, '\n'), client);
+            if (result) controller.enqueue(new TextEncoder().encode(result));
+          }
+          swLog('STREAM DONE', 'client:', clientId.slice(0,8), 'total_chunks:', totalChunks);
+          controller.close();
+          reader.releaseLock();
+          return;
+        }
+
+        totalChunks++;
+        const decoded = decoder.decode(value, { stream: true });
+        buffer += decoded;
+
+        // Events aus dem Buffer extrahieren (getrennt durch \n\n)
+        while (true) {
+          const norm = buffer.replace(/\r\n/g, '\n');
+          const idx = norm.indexOf('\n\n');
+          if (idx === -1) break; // warten auf mehr Daten
+
+          const raw = norm.slice(0, idx);
+          const origLen = buffer.length;
+          const normLen = norm.length;
+          const consumed = idx + 2 + (origLen - normLen);
+          buffer = buffer.slice(Math.min(consumed, buffer.length));
+
+          if (raw.trim()) {
+            const result = processChunk(raw, client);
+            if (result) controller.enqueue(new TextEncoder().encode(result));
+          }
+        }
+      });
+    },
+    cancel() {
+      // KEIN reader.cancel() — der HTTP-Connection stirbt von selbst.
+      // Sonst: ERR_INCOMPLETE_CHUNKED_ENCODING / NS_BINDING_ABORTED.
+      reader.releaseLock();
+    },
+  });
 }
 
-function processSseChunk(text) {
+// ── Event-Verarbeitung (lernt + cached) ──
+function processChunk(raw, client) {
   const output = [];
-  const rawEvents = text.split('\n\n');
 
-  for (const raw of rawEvents) {
-    if (!raw.trim()) continue;
+  let id = null;
+  let hasData = false;
+  let isScript = false;
 
-    let id = null;
-    let hasData = false;
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('id:')) id = parseInt(line.slice(3).trim(), 10);
+    if (line.startsWith('data:') || line.startsWith('event:')) hasData = true;
+  }
 
-    for (const line of raw.split('\n')) {
-      if (line.startsWith('id:')) {
-        id = parseInt(line.slice(3).trim(), 10);
-      }
-      if (line.startsWith('data:') || line.startsWith('event:')) {
-        hasData = true;
-      }
+  isScript = raw.includes('event: datastar-execute-script');
+
+  // Live-Event (keine id) — unverändert durchlassen
+  if (id === null || isNaN(id)) {
+    if (hasData) output.push(raw + '\n\n');
+    return output.join('');
+  }
+
+  // lastPatchVer aktualisieren
+  if (id > client.ver) client.ver = id;
+
+  // id-only Event — aus Cache bedienen wenn vorhanden
+  if (!hasData) {
+    const cached = client.cache.get(id);
+    if (cached) {
+      swLog('from cache', id);
+      output.push(cached);
     }
+    return output.join('');
+  }
 
-    if (id !== null && !isNaN(id)) {
-      if (id > lastPatchVer) lastPatchVer = id;
+  // ExecuteScript — nicht cachen, nur durchlassen
+  if (isScript) {
+    output.push(raw + '\n\n');
+    return output.join('');
+  }
 
-      const isExecuteScript = raw.includes('event: datastar-execute-script');
-
-      if (hasData && !isExecuteScript) {
-        const cached = eventCache.get(id);
-        if (cached !== undefined) {
-          swLog('from cache', id);
-          output.push(cached);
-        } else {
-          swLog('from server', id);
-          eventCache.set(id, raw + '\n\n');
-          evictIfNeeded();
-          output.push(raw + '\n\n');
-        }
-      } else if (hasData && isExecuteScript) {
-        output.push(raw + '\n\n');
-      } else {
-        const cached = eventCache.get(id);
-        if (cached) {
-          output.push(cached);
-        }
-      }
-    } else if (hasData) {
-      output.push(raw + '\n\n');
-    }
+  // Full Event — cachen und durchlassen
+  const cached = client.cache.get(id);
+  if (cached !== undefined) {
+    swLog('from cache', id);
+    output.push(cached);
+  } else {
+    swLog('from server', id);
+    client.cache.set(id, raw + '\n\n');
+    evictIfNeeded(client.cache);
+    output.push(raw + '\n\n');
   }
 
   return output.join('');
 }
 
-function createPassthroughStream(body) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let leftover = '';
-
-  return new ReadableStream({
-    pull(controller) {
-      return reader.read().then(({ done, value }) => {
-        if (done) {
-          if (leftover.trim()) {
-            const result = processSseChunk(leftover);
-            if (result) controller.enqueue(new TextEncoder().encode(result));
-          }
-          controller.close();
-          return;
-        }
-
-        leftover += decoder.decode(value, { stream: true });
-        const lastBoundary = leftover.lastIndexOf('\n\n');
-        if (lastBoundary === -1) return;
-
-        const complete = leftover.slice(0, lastBoundary);
-        leftover = leftover.slice(lastBoundary + 2);
-
-        const result = processSseChunk(complete);
-        if (result) controller.enqueue(new TextEncoder().encode(result));
-      });
-    },
-    cancel() {
-      // Reader NICHT killen — der HTTP-Connection bleibt intakt.
-      // Der Browser hat den Stream selbst geschlossen (Navigation etc.).
-      // controller.close() von aussen nicht noetig — der GC raeumt auf.
-    },
-  });
-}
-
+// ── Fetch Intercept ──
 self.addEventListener('fetch', (event) => {
   try {
     const url = new URL(event.request.url);
-
     if (url.pathname !== '/sse') return;
-
-    // Cache IMMER vor neuem SSE-Connect leeren — unabhaengig von Navigation.
-    // Das eliminiert Race-Conditions zwischen alten learnFromStream und neuen.
-    clearCache();
 
     swLog('intercept /sse');
 
-    // URL modifizieren (v=, e=)
-    const cleanUrl = new URL(url.origin + url.pathname);
-    if (lastPatchVer > 0) cleanUrl.searchParams.set('v', lastPatchVer);
-    if (serverEpoch !== null) cleanUrl.searchParams.set('e', serverEpoch);
-
     event.respondWith(
-      fetch(cleanUrl.toString(), { headers: event.request.headers })
-        .then((response) => {
-          // Epoch pruefen
-          const newEpoch = response.headers.get('x-sse-epoch');
-          if (newEpoch !== null) {
-            if (serverEpoch !== null && serverEpoch !== newEpoch) {
-              clearCache();
+      (async () => {
+        // Navigation erkennen via Client-URL-Vergleich
+        // event.clientId bleibt bei Navigation GLEICH (gleicher Tab).
+        // self.clients.get() liefert die aktuelle URL des Clients.
+        let clientInfo;
+        try { clientInfo = await self.clients.get(event.clientId); } catch {}
+        const client = getClient(event.clientId);
+        const currentUrl = clientInfo?.url || '';
+
+        if (client.lastUrl && client.lastUrl !== currentUrl) {
+          swLog('navigation:', client.lastUrl.slice(0,60), '→', currentUrl.slice(0,60));
+          swLog('  cache cleared (was:', client.cache.size, 'ev, ver:', client.ver, ')');
+          client.cache.clear();
+          client.ver = 0;
+        } else if (!client.lastUrl) {
+          swLog('first connect, url:', currentUrl.slice(0,60));
+        } else {
+          swLog('reconnect (same url), cache:', client.cache.size, 'ev, ver:', client.ver);
+        }
+        client.lastUrl = currentUrl;
+
+        // URL modifizieren — Datastar-Parameter erhalten, Resume-Parameter setzen
+        const cleanUrl = new URL(url.origin + url.pathname);
+        const origParams = new URLSearchParams(url.search);
+        for (const [k, v] of origParams) cleanUrl.searchParams.set(k, v);
+        if (client.ver > 0) cleanUrl.searchParams.set('v', client.ver);
+        if (client.epoch !== null) cleanUrl.searchParams.set('e', client.epoch);
+
+        const response = await fetch(cleanUrl.toString(), { headers: event.request.headers });
+
+        // Epoch prüfen
+        const newEpoch = response.headers.get('x-sse-epoch');
+        if (newEpoch !== null) {
+          const epoch = parseInt(newEpoch, 10);
+          if (!isNaN(epoch)) {
+            if (client.epoch !== null && client.epoch !== epoch) {
+              swLog('epoch mismatch — cache cleared');
+              client.cache.clear();
+              client.ver = 0;
             }
-            serverEpoch = newEpoch;
+            client.epoch = epoch;
           }
+        }
 
-          const body = response.body;
-          if (!body) return response;
+        if (!response.body) return response;
 
-          // Response wrappen: ReadableStream cached Events beim Durchreichen
-          return new Response(createPassthroughStream(body), {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-          });
-        })
+        // Response wrappen — KEIN response.clone()!
+        // Der ReadableStream ist der EINZIGE Konsument des Bodys.
+        return new Response(wrapStream(response.body, event.clientId), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      })()
         .catch((err) => {
           swLog('fetch error:', err.message);
           return new Response('', { status: 503, statusText: 'Service Unavailable' });
         })
     );
   } catch (e) {
-    // Ignore requests that can't be parsed
+    swLog('exception:', e.message);
   }
 });
