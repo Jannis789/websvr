@@ -37,9 +37,8 @@ pub async fn home_page(State(state): State<SharedState>, req: Request) -> Respon
         .content(elements::HOME_CONTENT_OVERVIEW)
         .into_events();
 
-    let events = ctx.event_emitter
-        .emit_signals_volatile(&[signals::ACTIVE_PAGE_OVERVIEW, &i18n_signals].as_slice());
-    elog!(Info, "Home → emitted {} volatile signals: {:?}", events.len(), events.iter().map(|e| e.ver()).collect::<Vec<_>>());
+    ctx.event_emitter
+        .emit_signals(&[signals::ACTIVE_PAGE_OVERVIEW, &i18n_signals].as_slice());
     ctx.event_emitter.emit_elements(&patches);
 
     html_response(elements::SHELL)
