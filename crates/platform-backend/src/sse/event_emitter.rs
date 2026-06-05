@@ -93,6 +93,12 @@ impl EventEmitter {
     fn send_live(&self, event: BufferedEvent) {
         let mut senders = Self::recover_lock(self.senders.lock());
         senders.retain(|tx| tx.send(event.clone()).is_ok());
+        // Fallback: wenn kein Live-Listener existiert (Page-Load vor SSE-Connect),
+        // in den Cache pushen damit das Event trotzdem zum Client gelangt.
+        if senders.is_empty() {
+            drop(senders);
+            self.push_cache(event);
+        }
     }
 
     fn send_and_cache(&self, event: BufferedEvent) {
