@@ -90,51 +90,90 @@ impl EventEmitter {
         }
     }
 
-    fn send_or_cache(&self, event: BufferedEvent) {
+    fn send_live(&self, event: BufferedEvent) {
         let mut senders = Self::recover_lock(self.senders.lock());
         senders.retain(|tx| tx.send(event.clone()).is_ok());
-        // IMMER cachen — auch bei aktiven Sendern. Sonst findet
-        // dedup() das Event beim nächsten emit_signal/emit_element
-        // nicht und vergibt eine neue Version (kein "from cache").
-        drop(senders);
+    }
+
+    fn send_and_cache(&self, event: BufferedEvent) {
+        self.send_live(event.clone());
         self.push_cache(event);
     }
 
+    /// Cached: Live-Fan-out + Cache. Dedup findet Event beim nächsten Mal.
     pub fn emit_element(&self, patch: PatchElements) -> BufferedEvent {
         let candidate_data = EventData::PatchElements(patch.clone());
         if let Some(existing) = self.dedup(&candidate_data) {
-            let mut senders = Self::recover_lock(self.senders.lock());
-            senders.retain(|tx| tx.send(existing.clone()).is_ok());
-            // Für aktuelle Page in den Cache pushen, damit connect() das Event findet
+            self.send_live(existing.clone());
             self.push_cache(existing.clone());
             return existing;
         }
         let ver = self.next_ver();
         let event = BufferedEvent::new(EventData::PatchElements(patch), ver);
-        self.send_or_cache(event.clone());
+        self.send_and_cache(event.clone());
         event
     }
 
+    /// Volatile: NUR Live-Fan-out, KEIN Cache. Für transienten Content
+    /// wie $activePage-Signale, die bei Reconnect nicht relevant sind.
+    pub fn emit_element_volatile(&self, patch: PatchElements) -> BufferedEvent {
+        let candidate_data = EventData::PatchElements(patch.clone());
+        if let Some(existing) = self.dedup(&candidate_data) {
+            self.send_live(existing.clone());
+            return existing;
+        }
+        let ver = self.next_ver();
+        let event = BufferedEvent::new(EventData::PatchElements(patch), ver);
+        self.send_live(event.clone());
+        event
+    }
+
+    /// Cached: Live-Fan-out + Cache. Dedup findet Signal beim nächsten Mal.
     pub fn emit_signal(&self, signals_json: &str) -> BufferedEvent {
         let candidate_data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
         if let Some(existing) = self.dedup(&candidate_data) {
-            let mut senders = Self::recover_lock(self.senders.lock());
-            senders.retain(|tx| tx.send(existing.clone()).is_ok());
+            self.send_live(existing.clone());
             self.push_cache(existing.clone());
             return existing;
         }
         let ver = self.next_ver();
         let event = BufferedEvent::new(candidate_data, ver);
-        self.send_or_cache(event.clone());
+        self.send_and_cache(event.clone());
         event
     }
 
+    /// Volatile: NUR Live-Fan-out, KEIN Cache. Für Signale die sich
+    /// ständig ändern (activePage, Timestamps, Session-Daten).
+    pub fn emit_signal_volatile(&self, signals_json: &str) -> BufferedEvent {
+        let candidate_data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
+        if let Some(existing) = self.dedup(&candidate_data) {
+            self.send_live(existing.clone());
+            return existing;
+        }
+        let ver = self.next_ver();
+        let event = BufferedEvent::new(candidate_data, ver);
+        self.send_live(event.clone());
+        event
+    }
+
+    /// Cached: Script wird gecached und bei Reconnect erneut ausgeführt.
     pub fn try_emit_script(&self, script: &str) -> Option<BufferedEvent> {
         let non_empty = NonEmptyStr::try_from(script).ok()?;
         let ver = self.next_ver();
         let exec = ExecuteScript::new(non_empty);
         let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
-        self.send_or_cache(event.clone());
+        self.send_and_cache(event.clone());
+        Some(event)
+    }
+
+    /// Volatile: Script wird NUR live ausgeführt, nie gecached.
+    /// Für One-Shot-Scripts wie Redirects oder Transient-Toasts.
+    pub fn try_emit_script_volatile(&self, script: &str) -> Option<BufferedEvent> {
+        let non_empty = NonEmptyStr::try_from(script).ok()?;
+        let ver = self.next_ver();
+        let exec = ExecuteScript::new(non_empty);
+        let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
+        self.send_live(event.clone());
         Some(event)
     }
 

@@ -21,9 +21,8 @@ pub async fn get_home_overview(
     let patches = Shell::empty()
         .content(elements::HOME_CONTENT_OVERVIEW)
         .into_events();
-    let mut events = ctx
-        .event_emitter
-        .emit_signals(&[signals::ACTIVE_PAGE_OVERVIEW, &i18n_signals]);
+    let mut events = vec![ctx.event_emitter.emit_signal_volatile(signals::ACTIVE_PAGE_OVERVIEW)];
+    events.push(ctx.event_emitter.emit_signal(&i18n_signals));
     events.extend(ctx.event_emitter.emit_elements(&patches));
     sse_response(&events)
 }
@@ -38,9 +37,8 @@ pub async fn get_home_movies(
     let patches = Shell::empty()
         .content(elements::HOME_CONTENT_MOVIES)
         .into_events();
-    let mut events = ctx
-        .event_emitter
-        .emit_signals(&[signals::ACTIVE_PAGE_MOVIES, &i18n_signals]);
+    let mut events = vec![ctx.event_emitter.emit_signal_volatile(signals::ACTIVE_PAGE_MOVIES)];
+    events.push(ctx.event_emitter.emit_signal(&i18n_signals));
     events.extend(ctx.event_emitter.emit_elements(&patches));
     sse_response(&events)
 }
@@ -55,9 +53,8 @@ pub async fn get_home_series(
     let patches = Shell::empty()
         .content(elements::HOME_CONTENT_SERIES)
         .into_events();
-    let mut events = ctx
-        .event_emitter
-        .emit_signals(&[signals::ACTIVE_PAGE_SERIES, &i18n_signals]);
+    let mut events = vec![ctx.event_emitter.emit_signal_volatile(signals::ACTIVE_PAGE_SERIES)];
+    events.push(ctx.event_emitter.emit_signal(&i18n_signals));
     events.extend(ctx.event_emitter.emit_elements(&patches));
     sse_response(&events)
 }
