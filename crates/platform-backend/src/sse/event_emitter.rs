@@ -1,16 +1,17 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::{BufferedEvent, SseBroadcaster};
+use super::BufferedEvent;
 use crate::elog;
 use rama::http::body::sse::datastar::{EventData, ExecuteScript, PatchElements, PatchSignals};
 use rama::utils::str::NonEmptyStr;
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-/// Replay plan for a reconnecting client.
+/// Replay-Plan für SSE-Reconnect.
+#[derive(Debug)]
 pub struct ReplayPlan {
-    id_only: Vec<u64>,
-    full: Vec<BufferedEvent>,
+    pub id_only: Vec<u64>,
+    pub full: Vec<BufferedEvent>,
 }
 
 impl ReplayPlan {
@@ -19,49 +20,40 @@ impl ReplayPlan {
     }
 }
 
-const MAX_CACHE: usize = 64;
-
-/// Cache entry with request-generation tracking.
-/// Only entries whose `request_gen` matches the current `req_counter`
-/// are eligible for reconnect replay.
-#[derive(Debug)]
-struct CacheEntry {
-    event: BufferedEvent,
-    request_gen: u64,
-}
-
 /// Per-client event emitter.
 ///
-/// - Content-dedup: same content = same patch_ver.
-/// - Request-scoped replay: `begin_request()` increments a generation
-///   counter. Emits stamp the entry with that generation. On reconnect,
-///   only entries from the current generation are replayed.
-/// - Live events are sent WITHOUT `id:` — the SW only caches via replay.
+/// **Cache**: Persistiert über Pages hinweg (FIFO-eviction bei MAX_CACHE).
+/// `clear()` leert den Cache NICHT — es markiert nur den Start-Index
+/// der aktuellen Page. `connect()` liefert nur Events AB diesem Index.
+///
+/// **Dedup**: Sucht im GESAMTEN Cache (auch alte Pages) → selber Content
+/// bekommt dieselbe Version — selbst über Page-Reloads hinweg.
+///
+/// **Fan-out**: Live-Events an ALLE verbundenen mpsc-Sender.
 #[derive(Debug, Clone)]
 pub struct EventEmitter {
-    cache: Arc<Mutex<Vec<CacheEntry>>>,
-    broadcaster: Arc<SseBroadcaster>,
+    cache: Arc<Mutex<Vec<BufferedEvent>>>,
+    page_start: Arc<AtomicUsize>,
+    senders: Arc<Mutex<Vec<UnboundedSender<BufferedEvent>>>>,
     next_ver: Arc<AtomicU64>,
-    /// Current request generation. Incremented on each `begin_request()`.
-    req_counter: Arc<AtomicU64>,
+    epoch: u64,
 }
 
+const MAX_CACHE: usize = 200;
+
 impl EventEmitter {
-    pub fn new(broadcaster: Arc<SseBroadcaster>) -> Self {
+    pub fn new(epoch: u64) -> Self {
         Self {
             cache: Arc::new(Mutex::new(Vec::new())),
-            broadcaster,
+            page_start: Arc::new(AtomicUsize::new(0)),
+            senders: Arc::new(Mutex::new(Vec::new())),
             next_ver: Arc::new(AtomicU64::new(1)),
-            req_counter: Arc::new(AtomicU64::new(0)),
+            epoch,
         }
     }
 
     fn next_ver(&self) -> u64 {
         self.next_ver.fetch_add(1, Ordering::SeqCst)
-    }
-
-    pub(crate) fn current_gen(&self) -> u64 {
-        self.req_counter.load(Ordering::SeqCst)
     }
 
     fn recover_lock<T>(result: Result<T, std::sync::PoisonError<T>>) -> T {
@@ -74,63 +66,66 @@ impl EventEmitter {
         }
     }
 
-    /// Increment request generation.
-    /// Call at the start of each handler request so that only events
-    /// emitted during THIS request are eligible for reconnect replay.
-    /// The SSE endpoint does NOT call this — it inherits the last
-    /// handler's generation.
-    pub fn begin_request(&self) {
-        let old = self.req_counter.fetch_add(1, Ordering::SeqCst);
-        elog!(Debug, "EventEmitter → begin_request: gen {} → {}", old, old + 1);
-    }
-
-    fn dedup_and_stamp(&self, candidate: &EventData) -> Option<BufferedEvent> {
-        let gen = self.current_gen();
-        let mut cache = Self::recover_lock(self.cache.lock());
-        for entry in cache.iter_mut() {
-            if entry.event.content_eq(candidate) {
-                entry.request_gen = gen;
-                return Some(entry.event.clone());
+    /// Dedup im GESAMTEN Cache (auch alte Pages):
+    /// Selber Content → selbe Version.
+    fn dedup(&self, candidate: &EventData) -> Option<BufferedEvent> {
+        let cache = Self::recover_lock(self.cache.lock());
+        for entry in cache.iter() {
+            if entry.content_eq(candidate) {
+                return Some(entry.clone());
             }
         }
         None
     }
 
-    fn cache_insert(&self, event: BufferedEvent) {
-        let gen = self.current_gen();
+    fn push_cache(&self, event: BufferedEvent) {
         let mut cache = Self::recover_lock(self.cache.lock());
-        cache.push(CacheEntry {
-            event,
-            request_gen: gen,
-        });
+        cache.push(event);
         while cache.len() > MAX_CACHE {
             cache.remove(0);
+            // Atomar page_start anpassen, damit es nicht auf gelöschte Einträge zeigt
+            self.page_start.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |ps| {
+                Some(ps.saturating_sub(1))
+            }).ok();
         }
+    }
+
+    fn send_or_cache(&self, event: BufferedEvent) {
+        let mut senders = Self::recover_lock(self.senders.lock());
+        senders.retain(|tx| tx.send(event.clone()).is_ok());
+        // IMMER cachen — auch bei aktiven Sendern. Sonst findet
+        // dedup() das Event beim nächsten emit_signal/emit_element
+        // nicht und vergibt eine neue Version (kein "from cache").
+        drop(senders);
+        self.push_cache(event);
     }
 
     pub fn emit_element(&self, patch: PatchElements) -> BufferedEvent {
         let candidate_data = EventData::PatchElements(patch.clone());
-        if let Some(existing) = self.dedup_and_stamp(&candidate_data) {
-            self.broadcast_event(existing.clone());
+        if let Some(existing) = self.dedup(&candidate_data) {
+            let mut senders = Self::recover_lock(self.senders.lock());
+            senders.retain(|tx| tx.send(existing.clone()).is_ok());
+            // Für aktuelle Page in den Cache pushen, damit connect() das Event findet
+            self.push_cache(existing.clone());
             return existing;
         }
         let ver = self.next_ver();
         let event = BufferedEvent::new(EventData::PatchElements(patch), ver);
-        self.cache_insert(event.clone());
-        self.broadcast_event(event.clone());
+        self.send_or_cache(event.clone());
         event
     }
 
     pub fn emit_signal(&self, signals_json: &str) -> BufferedEvent {
         let candidate_data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
-        if let Some(existing) = self.dedup_and_stamp(&candidate_data) {
-            self.broadcast_event(existing.clone());
+        if let Some(existing) = self.dedup(&candidate_data) {
+            let mut senders = Self::recover_lock(self.senders.lock());
+            senders.retain(|tx| tx.send(existing.clone()).is_ok());
+            self.push_cache(existing.clone());
             return existing;
         }
         let ver = self.next_ver();
         let event = BufferedEvent::new(candidate_data, ver);
-        self.cache_insert(event.clone());
-        self.broadcast_event(event.clone());
+        self.send_or_cache(event.clone());
         event
     }
 
@@ -139,7 +134,7 @@ impl EventEmitter {
         let ver = self.next_ver();
         let exec = ExecuteScript::new(non_empty);
         let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
-        self.broadcast_event(event.clone());
+        self.send_or_cache(event.clone());
         Some(event)
     }
 
@@ -160,91 +155,91 @@ impl EventEmitter {
             .collect()
     }
 
-    fn broadcast_event(&self, event: BufferedEvent) {
-        match self.broadcaster.broadcast(event) {
-            Ok(0) => elog!(Debug, "EventEmitter → broadcast: no subscribers"),
-            Ok(_) => {}
-            Err(e) => elog!(Warn, "EventEmitter → broadcast failed: {}", e),
-        }
-    }
-
-    pub fn subscribe_and_plan(
+    /// Connect: registriert Sender (Fan-out) + baut Replay-Plan.
+    ///
+    /// **Page-Scoping**: `clear()` merkt sich den Start-Index der
+    /// aktuellen Page. `connect()` liefert NUR Events ab diesem
+    /// Index — keine Events von vorherigen Pages.
+    ///
+    /// **Dedup**: Der Cache enthält auch alte Events (für Dedup),
+    /// aber `connect()` filtert sie per Index aus.
+    pub fn connect(
         &self,
         client_ver: u64,
         client_epoch: u64,
-    ) -> (Receiver<BufferedEvent>, ReplayPlan) {
-        let rx = self.broadcaster.subscribe();
-        let plan = self.build_replay_plan(client_ver, client_epoch);
-        (rx, plan)
-    }
-
-    fn build_replay_plan(&self, client_ver: u64, client_epoch: u64) -> ReplayPlan {
-        let gen = self.current_gen();
-
-        if client_epoch != self.epoch() {
-            elog!(Debug, "SSE → epoch mismatch (client={}, server={}) → full replay (gen={})", client_epoch, self.epoch(), gen);
-            let full = self.snapshot_by_gen(gen);
-            return ReplayPlan {
-                id_only: Vec::new(),
-                full,
-            };
+    ) -> (UnboundedReceiver<BufferedEvent>, ReplayPlan) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        {
+            let mut senders = Self::recover_lock(self.senders.lock());
+            senders.push(tx);
         }
 
         let cache = Self::recover_lock(self.cache.lock());
+        let start = self.page_start.load(Ordering::SeqCst);
+        let epoch_match = client_epoch == 0 || client_epoch == self.epoch;
+
         let mut id_only = Vec::new();
         let mut full = Vec::new();
 
-        for entry in cache.iter() {
-            if entry.request_gen != gen {
-                elog!(Debug, "SSE → skip ver={} (gen={}, current={})", entry.event.ver(), entry.request_gen, gen);
+        for (i, event) in cache.iter().enumerate() {
+            // Nur Events der aktuellen Page (ab page_start)
+            if i < start {
                 continue;
             }
-            if entry.event.ver() <= client_ver {
-                elog!(Debug, "SSE → id_only ver={} (client_ver={})", entry.event.ver(), client_ver);
-                id_only.push(entry.event.ver());
+
+            if !epoch_match || event.ver() > client_ver {
+                full.push(event.clone());
             } else {
-                elog!(Debug, "SSE → full ver={} (client_ver={})", entry.event.ver(), client_ver);
-                full.push(entry.event.clone());
+                id_only.push(event.ver());
             }
         }
 
-        elog!(Debug, "SSE → replay plan: {} id_only, {} full", id_only.len(), full.len());
-        ReplayPlan { id_only, full }
+        // Dedupliziere id_only und full — bei Dedup-Hits kann dieselbe Version
+        // mehrfach im Cache auftauchen (Original + Push vom Dedup-Hit).
+        id_only.sort_unstable();
+        id_only.dedup();
+        full.sort_unstable_by_key(|e| e.ver());
+        full.dedup_by_key(|e| e.ver());
+
+        if !id_only.is_empty() || !full.is_empty() {
+            elog!(
+                Debug,
+                "SSE → replay plan (start={}): {} id_only, {} full (client_ver={}, epoch_match={})",
+                start,
+                id_only.len(),
+                full.len(),
+                client_ver,
+                epoch_match
+            );
+        }
+
+        (rx, ReplayPlan { id_only, full })
     }
 
-    fn snapshot_by_gen(&self, gen: u64) -> Vec<BufferedEvent> {
+    /// Markiert den Start einer neuen Page.
+    /// NICHT den Cache leeren — alte Events bleiben für Dedup erhalten.
+    /// Nur der Replay-Plan wird auf aktuelle Page gescoped.
+    pub fn clear(&self) {
         let cache = Self::recover_lock(self.cache.lock());
-        cache
-            .iter()
-            .filter(|e| e.request_gen == gen)
-            .map(|e| e.event.clone())
-            .collect()
-    }
-
-    pub fn epoch(&self) -> u64 {
-        self.broadcaster.epoch()
+        let prev = self.page_start.swap(cache.len(), Ordering::SeqCst);
+        elog!(
+            Debug,
+            "EventEmitter → page start {} (was {}, cache has {} total)",
+            cache.len(),
+            prev,
+            cache.len()
+        );
     }
 
     pub fn cached_count(&self) -> usize {
         Self::recover_lock(self.cache.lock()).len()
     }
 
-    pub fn clear(&self) {
-        let mut cache = Self::recover_lock(self.cache.lock());
-        let count = cache.len();
-        cache.clear();
-        elog!(Debug, "EventEmitter → cache cleared (removed {} events)", count);
-    }
-
     pub fn current_ver(&self) -> u64 {
         self.next_ver.load(Ordering::SeqCst)
     }
 
-    #[doc(hidden)]
-    pub fn broadcast_raw(
-        &self,
-        event: BufferedEvent,
-    ) -> Result<usize, tokio::sync::broadcast::error::SendError<BufferedEvent>> {
-        self.broadcaster.broadcast(event)
+    pub fn epoch(&self) -> u64 {
+        self.epoch
     }
 }

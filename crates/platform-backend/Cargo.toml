@@ -8,7 +8,6 @@ license.workspace = true
 platform-core = { path = "../platform-core" }
 rama = { version = "0.3.0-alpha.4", features = ["http", "http-full"] }
 tokio = { version = "1", features = ["full"] }
-async-stream = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ring = "0.17.14"
@@ -21,3 +20,4 @@ serde_urlencoded = "0.7"
 uuid = { version = "1", features = ["v4"] }
 dotenvy = "0.15"
 regex = "1.12.3"
+tokio-stream = "0.1.18"

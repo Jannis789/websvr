@@ -2294,7 +2294,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 name = "platform-backend"
 version = "0.0.1"
 dependencies = [
- "async-stream",
  "chrono",
  "dotenvy",
  "hex",
@@ -2309,6 +2308,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "tokio",
+ "tokio-stream",
  "uuid",
 ]
 

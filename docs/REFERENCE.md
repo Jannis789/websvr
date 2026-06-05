@@ -35,7 +35,7 @@ Die Spec (`prompt.md`) beschreibt das Ziel, `rama-api.md` beschreibt wie es mit 
 | Backend | Rust + Rama HTTP | 0.3.0-alpha.4 |
 | Frontend | Datastar SSE-only | 1.0.1 |
 | ORM | SeaORM + SQLite | 1.1.x |
-| Crypto | ring (HMAC-SHA256) | 0.17.14 |
+| Crypto | ring (password hashing only) | 0.17.14 |
 | Runtime | tokio (broadcast) | 1.x |
 | Design | Tokyo Night + GNOME/libadwaita | — |
 
@@ -57,8 +57,7 @@ Cargo.toml (workspace)
     └── src/
         ├── main.rs     tracing init + server::run
         ├── server.rs   Router<State>, SharedState, Layer-Stack
-        ├── context.rs  extract_context() + ClientContextSseExt
-        ├── crypto.rs   HMAC-SHA256 (16 Bytes / 128 Bit)
+        ├── context.rs  extract_context()
         ├── handlers/   page, navigate, auth, sse, test, i18n, icons
         ├── layers/     auth, session_storage, client_context
         └── sse/        broadcaster.rs (tokio::sync::broadcast)
@@ -146,21 +145,22 @@ impl<S: Service<Request, Output = Response, Error = Infallible>> Service<Request
 
 ---
 
-## 4. SSE & Hash-Sync System
+## 4. SSE & Resume-System
 
 ### Protokoll (Push-Only)
 
-1. **SW intercepted** `fetch('/sse')` → hängt `?known_hashes=h1,h2,...` an URL
-2. **Server Phase 1 (Replay):** Iteriert `event_emitter.get_buffered_events()`, skippt bekannte Hashes
-3. **Server Phase 2 (Push):** `broadcast::Receiver` für Live-Events
-4. **SW:** Speichert PatchElements-Hashes im In-Memory Set (TTL 24h)
+1. **SW intercepted** `fetch('/sse')` → hängt `?v=N&e=E` an URL (ver + epoch)
+2. **Server Phase 1 (Replay):** EventEmitter liefert `get_buffered_events()`, filtert via `ver` und `epoch`
+3. **Server Phase 2 (Drain):** Aktuelle `request_gen` als letztes Event vor Live-Phase
+4. **Server Phase 3 (Live):** `broadcast::Receiver` für Live-Events, EventEmitter puffert parallel
+5. **SW:** Per-Client-Cache via `patch_ver` (max 200 Events, max 10 Clients, FIFO-Eviction)
 
 ### BufferedEvent
 
 ```rust
 pub struct BufferedEvent {
-    pub hash: String,    // HMAC-SHA256, auf 16 Bytes gekürzt, hex-enkodiert
-    pub payload: /* Rama PatchElements/PatchSignals/ExecuteScript */,
+    pub ver: u64,       // Monotone Version (pro EventEmitter-Instanz)
+    pub data: EventData, // PatchElements / PatchSignals / ExecuteScript
 }
 ```
 
@@ -178,29 +178,12 @@ pub async fn get_home_movies(State(_): State<SharedState>, req: Request) -> Resp
 }
 ```
 
-### HMAC-Hash (ring)
+### Resume-Mechanismus
 
-```rust
-use ring::hmac;
-
-pub fn compute_content_hash(data: &str) -> String {
-    let key = hmac::Key::new(hmac::HMAC_SHA256, HMAC_SECRET.as_bytes());
-    let tag = hmac::sign(&key, data.as_bytes());
-    hex::encode(&tag.as_ref()[..16])  // 128 Bit
-}
-```
-
-WICHTIG: Niemals `std::hash::Hash` verwenden (randomisiert über Programstarts).
-
-### Edge Cases
-
-| Case | Verhalten |
-|------|-----------|
-| Hash Match | Event überspringen |
-| Hash Mismatch | Event senden |
-| Out-of-order | Jedes Event einzeln gegen known_hashes prüfen |
-| SW verliert Hashes | Leere known_hashes → Server sendet alle |
-| TTL > 24h | Hash gelöscht, Event wird neu verarbeitet |
+- SW speichert pro Client: `patch_ver` (höchste erhaltene Event-Version) und `epoch`
+- Bei Reconnect: `?v=42&e=0` → Server replays Events ab `ver > 42`
+- Kein HMAC, keine Hashes, kein known_hashes-Query-Parameter
+- EventEmitter tracked `request_gen` zum Erkennen von Concurrent-Modification während Drain
 
 ---
 
@@ -356,8 +339,7 @@ Singleton via `std::sync::OnceLock`:
 | PORT | `3000` | Server-Port |
 | RUST_LOG | `info` | Tracing-Level |
 | CLIENT_ID_TTL_DAYS | `30` | ClientId-Cookie-TTL |
-| SSE_TTL_DAYS | `—` | SSE-TTL |
-| HMAC_SECRET | — | HMAC-Signing-Key |
+|| SSE_TTL_DAYS | `—` | SSE-TTL |
 
 ---
 
@@ -370,17 +352,17 @@ Aus `references/prompt.md` — kanonisch, Quelle ist Prio 2.
 | ADR-001 | Rama statt Axum/Actix | Architektur-Vorgabe; Layer-System nativ unterstuetzt |
 | ADR-002 | Datastar SSE-only | Kein alternatives UI-State-System; einziges Reaktivitaetsmedium |
 | ADR-003 | SeaORM + SQLite | Bekannte ORM-API; SQLite fuer Zero-Config-Entwicklung |
-| ADR-004 | ring fuer Kryptographie | HMAC-SHA256 fuer Hash-Sync; deterministisch ueber Server-Restarts |
-| ADR-005 | Service Worker Caching | Hash-basiertes Dedup ohne Custom-Protokoll |
+|| ADR-004 | ring fuer Passwort-Hashing | Argon2id via ring; kein HMAC mehr (Resume via ver+epoch) |
+|| ADR-005 | SW per-Client-Cache (patch_ver) | FIFO-Eviction, max 200 Events, max 10 Clients; kein Hash-Dedup |
 | ADR-006 | `tokio::sync::broadcast` | Multi-Client-SSE; `mpsc::unbounded` nur fuer 1:1 |
 | ADR-007 | Kein `mod.rs` mit Logik | `mod.rs` nur fuer `pub mod` + Re-Exports; Implementierungen in benannten Dateien |
 | ADR-008 | `Router<State>` Bifurkation | Trennung Public/Protected via `with_sub_router_make_fn`, kein custom RouterService |
 | ADR-009 | `rama::layer::layer_fn` | Keine eigenen Layer-Structs, Layer als Closures um Services gewrapped |
 | ADR-010 | Login via Email | Email = Login-Identifier; Username nur fuer Anzeige |
 | ADR-011 | `204 No Content` fuer SSE-Trigger | GETs, die SSE ausloesen, returnieren sofort 204; UI-Update asynchron via SSE |
-| ADR-012 | E2E Test-Route `/test` | Caching/Hash-Sync zwischen Rust/SW direkt in der App testbar |
-| ADR-013 | `ClientContextSseExt` Extension Trait | Trennt Rama-spezifische SSE-Logik von `platform-core` |
-| ADR-014 | Hash-Trunkierung auf 128 Bit | HMAC-SHA256 Tag auf 16 Bytes kuerzen; effizienter Hash-Sync im SW |
+|| ADR-012 | E2E Test-Route `/test` | Resume/Replay-Mechanismus zwischen Rust/SW direkt testbar |
+|| ADR-013 | SSE-Logik in context.rs | emit_patch/emit_signal/emit_script als Methoden auf ClientContext |
+|| ADR-014 | Kein Hash-Resume | Resume via ver+epoch; EventEmitter puffert mit monotoner Versionierung |
 
 ### Implementierungs-Regeln (Verbot-Liste)
 
@@ -394,7 +376,7 @@ Aus `references/prompt.md` — harte Regeln, die NIEMALS verletzt werden duerfen
 | ❌3 | KEINE undokumentierten Side Effects | Alles via EventEmitter/SSE |
 | ❌4 | KEIN page-spezifisches CSS | Global `common.css` + Custom Properties |
 | ❌5 | KEIN eigenes JS fuer UI-State | Nur Datastar SSE |
-| ❌6 | KEIN `std::hash::Hash` fuer Hash-Sync | `ring::hmac` fuer Determinismus |
+|| ❌6 | KEIN `std::hash::Hash` fuer Resume | `ver` (u64) + `epoch` statt kryptografischer Hashes |
 | ❌7 | KEINE synchronen Wartezeiten bei SSE | Sofort `204 No Content` |
 
 ### Performance-Regeln
@@ -487,4 +469,4 @@ Phase 2 (Persistence): ✅ komplett (SeaORM Entities, Migrationen)
 Phase 3 (Server + Layer): ✅ komplett (Router, Layer-Stack, SSE, Broadcaster)
 Phase 4 (Handler): ✅ komplett (Page, Navigate, Auth, SSE, Test, I18n, Icons)
 Phase 5 (Frontend): 🔄 in Arbeit (HTML-Seiten, SW, Datastar-Integration)
-Phase 6 (Testing): 🔄 in Arbeit (E2E Hash-Sync Verification)
+Phase 6 (Testing): 🔄 in Arbeit (E2E Resume-Verification)

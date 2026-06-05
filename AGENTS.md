@@ -14,7 +14,7 @@ Violations of these principles are bugs, not style choices.
 | Backend | Rust + Rama HTTP framework | 0.3.0-alpha.4 |
 | Frontend Reactivity | Datastar (SSE-only) | v1.0.1 |
 | Database | SeaORM + SQLite | 1.1.19 |
-| Crypto | ring (HMAC-SHA256) | 0.17.14 |
+| Crypto | ring (HMAC-SHA256 für Passwort-Hashing) | 0.17.14 |
 | Logging | Custom `elog!` macro (NOT tracing) | — |
 | CSS | Tokyo Night + GNOME/libadwaita | Latest CSS only |
 | Icons | GNOME Icon Development Kit | mask-image system |
@@ -50,7 +50,7 @@ Violations of these principles are bugs, not style choices.
 │       │   │       ├── home.css, login.css, register.css, settings.css
 │       │   ├── js/
 │       │   │   ├── datastar.js         # Datastar core
-│       │   │   └── sw.js               # Service Worker (hash-sync)
+│       │   │   └── sw.js               # Service Worker (ver+epoch Resume)
 │       │   ├── icons/                  # GNOME SVG icons
 │       │   ├── fragments/              # HTML fragments (loaded via include_str!)
 │       │   │   ├── shell.html          # App shell (#sidebar-slot, #header-slot, #content-slot)
@@ -65,14 +65,12 @@ Violations of these principles are bugs, not style choices.
 │           ├── lib.rs                  # pub mod + elog! macro
 │           ├── main.rs                 # Entrypoint
 │           ├── routes.rs               # Router setup, run()
-│           ├── crypto.rs               # HMAC-SHA256 hash (16 bytes / 128 bit)
 │           ├── db.rs                   # Database init
 │           ├── entities/               # SeaORM entities (users.rs, sessions.rs)
 │           ├── context/
 │           │   ├── shared_state.rs     # SharedState (global: Config, DB, I18n, SseBroadcaster)
 │           │   ├── client_context.rs   # ClientContext (per-request aggregate)
-│           │   ├── session_storage.rs  # SessionStorageService + SessionMap
-│           │   └── sse_ext.rs          # sse_response() helper
+│           │   └── session_storage.rs  # SessionStorageService + SessionMap
 │           ├── components/
 │           │   ├── patch.rs            # Patch trait + PatchEntry struct
 │           │   ├── fragment.rs         # Fragment (Patch impl for slot patches)
@@ -81,7 +79,7 @@ Violations of these principles are bugs, not style choices.
 │           ├── handlers/
 │           │   ├── auth.rs             # POST /login, /register, /logout
 │           │   ├── navigate.rs         # GET /home/overview, /home/movies, /home/series
-│           │   ├── sse_handler.rs      # GET /sse (SSE stream with hash-sync)
+│           │   ├── sse_handler.rs      # GET /sse (SSE stream mit ver+epoch Resume)
 │           │   ├── i18n_handler.rs     # GET /i18n/{lang}.json
 │           │   ├── test.rs             # GET /test, /test/auth, /test/run
 │           │   └── pages/              # Full-page handlers (login, register, home, settings)
@@ -90,7 +88,7 @@ Violations of these principles are bugs, not style choices.
 │           │   ├── client_context.rs   # ClientContextService
 │           │   └── session_stack.rs    # Session stack (session_layer + broadcaster)
 │           ├── sse/
-│           │   ├── buffered_event.rs   # BufferedEvent (hash + payload)
+│           │   ├── buffered_event.rs   # BufferedEvent (patch_ver + payload)
 │           │   └── sse_broadcaster.rs  # SseBroadcaster (tokio broadcast channel)
 │           └── utils/
 │               ├── request.rs          # extract_context() utility
@@ -171,8 +169,7 @@ Violations of these principles are bugs, not style choices.
 - **POST-Handler** (Login, Register, etc.): **303 See Other → `/sse`**. Der Client folgt dem Redirect und erhaelt die Dreifaltigkeit als SSE-Stream.
 - **GET-Handler** (Navigation): Direkte SSE-Response mit der Dreifaltigkeit, kein Redirect noetig.
 - **Redirects**: Via ExecuteScript ueber SSE fuer SSE-verbundene Clients, NICHT HTTP 3xx (ausser POST → 303 → /sse).
-- **Hash-Sync**: `ring::hmac::HMAC_SHA256`, truncated to 16 bytes (128 bit), hex-encoded.
-- **NEVER use `std::hash::Hash`** for hash-sync (randomized across restarts).
+- **ver+epoch Resume**: Resume via `?v=N&e=E` Query-Parameter. Kein HMAC, keine known_hashes.
 
 ### CSS
 
@@ -267,28 +264,12 @@ let exec = ExecuteScript::new(NonEmptyStr::try_from(script).unwrap());
 exec.write_data(&mut buf);  // NOT manual data: lines
 ```
 
-### SSE Response Helper
-
-```rust
-// Returns SSE events as HTTP response body:
-pub fn sse_response(events: &[BufferedEvent]) -> Response
-```
-
 ### Context Extraction
 
 ```rust
 // From any handler with a Request:
 let ctx = extract_context(&req);
 // ctx is ClientContext (per-request, from extensions)
-```
-
-### HMAC Hash (16 bytes / 128 bit)
-
-```rust
-use ring::hmac;
-let key = hmac::Key::new(hmac::HMAC_SHA256, secret);
-let tag = hmac::sign(&key, data.as_bytes());
-let hash = hex::encode(&tag.as_ref()[..16]); // truncate to 128 bit
 ```
 
 ---
@@ -298,7 +279,7 @@ let hash = hex::encode(&tag.as_ref()[..16]); // truncate to 128 bit
 | Don't | Do |
 |-------|-----|
 | Use `tracing::info!()` / `tracing` macros | Use `elog!(Info, ...)` |
-| Use `std::hash::Hash` for hash-sync | Use `ring::hmac::HMAC_SHA256` |
+| Send full `known_hashes` list for resume | Send `?v=N&e=E` Query-Parameter (ver+epoch) |
 | Put logic in `mod.rs` files | `mod.rs` = `pub mod` + re-exports only |
 | Use hyphens in Datastar attrs (`data-on-click`) | Use colons (`data-on:click`) |
 | Use `data-datastar-*` prefix | Use `data-on:click`, `data-bind:signal` directly |
@@ -336,8 +317,8 @@ CompressionLayer -> SessionStack -> AuthService -> ClientContextService -> Handl
 
 1. Client connects: `GET /sse` -> long-lived stream
 2. Navigation: `GET /home/movies` -> handler creates PatchElements -> broadcast via SseBroadcaster
-3. Service Worker intercepts `/sse`, appends `known_hashes` for dedup
-4. Server replays buffered events (iter, NOT drain), skips known hashes
+3. Service Worker intercepts `/sse`, sends `?v=N&e=E` (ver+epoch) for resume
+4. Server replays buffered events ab patch_ver (iter, NOT drain), liefert verpasste Events
 5. Server pushes live events via `tokio::sync::broadcast` channel
 
 ### Login Flow

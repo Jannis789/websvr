@@ -4,14 +4,14 @@ use crate::entities::users;
 use crate::utils::request::extract_context;
 use crate::utils::response::{empty_response, Response};
 use platform_core::PasswordUtil;
+use platform_core::Config;
 use rama::http::service::web::extract::State;
 use rama::http::{header, Request, StatusCode};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
 use serde_json::json;
 
-/// Maximum allowed body size for login/register forms (10 KiB).
-const MAX_BODY_SIZE: usize = 10 * 1024;
+/// Maximum allowed body size for login/register forms (default 10 KiB, configurable via MAX_BODY_SIZE).
 
 /// Minimum password length.
 const MIN_PASSWORD_LEN: usize = 8;
@@ -42,7 +42,7 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     loop {
         match body.chunk().await {
             Ok(Some(chunk)) => {
-                if all_bytes.len() + chunk.len() > MAX_BODY_SIZE {
+                if all_bytes.len() + chunk.len() > Config::global().max_body_size {
                     return None;
                 }
                 all_bytes.extend_from_slice(&chunk);

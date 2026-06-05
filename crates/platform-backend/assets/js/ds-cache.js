@@ -26,6 +26,7 @@ let CACHE_SIGNALS = null;
         detail: { type: signals.type, el: document.documentElement, argsRaw: signals.argsRaw },
       }));
     }
+
   } catch (e) {
     // restore failed — will get fresh state from server
   }

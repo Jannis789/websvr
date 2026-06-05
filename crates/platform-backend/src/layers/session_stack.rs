@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use platform_core::ClientId;
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
 use rama::http::layer::validate_request::ValidateRequestHeaderLayer;
@@ -8,19 +6,16 @@ use rama::layer::layer_fn;
 use rama::Layer;
 
 use crate::context::SharedState;
-use crate::context::{new_session_map, SessionStorageService};
 use crate::layers::client_context::{ClientContextService, CookieWasPresent};
-use crate::sse::SseBroadcaster;
 use crate::utils;
 
-/// Create the shared session map and return the base layer stack:
-/// ClientId extraction → Session storage → ClientContext assembly.
+/// Build the layer stack:
+/// ClientId extraction → ClientContextService (session + emitter in einer HashMap).
 pub fn session_layer(
-    broadcaster: Arc<SseBroadcaster>,
+    server_epoch: u64,
     inner: Router<SharedState>,
 ) -> impl rama::Service<rama::http::Request, Output = rama::http::Response, Error = std::convert::Infallible>
 {
-    let sessions = new_session_map();
     (
         ValidateRequestHeaderLayer::custom_fn(|mut req: rama::http::Request| async move {
             let had_cookie =
@@ -31,8 +26,7 @@ pub fn session_layer(
             req.extensions_mut().insert(CookieWasPresent(had_cookie));
             Ok(req)
         }),
-        layer_fn(|s| SessionStorageService::new(s, sessions.clone())),
-        layer_fn(|s| ClientContextService::new(s, broadcaster.clone())),
+        layer_fn(|s| ClientContextService::new(s, server_epoch)),
     )
         .layer(inner)
 }

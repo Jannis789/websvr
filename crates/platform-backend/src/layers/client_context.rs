@@ -1,9 +1,11 @@
 use crate::elog;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, Weak};
+use std::time::{Duration, Instant};
 
 use crate::context::ClientContext;
-use crate::sse::{EventEmitter, SseBroadcaster};
+use crate::sse::EventEmitter;
 use platform_core::session::SessionStorage;
 use platform_core::{ClientId, Config, Lang};
 use rama::extensions::{ExtensionsMut, ExtensionsRef};
@@ -14,26 +16,91 @@ use rama::service::Service;
 use std::convert::Infallible;
 use tokio::sync::Mutex as AsyncMutex;
 
-/// Service that assembles the full `ClientContext` from:
-///   - `ClientId` (injected by `ValidateRequestHeaderLayer::custom_fn`)
-///   - `Arc<Mutex<SessionStorage>>` (injected by `SessionStorageService`)
-///   - Per-client `EventEmitter` (reused across requests)
-///   - `Arc<SseBroadcaster>` (shared from `SharedState`)
+/// Buffer time after SSE disconnect — gelesen aus Config::sse_disconnect_buffer_secs.
+/// Default: 30s, konfigurierbar via `SSE_DISCONNECT_BUFFER_SECS`.
+
+/// Per-client state — session, emitter + Lifecycle-Tracking.
+#[derive(Debug)]
+struct ClientState {
+    session: Arc<AsyncMutex<SessionStorage>>,
+    emitter: EventEmitter,
+    last_active: Instant,
+    sse_gen: AtomicU64,
+}
+
+/// Handle für SSE-Lifecycle-Cleanup. Wird dem ClientContext mitgegeben.
+#[derive(Clone, Debug)]
+pub struct SseCleanupHandle {
+    client_id: ClientId,
+    sse_gen: Arc<AtomicU64>,
+    clients: Weak<Mutex<HashMap<ClientId, ClientState>>>,
+}
+
+/// Drop-Guard: Wenn der SSE-Stream stirbt, wird nach Buffer-Zeit aufgeräumt.
+pub struct SseCleanupGuard {
+    handle: SseCleanupHandle,
+    gen: u64,
+}
+
+impl Drop for SseCleanupGuard {
+    fn drop(&mut self) {
+        let handle = self.handle.clone();
+        let gen = self.gen;
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(
+                Config::global().sse_disconnect_buffer_secs,
+            ))
+            .await;
+            if let Some(clients) = handle.clients.upgrade() {
+                if let Ok(mut map) = clients.lock() {
+                    if let Some(state) = map.get(&handle.client_id) {
+                        if state.sse_gen.load(Ordering::SeqCst) == gen {
+                            map.remove(&handle.client_id);
+                            elog!(
+                                Debug,
+                                "SseCleanup → removed stale client {}",
+                                handle.client_id
+                            );
+                        } else {
+                            elog!(
+                                Debug,
+                                "SseCleanup → client {} reconnected, keeping",
+                                handle.client_id
+                            );
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+impl SseCleanupHandle {
+    pub fn guard(&self) -> SseCleanupGuard {
+        let gen = self.sse_gen.fetch_add(1, Ordering::SeqCst) + 1;
+        SseCleanupGuard {
+            handle: self.clone(),
+            gen,
+        }
+    }
+}
+
+/// Single service managing per-client state (session + emitter) in ONE HashMap.
 ///
-/// Also handles `Set-Cookie` for new clients.
+/// Kein globaler SseBroadcaster mehr — Events gehen per mpsc direkt zum Client.
 #[derive(Debug, Clone)]
 pub struct ClientContextService<S> {
     inner: S,
-    sse_broadcaster: Arc<SseBroadcaster>,
-    emitters: Arc<Mutex<HashMap<ClientId, EventEmitter>>>,
+    clients: Arc<Mutex<HashMap<ClientId, ClientState>>>,
+    server_epoch: u64,
 }
 
 impl<S> ClientContextService<S> {
-    pub fn new(inner: S, sse_broadcaster: Arc<SseBroadcaster>) -> Self {
+    pub fn new(inner: S, server_epoch: u64) -> Self {
         Self {
             inner,
-            sse_broadcaster,
-            emitters: Arc::new(Mutex::new(HashMap::new())),
+            clients: Arc::new(Mutex::new(HashMap::new())),
+            server_epoch,
         }
     }
 }
@@ -53,21 +120,43 @@ where
             .copied()
             .expect("ClientId must be injected by ValidateRequestHeaderLayer");
 
-        let session = req
-            .extensions()
-            .get::<Arc<AsyncMutex<SessionStorage>>>()
-            .cloned()
-            .expect("SessionStorage must be injected by SessionStorageService");
-
         let had_cookie = req
             .extensions()
             .get::<CookieWasPresent>()
             .map(|c| c.0)
             .unwrap_or(false);
 
-        let mut ctx = ClientContext::with_session(client_id, session, self.sse_broadcaster.clone());
+        let _is_sse = req.uri().path() == "/sse";
 
-        // Detect language from Accept-Language header
+        // Ein HashMap-Lookup — session + emitter + cleanup handle
+        let (session, emitter, cleanup_handle) = {
+            let mut clients = match self.clients.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            let state = clients.entry(client_id).or_insert_with(|| {
+                elog!(Debug, "ClientState → new for {}", client_id);
+                ClientState {
+                    session: Arc::new(AsyncMutex::new(SessionStorage::new(client_id))),
+                    emitter: EventEmitter::new(self.server_epoch),
+                    last_active: Instant::now(),
+                    sse_gen: AtomicU64::new(0),
+                }
+            });
+            state.last_active = Instant::now();
+            let handle = SseCleanupHandle {
+                client_id,
+                sse_gen: Arc::new(AtomicU64::new(state.sse_gen.load(Ordering::SeqCst))),
+                clients: Arc::downgrade(&self.clients),
+            };
+            (state.session.clone(), state.emitter.clone(), handle)
+        };
+
+        // ClientContext bauen
+        let mut ctx = ClientContext::with_session(client_id, session);
+        ctx.event_emitter = emitter;
+
+        // Sprache
         let lang = Lang::from_header(
             req.headers()
                 .get(header::ACCEPT_LANGUAGE)
@@ -75,25 +164,10 @@ where
         );
         ctx = ctx.with_lang(lang);
 
-        // Reuse the per-client EventEmitter so the buffer persists across requests
-        {
-            let mut emitters = match self.emitters.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => poisoned.into_inner(),
-            };
-            ctx.event_emitter = emitters
-                .entry(client_id)
-                .or_insert_with(|| EventEmitter::new(self.sse_broadcaster.clone()))
-                .clone();
-        }
+        // Kein begin_request/disconnect mehr nötig — Events warten im
+        // Puffer bis /sse connected und drained sie direkt in den Channel.
 
-        // Mark all cached events as untouched — ausser fuer /sse (sonst generation mismatch)
-        let is_sse = req.uri().path() == "/sse";
-        if !is_sse {
-            ctx.event_emitter.begin_request();
-        } else {
-            elog!(Debug, "SSE request — skip begin_request (gen={})", ctx.event_emitter.current_gen());
-        }
+        ctx.cleanup_handle = Some(cleanup_handle);
 
         let mut req = req;
         req.extensions_mut().insert(ctx);
@@ -101,7 +175,7 @@ where
 
         let mut response = self.inner.serve(req).await.unwrap();
 
-        // Set cookie only for new clients
+        // Set-Cookie für neue Clients
         if !had_cookie {
             let ttl_days = Config::global().client_id_ttl_days;
             let max_age = ttl_days as u64 * 24 * 60 * 60;
@@ -127,12 +201,5 @@ where
 }
 
 /// Marker extension injected by the ValidateRequestHeader closure.
-///
-/// Tracks whether the `platform_cid` cookie was already present in the
-/// request (true) or is being set for the first time (false).
-/// Used to decide whether to send a `Set-Cookie` header in the response.
-///
-/// If this extension is missing (e.g. layer stack changed), we assume
-/// the cookie was NOT present — the safe default is to always set it.
 #[derive(Debug, Clone)]
 pub struct CookieWasPresent(pub bool);

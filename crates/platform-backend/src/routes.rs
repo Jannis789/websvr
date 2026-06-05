@@ -16,7 +16,7 @@ pub async fn run() {
 
     let state = SharedState::init().await;
     let bind = format!("{}:{}", state.config.host, state.config.port);
-    let broadcaster = state.sse_broadcaster.clone();
+    let server_epoch = state.server_epoch;
 
     let app = Router::new_with_state(state.clone())
         // Static assets
@@ -27,11 +27,9 @@ pub async fn run() {
         .with_get(
             "/sw.js",
             |State(_state): State<SharedState>, _req: Request| async move {
-                // Also serve the updated SW code in case Chrome still
-                // has the old /sw.js registration cached
-                let sw_js = include_str!("../assets/js/sw.js");
-                let mut resp = crate::utils::response::Response::new(rama::http::Body::from(sw_js));
-                *resp.status_mut() = rama::http::StatusCode::OK;
+               let sw_js = include_str!("../assets/js/sw.js");
+               let mut resp = crate::utils::response::Response::new(rama::http::Body::from(sw_js));
+               *resp.status_mut() = rama::http::StatusCode::OK;
                 resp.headers_mut().insert(
                     rama::http::header::CONTENT_TYPE,
                     "application/javascript".parse().unwrap(),
@@ -46,9 +44,9 @@ pub async fn run() {
         .with_get(
             "/sw2.js",
             |State(_state): State<SharedState>, _req: Request| async move {
-                let sw_js = include_str!("../assets/js/sw.js");
-                let mut resp = crate::utils::response::Response::new(rama::http::Body::from(sw_js));
-                *resp.status_mut() = rama::http::StatusCode::OK;
+               let sw_js = include_str!("../assets/js/sw.js");
+               let mut resp = crate::utils::response::Response::new(rama::http::Body::from(sw_js));
+               *resp.status_mut() = rama::http::StatusCode::OK;
                 resp.headers_mut().insert(
                     rama::http::header::CONTENT_TYPE,
                     "application/javascript".parse().unwrap(),
@@ -64,7 +62,7 @@ pub async fn run() {
         .with_sub_service(
             "/",
             session_stack::session_layer(
-                broadcaster,
+                server_epoch,
                 Router::new_with_state(state.clone())
                     // Auth-required
                     .with_sub_service(

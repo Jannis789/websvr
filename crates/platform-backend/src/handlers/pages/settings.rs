@@ -39,6 +39,8 @@ const I18N_KEYS_ACCOUNT: &[&str] = &[
 pub async fn settings_page(State(state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
 
+    ctx.event_emitter.clear();
+
     let (username, email) = load_user_from_session(&state, &ctx).await;
 
     elog!(Debug, "Handler → settings_page (client_id={})", ctx.client_id);

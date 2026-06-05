@@ -9,6 +9,9 @@ pub struct Config {
     pub rust_log: String,
     pub client_id_ttl_days: u32,
     pub sse_ttl_days: u32,
+    pub sse_cache_size_bytes: u64,
+    pub sse_disconnect_buffer_secs: u64,
+    pub max_body_size: usize,
     pub hmac_secret: String,
 }
 
@@ -51,6 +54,18 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(1),
+            sse_cache_size_bytes: std::env::var("SSE_CACHE_SIZE_BYTES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(268_435_456),
+            sse_disconnect_buffer_secs: std::env::var("SSE_DISCONNECT_BUFFER_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30),
+            max_body_size: std::env::var("MAX_BODY_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(10 * 1024),
             hmac_secret,
         }
     }
