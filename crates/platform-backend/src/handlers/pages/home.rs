@@ -37,8 +37,8 @@ pub async fn home_page(State(state): State<SharedState>, req: Request) -> Respon
         .content(elements::HOME_CONTENT_OVERVIEW)
         .into_events();
 
-    ctx.event_emitter
-        .emit_signals(&[signals::ACTIVE_PAGE_OVERVIEW, &i18n_signals].as_slice());
+    ctx.event_emitter.emit_signal_volatile(signals::ACTIVE_PAGE_OVERVIEW);
+    ctx.event_emitter.emit_signal(&i18n_signals);
     ctx.event_emitter.emit_elements(&patches);
 
     html_response(elements::SHELL)
