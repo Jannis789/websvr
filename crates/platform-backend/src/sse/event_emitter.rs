@@ -181,12 +181,31 @@ impl EventEmitter {
         signals.iter().map(|s| self.emit_signal(s)).collect()
     }
 
+    /// Batch-volatile: Alle Signale nur live, kein Cache.
+    pub fn emit_signals_volatile(&self, signals: &[&str]) -> Vec<BufferedEvent> {
+        signals.iter().map(|s| self.emit_signal_volatile(s)).collect()
+    }
+
     pub fn emit_elements(&self, elements: &[EventData]) -> Vec<BufferedEvent> {
         elements
             .iter()
             .filter_map(|e| {
                 if let EventData::PatchElements(p) = e {
                     Some(self.emit_element(p.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Batch-volatile: Alle Elements nur live, kein Cache.
+    pub fn emit_elements_volatile(&self, elements: &[EventData]) -> Vec<BufferedEvent> {
+        elements
+            .iter()
+            .filter_map(|e| {
+                if let EventData::PatchElements(p) = e {
+                    Some(self.emit_element_volatile(p.clone()))
                 } else {
                     None
                 }
