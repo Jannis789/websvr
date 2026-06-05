@@ -267,7 +267,7 @@ impl EventEmitter {
 
         if !id_only.is_empty() || !full.is_empty() {
             elog!(
-                Debug,
+                Info,
                 "SSE → replay plan (start={}): {} id_only, {} full (client_ver={}, epoch_match={})",
                 start,
                 id_only.len(),
@@ -275,6 +275,8 @@ impl EventEmitter {
                 client_ver,
                 epoch_match
             );
+        } else {
+            elog!(Warn, "SSE → replay plan EMPTY (start={}, cache_len={}, client_ver={}, epoch_match={})", start, cache.len(), client_ver, epoch_match);
         }
 
         (rx, ReplayPlan { id_only, full })

@@ -25,12 +25,6 @@
             src="/assets/js/ds-cache.js"
         ></script>
         <script>
-        // Datastar-Signal-Monitor — loggt jeden Signal-Patch im Browser-Console
-        document.addEventListener('datastar-patch-signals', (e) => {
-          if (e.detail) {
-            console.log('[ds] signals:', JSON.stringify(e.detail));
-          }
-        });
         if ('serviceWorker' in navigator) {
           // SW message listener — logs SW messages in normal page console
           navigator.serviceWorker.addEventListener('message', (evt) => {
