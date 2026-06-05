@@ -66,6 +66,7 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
 
     // Phase 3: Live-Events via mpsc
     let live_stream = UnboundedReceiverStream::new(rx).filter_map(|event| {
+        elog!(Debug, "SSE → live event ver={}", event.ver());
         match event.to_sse_event_with_id() {
             Ok(sse_event) => Some(Ok(sse_event)),
             Err(e) => {
