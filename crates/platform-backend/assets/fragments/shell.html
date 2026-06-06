@@ -52,7 +52,10 @@
                 </div>
             </main>
         </div>
-        <div data-init="@get('/sse')">
+<div data-init="@get('/sse')"
+     data-on:beforeunload__window="console.log('beforeunload: page closing')"
+     data-on:visibilitychange__document="if (document.hidden) { navigator.serviceWorker?.controller?.postMessage({ type: 'sse-close' }); } else { navigator.serviceWorker?.controller?.postMessage({ type: 'sse-open' }); }">
+
         </div>
     </body>
 </html>

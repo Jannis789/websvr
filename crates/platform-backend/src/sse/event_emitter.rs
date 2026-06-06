@@ -70,13 +70,12 @@ impl EventEmitter {
     }
 
     /// Page-Generation — vom Layer pro non-/sse Request aufgerufen.
-    /// Setzt `page_start` auf die aktuelle Cache-Länge, sodass `connect()`
-    /// nur Events dieser (und zukünftiger) Pages replayt.
+    /// Setzt `page_start` auf 0, sodass der neue Connect ALLE Events
+    /// aus dem Cache bekommt (auch die von vorherigen Pages).
     /// Wird via `x-sse-gen` Header an den SW übermittelt.
     pub fn next_page(&self) -> u64 {
         let new_gen = self.page_gen.fetch_add(1, Ordering::SeqCst) + 1;
-        let cache_len = Self::recover_lock(self.cache.lock()).len();
-        self.page_start.store(cache_len, Ordering::SeqCst);
+        self.page_start.store(0, Ordering::SeqCst);
         new_gen
     }
 
@@ -287,6 +286,15 @@ impl EventEmitter {
         }
 
         let cache_len = cache.len();
+
+        // Nach dem Replay page_start auf cache.len() setzen. Beim nächsten
+        // reconnect (z.B. nach STREAM DONE) sind die bereits gelieferten
+        // Events vor page_start → leeres Replay → kein Loop.
+        // next_page() (bei Reload) setzt page_start zurück auf 0.
+        if !id_only.is_empty() || !full.is_empty() {
+            self.page_start.store(cache_len, Ordering::SeqCst);
+        }
+
         drop(cache);
 
         // Dedupliziere id_only und full
