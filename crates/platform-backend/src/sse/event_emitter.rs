@@ -23,17 +23,19 @@ impl ReplayPlan {
 /// Per-client event emitter.
 ///
 /// **Cache**: Persistiert über Pages hinweg (FIFO-eviction bei MAX_CACHE).
-/// `clear()` leert den Cache NICHT — es markiert nur den Start-Index
-/// der aktuellen Page. `connect()` liefert nur Events AB diesem Index.
+/// **page_start**: Wird vom Layer via `next_page()` auf `cache.len()` gesetzt.
+/// `connect()` replays NUR Events ab `page_start` — und verändert `page_start` NICHT.
+/// So werden Events vorheriger Pages nie replayt, aber Fast-Reload verliert keine Events.
+/// **page_gen**: Wird vom Layer pro non-/sse Request inkrementiert.
+/// Via `x-sse-gen` Header an den SW übermittelt (nicht-destruktiv).
 ///
-/// **Dedup**: Sucht im GESAMTEN Cache (auch alte Pages) → selber Content
-/// bekommt dieselbe Version — selbst über Page-Reloads hinweg.
-///
-/// **Fan-out**: Live-Events an ALLE verbundenen mpsc-Sender.
+/// **Dedup**: Sucht im GESAMTEN Cache (auch alte Pages).
+/// **Fan-out**: `send_live()` feuert an ALLE live Sender.
 #[derive(Debug, Clone)]
 pub struct EventEmitter {
     cache: Arc<Mutex<Vec<BufferedEvent>>>,
     page_start: Arc<AtomicUsize>,
+    page_gen: Arc<AtomicU64>,
     senders: Arc<Mutex<Vec<UnboundedSender<BufferedEvent>>>>,
     next_ver: Arc<AtomicU64>,
     epoch: u64,
@@ -46,6 +48,7 @@ impl EventEmitter {
         Self {
             cache: Arc::new(Mutex::new(Vec::new())),
             page_start: Arc::new(AtomicUsize::new(0)),
+            page_gen: Arc::new(AtomicU64::new(1)),
             senders: Arc::new(Mutex::new(Vec::new())),
             next_ver: Arc::new(AtomicU64::new(1)),
             epoch,
@@ -66,6 +69,22 @@ impl EventEmitter {
         }
     }
 
+    /// Page-Generation — vom Layer pro non-/sse Request aufgerufen.
+    /// Setzt `page_start` auf die aktuelle Cache-Länge, sodass `connect()`
+    /// nur Events dieser (und zukünftiger) Pages replayt.
+    /// Wird via `x-sse-gen` Header an den SW übermittelt.
+    pub fn next_page(&self) -> u64 {
+        let new_gen = self.page_gen.fetch_add(1, Ordering::SeqCst) + 1;
+        let cache_len = Self::recover_lock(self.cache.lock()).len();
+        self.page_start.store(cache_len, Ordering::SeqCst);
+        new_gen
+    }
+
+    /// Aktuelle Page-Generation für den SSE-Header.
+    pub fn current_gen(&self) -> u64 {
+        self.page_gen.load(Ordering::SeqCst)
+    }
+
     /// Dedup im GESAMTEN Cache (auch alte Pages):
     /// Selber Content → selbe Version.
     fn dedup(&self, candidate: &EventData) -> Option<BufferedEvent> {
@@ -83,35 +102,48 @@ impl EventEmitter {
         cache.push(event);
         while cache.len() > MAX_CACHE {
             cache.remove(0);
-            // Atomar page_start anpassen, damit es nicht auf gelöschte Einträge zeigt
-            self.page_start.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |ps| {
-                Some(ps.saturating_sub(1))
-            }).ok();
+            // page_start mitverschieben, damit es nicht ins Leere zeigt
+            self.page_start
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v.saturating_sub(1)))
+                .ok();
         }
     }
 
-    fn send_live(&self, event: BufferedEvent) {
+    /// Live-Fan-out an ALLE verbundenen Sender.
+    /// Dead sender (rx dropped) werden aufgeräumt.
+    /// Returns `true` wenn das Event in den Cache gefallen ist (kein live Sender).
+    fn send_live(&self, event: BufferedEvent) -> bool {
         let mut senders = Self::recover_lock(self.senders.lock());
-        senders.retain(|tx| tx.send(event.clone()).is_ok());
-        // Fallback: wenn kein Live-Listener existiert (Page-Load vor SSE-Connect),
-        // in den Cache pushen damit das Event trotzdem zum Client gelangt.
-        if senders.is_empty() {
+        let mut any_received = false;
+        senders.retain(|tx| {
+            if tx.send(event.clone()).is_ok() {
+                any_received = true;
+                true
+            } else {
+                false
+            }
+        });
+        if !any_received {
             drop(senders);
             self.push_cache(event);
+            true
+        } else {
+            false
         }
     }
 
+    /// Live-Fan-out + Cache (ohne Doppel-Push).
     fn send_and_cache(&self, event: BufferedEvent) {
-        self.send_live(event.clone());
-        self.push_cache(event);
+        if !self.send_live(event.clone()) {
+            self.push_cache(event);
+        }
     }
 
     /// Cached: Live-Fan-out + Cache. Dedup findet Event beim nächsten Mal.
     pub fn emit_element(&self, patch: PatchElements) -> BufferedEvent {
         let candidate_data = EventData::PatchElements(patch.clone());
         if let Some(existing) = self.dedup(&candidate_data) {
-            self.send_live(existing.clone());
-            self.push_cache(existing.clone());
+            self.send_and_cache(existing.clone());
             return existing;
         }
         let ver = self.next_ver();
@@ -120,8 +152,7 @@ impl EventEmitter {
         event
     }
 
-    /// Volatile: NUR Live-Fan-out, KEIN Cache. Für transienten Content
-    /// wie $activePage-Signale, die bei Reconnect nicht relevant sind.
+    /// Volatile: NUR Live-Fan-out, KEIN Cache.
     pub fn emit_element_volatile(&self, patch: PatchElements) -> BufferedEvent {
         let candidate_data = EventData::PatchElements(patch.clone());
         if let Some(existing) = self.dedup(&candidate_data) {
@@ -136,10 +167,10 @@ impl EventEmitter {
 
     /// Cached: Live-Fan-out + Cache. Dedup findet Signal beim nächsten Mal.
     pub fn emit_signal(&self, signals_json: &str) -> BufferedEvent {
-        let candidate_data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
+        let candidate_data =
+            EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
         if let Some(existing) = self.dedup(&candidate_data) {
-            self.send_live(existing.clone());
-            self.push_cache(existing.clone());
+            self.send_and_cache(existing.clone());
             return existing;
         }
         let ver = self.next_ver();
@@ -148,10 +179,10 @@ impl EventEmitter {
         event
     }
 
-    /// Volatile: NUR Live-Fan-out, KEIN Cache. Für Signale die sich
-    /// ständig ändern (activePage, Timestamps, Session-Daten).
+    /// Volatile: NUR Live-Fan-out, KEIN Cache.
     pub fn emit_signal_volatile(&self, signals_json: &str) -> BufferedEvent {
-        let candidate_data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
+        let candidate_data =
+            EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
         if let Some(existing) = self.dedup(&candidate_data) {
             self.send_live(existing.clone());
             return existing;
@@ -173,7 +204,6 @@ impl EventEmitter {
     }
 
     /// Volatile: Script wird NUR live ausgeführt, nie gecached.
-    /// Für One-Shot-Scripts wie Redirects oder Transient-Toasts.
     pub fn try_emit_script_volatile(&self, script: &str) -> Option<BufferedEvent> {
         let non_empty = NonEmptyStr::try_from(script).ok()?;
         let ver = self.next_ver();
@@ -185,11 +215,6 @@ impl EventEmitter {
 
     pub fn emit_signals(&self, signals: &[&str]) -> Vec<BufferedEvent> {
         signals.iter().map(|s| self.emit_signal(s)).collect()
-    }
-
-    /// Batch-volatile: Alle Signale nur live, kein Cache.
-    pub fn emit_signals_volatile(&self, signals: &[&str]) -> Vec<BufferedEvent> {
-        signals.iter().map(|s| self.emit_signal_volatile(s)).collect()
     }
 
     pub fn emit_elements(&self, elements: &[EventData]) -> Vec<BufferedEvent> {
@@ -205,37 +230,42 @@ impl EventEmitter {
             .collect()
     }
 
-    /// Batch-volatile: Alle Elements nur live, kein Cache.
-    pub fn emit_elements_volatile(&self, elements: &[EventData]) -> Vec<BufferedEvent> {
-        elements
-            .iter()
-            .filter_map(|e| {
-                if let EventData::PatchElements(p) = e {
-                    Some(self.emit_element_volatile(p.clone()))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
     /// Connect: registriert Sender (Fan-out) + baut Replay-Plan.
     ///
-    /// **Page-Scoping**: `clear()` merkt sich den Start-Index der
-    /// aktuellen Page. `connect()` liefert NUR Events ab diesem
-    /// Index — keine Events von vorherigen Pages.
+    /// **Stale-Erkennung**: Wenn `client_gen > 0` und `client_gen != current_gen()`,
+    /// ist dies eine alte Page die reconnectet → Sender registrieren, aber LEERES Replay.
+    /// Nur die aktuelle Page kriegt Events — keine Doppel-Delivery.
     ///
-    /// **Dedup**: Der Cache enthält auch alte Events (für Dedup),
-    /// aber `connect()` filtert sie per Index aus.
+    /// Filtert NUR Events ab `page_start` (gesetzt vom Layer via `next_page()`).
+    /// `page_start` wird hier NICHT verändert — nur der Layer setzt es.
+    /// Innerhalb des Fensters [page_start, cache.len()]: `ver`/`epoch`-basiert.
     pub fn connect(
         &self,
         client_ver: u64,
         client_epoch: u64,
+        client_gen: u64,
     ) -> (UnboundedReceiver<BufferedEvent>, ReplayPlan) {
         let (tx, rx) = mpsc::unbounded_channel();
         {
             let mut senders = Self::recover_lock(self.senders.lock());
             senders.push(tx);
+        }
+
+        // Stale-Connection-Check: alter Client reconnectet mit veraltetem page_gen.
+        // Vergleicht mit `current_gen()` — der Layer inkrementiert page_gen NUR für
+        // Full-Page-Requests (nicht für In-Page-Nav). Daher ist ein Gen-Mismatch
+        // immer ein echtes "alte Page reconnectet".
+        let current = self.current_gen();
+        let is_stale = client_gen > 0 && client_gen != current;
+
+        if is_stale {
+            elog!(
+                Debug,
+                "SSE → stale connect (client_gen={}, current_gen={}) — empty replay",
+                client_gen,
+                current
+            );
+            return (rx, ReplayPlan { id_only: vec![], full: vec![] });
         }
 
         let cache = Self::recover_lock(self.cache.lock());
@@ -246,11 +276,9 @@ impl EventEmitter {
         let mut full = Vec::new();
 
         for (i, event) in cache.iter().enumerate() {
-            // Nur Events der aktuellen Page (ab page_start)
             if i < start {
-                continue;
+                continue; // Events vorheriger Pages — nie replayen
             }
-
             if !epoch_match || event.ver() > client_ver {
                 full.push(event.clone());
             } else {
@@ -258,8 +286,10 @@ impl EventEmitter {
             }
         }
 
-        // Dedupliziere id_only und full — bei Dedup-Hits kann dieselbe Version
-        // mehrfach im Cache auftauchen (Original + Push vom Dedup-Hit).
+        let cache_len = cache.len();
+        drop(cache);
+
+        // Dedupliziere id_only und full
         id_only.sort_unstable();
         id_only.dedup();
         full.sort_unstable_by_key(|e| e.ver());
@@ -276,25 +306,17 @@ impl EventEmitter {
                 epoch_match
             );
         } else {
-            elog!(Warn, "SSE → replay plan EMPTY (start={}, cache_len={}, client_ver={}, epoch_match={})", start, cache.len(), client_ver, epoch_match);
+            elog!(
+                Debug,
+                "SSE → replay plan empty (start={}, cache_len={}, client_ver={}, epoch_match={})",
+                start,
+                cache_len,
+                client_ver,
+                epoch_match
+            );
         }
 
         (rx, ReplayPlan { id_only, full })
-    }
-
-    /// Markiert den Start einer neuen Page.
-    /// NICHT den Cache leeren — alte Events bleiben für Dedup erhalten.
-    /// Nur der Replay-Plan wird auf aktuelle Page gescoped.
-    pub fn clear(&self) {
-        let cache = Self::recover_lock(self.cache.lock());
-        let prev = self.page_start.swap(cache.len(), Ordering::SeqCst);
-        elog!(
-            Debug,
-            "EventEmitter → page start {} (was {}, cache has {} total)",
-            cache.len(),
-            prev,
-            cache.len()
-        );
     }
 
     pub fn cached_count(&self) -> usize {

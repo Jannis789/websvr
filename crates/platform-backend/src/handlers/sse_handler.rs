@@ -31,6 +31,7 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
     let ctx = extract_context(&req);
     let client_ver = query_u64(&req, "v");
     let client_epoch = query_u64(&req, "e");
+    let client_gen = query_u64(&req, "g");
     let server_epoch = ctx.event_emitter.epoch();
 
     elog!(
@@ -41,7 +42,7 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
         client_epoch
     );
 
-    let (rx, plan) = ctx.event_emitter.connect(client_ver, client_epoch);
+    let (rx, plan) = ctx.event_emitter.connect(client_ver, client_epoch, client_gen);
     let (id_only, full) = plan.into_parts();
 
     // Phase 1+2: id_only + full replay
@@ -81,6 +82,9 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
 
     if let Ok(val) = server_epoch.to_string().parse() {
         response.headers_mut().insert("x-sse-epoch", val);
+    }
+    if let Ok(val) = ctx.event_emitter.current_gen().to_string().parse() {
+        response.headers_mut().insert("x-sse-gen", val);
     }
 
     response

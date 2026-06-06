@@ -73,10 +73,10 @@ pub async fn test_action(State(_state): State<SharedState>, req: Request) -> Res
     empty_response(StatusCode::NO_CONTENT)
 }
 
-/// GET /test/clear — Clear the SSE event cache (simulates login/logout cache reset).
+/// GET /test/clear — No-op in new architecture (layer handles page generation automatically).
 pub async fn test_clear(State(_state): State<SharedState>, req: Request) -> Response {
-    let ctx = extract_context(&req);
-    ctx.event_emitter.clear();
+    let _ctx = extract_context(&req);
+    // Layer inkrementiert page_gen bereits — kein manueller Aufruf nötig.
     empty_response(StatusCode::NO_CONTENT)
 }
 

@@ -62,20 +62,19 @@ fn emit_error(ctx: &crate::context::ClientContext, field: &str, message: impl As
     let msg = message.as_ref();
     let signals = json!({ "errors": { field: msg }, "submitting": false, "success": false });
     let signals_json = serde_json::to_string(&signals).unwrap();
-    ctx.event_emitter.emit_signal(&signals_json);
+    ctx.event_emitter.emit_signal_volatile(&signals_json);
     empty_response(StatusCode::OK)
 }
 
 /// Push success signals + redirect script into the broadcaster, return 200 OK.
 /// Events arrive through the persistent /sse stream.
 fn emit_success(ctx: &crate::context::ClientContext, redirect_url: &str) -> Response {
-    // Clear stale events (e.g. login form) before emitting post-login state
-    ctx.event_emitter.clear();
+    // Layer hat page_gen bereits inkrementiert — kein manuelles clear nötig.
 
     let signals = json!({ "errors": "", "success": true });
     let signals_json = serde_json::to_string(&signals).unwrap();
-    ctx.event_emitter.emit_signal(&signals_json);
-    ctx.event_emitter.try_emit_script(&format!(
+    ctx.event_emitter.emit_signal_volatile(&signals_json);
+    ctx.event_emitter.try_emit_script_volatile(&format!(
         "setTimeout(() => {{ window.location.href = '{}'; }}, 1200);",
         redirect_url
     ));
@@ -314,12 +313,11 @@ pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response
         session.set_volatile("user_id", serde_json::Value::Null);
     }
 
-    // Clear stale events before redirect
-    ctx.event_emitter.clear();
+    // Layer hat page_gen bereits inkrementiert — kein manuelles clear nötig.
 
     // Push redirect script into broadcaster
     ctx.event_emitter
-        .try_emit_script("setTimeout(() => { window.location.href = '/login'; }, 500);");
+        .try_emit_script_volatile("setTimeout(() => { window.location.href = '/login'; }, 500);");
 
     let mut resp = empty_response(StatusCode::OK);
     let clear_cookie = format!(

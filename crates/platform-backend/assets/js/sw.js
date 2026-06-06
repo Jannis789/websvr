@@ -28,7 +28,6 @@ self.addEventListener('activate', () => {
 
 const clients = new Map();
 const MAX_CACHE_SIZE = 5000;
-const clientByUrl = new Map();
 const pendingRestore = new Map();
 const CACHE_NAME = 'sse-cache-v1';
 
@@ -157,6 +156,7 @@ function wrapStream(body, clientId, gen) {
           }
 
           if (result.done) {
+            // Stream fertig — verarbeite was noch im buffer ist
             if (buffer.trim()) {
               const norm = buffer.replace(/\r\n/g, '\n');
               const out = processChunk(norm, client);
@@ -173,15 +173,29 @@ function wrapStream(body, clientId, gen) {
           const decoded = decoder.decode(result.value, { stream: true });
           buffer += decoded;
 
+          // SSE-Events werden durch \n\n getrennt.
+          // WICHTIG: Ein Event kann ueber mehrere Chunks verteilt sein!
+          // Deshalb sammeln wir Zeilen bis zur Leerzeile (doppeltes \n).
           while (true) {
-            const idx = buffer.indexOf('\n\n');
-            if (idx === -1) break;
-            const raw = buffer.slice(0, idx);
-            buffer = buffer.slice(idx + 2);
-            if (raw.trim()) {
-              const norm = raw.replace(/\r\n/g, '\n');
-              const out = processChunk(norm, client);
-              if (out) controller.enqueue(new TextEncoder().encode(out));
+            // Finde die naechste Leerzeile (\n\n = Event-Trenner)
+            const doubleNewlineIdx = buffer.indexOf('\n\n');
+            // Oder einfaches \n am Ende (bei stream:true koennen Zeilen unvollstaendig sein)
+            // Bei EOF oder Stream-Ende: kein doppeltes \n vorhanden
+            
+            if (doubleNewlineIdx !== -1) {
+              // Vollstaendiges Event gefunden
+              const raw = buffer.slice(0, doubleNewlineIdx);
+              buffer = buffer.slice(doubleNewlineIdx + 2);
+              if (raw.trim()) {
+                const norm = raw.replace(/\r\n/g, '\n');
+                const out = processChunk(norm, client);
+                if (out) controller.enqueue(new TextEncoder().encode(out));
+              }
+            } else {
+              // Kein doppeltes \n gefunden - Event ist noch unvollstaendig
+              // Pruefe ob noch mehr Daten kommen werden (result.done = false)
+              // Wenn ja, warten wir auf naechsten Chunk
+              break;
             }
           }
         } catch (e) {
@@ -225,21 +239,22 @@ function processChunk(raw, client) {
 
   isScript = raw.indexOf('event: datastar-execute-script') !== -1;
 
-  // Kein id, keine Daten → ignorieren (z.B. Keepalive-Kommentare)
+  // Kein id → ignorieren (Keepalive-Kommentare)
   if (id === null || isNaN(id)) {
-    if (hasData) output.push(raw + '\n\n');
-    return output.join('');
+    return '';
   }
 
   if (id > client.ver) client.ver = id;
 
-  // id_only: kein data → aus Cache replayen
+  // id_only: kein data → aus Cache replayen (KEIN early return!)
   if (!hasData) {
     var cached = client.cache.get(id);
     if (cached) {
       swLog('from cache', id);
       output.push(cached);
     }
+    // WICHTIG: Hier NICHT return '' - wir müssen output zurückgeben!
+    // (Auch wenn cache leer ist, wird das Event trotzdem vom Server replayed)
     return output.join('');
   }
 
@@ -283,30 +298,10 @@ self.addEventListener('fetch', function (event) {
         try { clientInfo = await self.clients.get(event.clientId); } catch (e) {}
         var currentUrl = clientInfo ? clientInfo.url : '';
 
-        // Zombie
-        if (client.lastUrl && !clientInfo) {
-          swLog('zombie retry — skipping');
-          return new Response(null, { status: 204 });
-        }
-
-        // Stream-Kill bei Reload
-        var prevId = clientByUrl.get(currentUrl);
-        if (prevId && prevId !== event.clientId) {
-          var prev = clients.get(prevId);
-          if (prev) prev.gen++;
-        }
-        clientByUrl.set(currentUrl, event.clientId);
-
-        // Navigation → Cache leeren
-        if (client.lastUrl && client.lastUrl !== currentUrl) {
-          swLog('navigation:', client.lastUrl.slice(0, 60), '→', currentUrl.slice(0, 60));
-          swLog('  cache cleared (was:', client.cache.size, 'ev, ver:', client.ver, ')');
-          client.cache.clear();
-          client.ver = 0;
-        } else if (!client.lastUrl) {
+        if (!client.lastUrl) {
           swLog('first connect, url:', currentUrl.slice(0, 60));
         } else {
-          swLog('reconnect (same url), cache:', client.cache.size, 'ev, ver:', client.ver);
+          swLog('reconnect, cache:', client.cache.size, 'ev, ver:', client.ver);
         }
         client.lastUrl = currentUrl;
 
@@ -321,6 +316,7 @@ self.addEventListener('fetch', function (event) {
         }
         if (client.ver > 0) cleanUrl.searchParams.set('v', client.ver);
         if (client.epoch !== null) cleanUrl.searchParams.set('e', client.epoch);
+        if (client.pageGen !== undefined && client.pageGen > 0) cleanUrl.searchParams.set('g', client.pageGen);
 
         var response = await fetch(cleanUrl.toString(), { headers: event.request.headers });
 
@@ -337,6 +333,15 @@ self.addEventListener('fetch', function (event) {
             }
             client.epoch = epoch;
             storeMeta(client.ver, client.epoch);
+          }
+        }
+
+        // Page-Gen speichern (vom Server via x-sse-gen Header)
+        var newGen = response.headers.get('x-sse-gen');
+        if (newGen !== null) {
+          var gen = parseInt(newGen, 10);
+          if (!isNaN(gen)) {
+            client.pageGen = gen;
           }
         }
 

@@ -27,9 +27,6 @@ pub async fn home_page(State(state): State<SharedState>, req: Request) -> Respon
     let ctx = extract_context(&req);
     elog!(Debug, "Handler → home_page (client_id={})", ctx.client_id);
 
-    // Cache leeren: nur Events DIESER Page im Cache (keine Altlasten)
-    ctx.event_emitter.clear();
-
     let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS);
     let patches = Shell::empty()
         .add(Sidebar::full(elements::HOME_SIDEBAR))

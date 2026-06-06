@@ -25,8 +25,6 @@ pub async fn register_page(State(state): State<SharedState>, req: Request) -> Re
     let ctx = extract_context(&req);
     elog!(Debug, "Handler → register_page (client_id={})", ctx.client_id);
 
-    ctx.event_emitter.clear();
-
     let i18n_signals = state.i18n.resolve_signals(ctx.lang, I18N_KEYS);
     let patches = Shell::empty()
         .sidebar(Sidebar::clear())

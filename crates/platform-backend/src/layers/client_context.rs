@@ -126,7 +126,7 @@ where
             .map(|c| c.0)
             .unwrap_or(false);
 
-        let _is_sse = req.uri().path() == "/sse";
+        let is_sse = req.uri().path() == "/sse";
 
         // Ein HashMap-Lookup — session + emitter + cleanup handle
         let (session, emitter, cleanup_handle) = {
@@ -152,9 +152,16 @@ where
             (state.session.clone(), state.emitter.clone(), handle)
         };
 
-        // ClientContext bauen
-        let mut ctx = ClientContext::with_session(client_id, session);
-        ctx.event_emitter = emitter;
+        // Page-Generation für SW-Stale-Erkennung.
+        // Nur für Full-Page-Requests — NICHT für In-Page-Nav (/home/overview etc.).
+        // /sse ist ebenfalls ausgeschlossen.
+        let is_in_page_nav = matches!(
+            req.uri().path(),
+            "/home/overview" | "/home/movies" | "/home/series"
+        );
+        if !is_sse && !is_in_page_nav {
+            emitter.next_page();
+        }
 
         // Sprache
         let lang = Lang::from_header(
@@ -162,10 +169,11 @@ where
                 .get(header::ACCEPT_LANGUAGE)
                 .and_then(|v| v.to_str().ok()),
         );
-        ctx = ctx.with_lang(lang);
 
-        // Kein begin_request/disconnect mehr nötig — Events warten im
-        // Puffer bis /sse connected und drained sie direkt in den Channel.
+        // ClientContext bauen
+        let mut ctx = ClientContext::with_session(client_id, session);
+        ctx.event_emitter = emitter;
+        ctx = ctx.with_lang(lang);
 
         ctx.cleanup_handle = Some(cleanup_handle);
 

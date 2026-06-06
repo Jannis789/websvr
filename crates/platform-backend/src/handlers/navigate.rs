@@ -7,9 +7,9 @@ use crate::components::Shell;
 use crate::utils::request::extract_context;
 use crate::utils::response::sse_response;
 
-const I18N_KEYS_OVERVIEW: &[&str] = &["nav_overview", "content_overview"];
-const I18N_KEYS_MOVIES: &[&str] = &["nav_movies", "content_movies"];
-const I18N_KEYS_SERIES: &[&str] = &["nav_series", "content_series"];
+const I18N_KEYS_OVERVIEW: &[&str] = &["nav_overview", "content_overview"].as_slice();
+const I18N_KEYS_MOVIES: &[&str] = &["nav_movies", "content_movies"].as_slice();
+const I18N_KEYS_SERIES: &[&str] = &["nav_series", "content_series"].as_slice();
 
 /// GET /home/overview — broadcast + return SSE response for @get.
 pub async fn get_home_overview(
