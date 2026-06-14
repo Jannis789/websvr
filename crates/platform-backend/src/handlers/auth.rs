@@ -2,7 +2,7 @@ use crate::context::SharedState;
 use crate::elog;
 use crate::entities::users;
 use crate::utils::request::extract_context;
-use crate::utils::response::{empty_response, sse_response, Response};
+use crate::utils::response::{empty_response, Response};
 use platform_core::PasswordUtil;
 use platform_core::Config;
 use rama::http::service::web::extract::State;
@@ -63,33 +63,28 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
 }
 
 /// Push error signals into the SSE broadcaster AND return SSE response for @post.
+    /// Push error signals into the SSE broadcaster, return 200 OK.
+/// Events arrive through the persistent /sse stream.
 fn emit_error(ctx: &crate::context::ClientContext, field: &str, message: impl AsRef<str>) -> Response {
     let msg = message.as_ref();
     let signals = json!({ "errors": { field: msg }, "submitting": false, "success": false });
     let signals_json = serde_json::to_string(&signals).unwrap();
     ctx.event_emitter.emit_signal_volatile(&signals_json);
-    sse_response(&[])
+    empty_response(StatusCode::OK)
 }
 
-/// Push success signals + redirect script into broadcaster AND return SSE response for @post.
+/// Push success signals + redirect script into the broadcaster, return 200 OK.
+/// Events arrive through the persistent /sse stream (jetzt ohne Buffer dank writev(false)).
 fn emit_success(ctx: &crate::context::ClientContext, redirect_url: &str) -> Response {
-    // Layer hat page_gen bereits inkrementiert — kein manuelles clear nötig.
-
     let signals = json!({ "errors": "", "success": true });
     let signals_json = serde_json::to_string(&signals).unwrap();
-
-    let mut events = Vec::new();
-    events.push(ctx.event_emitter.emit_signal(&signals_json));
-    if let Some(event) = ctx.event_emitter.try_emit_script(&format!(
+    ctx.event_emitter.emit_signal(&signals_json);
+    ctx.event_emitter.try_emit_script(&format!(
         "setTimeout(() => {{ window.location.href = '{}'; }}, 1200);",
         redirect_url
-    )) {
-        events.push(event);
-    }
-
-    sse_response(&events)
+    ));
+    empty_response(StatusCode::OK)
 }
-
 /// POST /login — authenticate user via email + password.
 /// Datastar @post sends signals as JSON body.
 /// Returns 200 OK; the Dreifaltigkeit arrives via the persistent /sse stream.
