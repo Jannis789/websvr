@@ -16,7 +16,6 @@ swLog('loaded at ' + now());
 // ── Globaler SSE-Gen — jeder neue Stream inkrementiert ihn.
 // Alte Streams checken ob ihr gen noch aktuell ist → stoppen.
 var globalSseGen = 0;
-var activeAbortController = null;
 
 // ── Per-Client-Tracking (nur fuer beforeunload/closing) ──
 
@@ -131,13 +130,9 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  // Globaler SSE-Gen: jeder neue Stream inkrementiert + alter wird gekillt
+  // Globaler SSE-Gen: jeder neue Stream inkrementiert
   globalSseGen++;
   var mySseGen = globalSseGen;
-  if (activeAbortController) {
-    try { activeAbortController.abort(); } catch (_) {}
-  }
-  activeAbortController = null;
   swLog('  sseGen=' + mySseGen + ' closingClients size=' + closingClients.size + ' at ' + now());
 
   event.respondWith(
@@ -145,16 +140,13 @@ self.addEventListener('fetch', function (event) {
       var ver = await loadVer();
       swLog('  POST body seen=' + ver + ' at ' + now());
 
-      var abortController = new AbortController();
-      activeAbortController = abortController;
       var headers = new Headers({ 'Content-Type': 'application/json' });
       var fetchStart = performance.now();
       var response = await fetch(url.origin + url.pathname, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({ seen: ver }),
-        credentials: 'include',
-        signal: abortController.signal
+        credentials: 'include'
       });
       var fetchMs = (performance.now() - fetchStart).toFixed(1);
       swLog('  server response status=' + response.status + ' took=' + fetchMs + 'ms at ' + now());
@@ -188,7 +180,6 @@ self.addEventListener('fetch', function (event) {
       function closeIfStale(controller) {
         if (isStale()) {
           if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-          try { reader.cancel(); } catch (_) {}
           try { reader.releaseLock(); } catch (_) {}
           return true;
         }
@@ -216,7 +207,6 @@ self.addEventListener('fetch', function (event) {
             if (isStale()) {
               swLog('  SSE GEN CHANGED — stopping (was ' + mySseGen + ' now ' + globalSseGen + ') at ' + now());
               if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-              try { reader.cancel(); } catch (_) {}
               try { reader.releaseLock(); } catch (_) {}
               return;
             }
