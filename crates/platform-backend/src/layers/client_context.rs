@@ -160,7 +160,7 @@ where
             .map(|c| c.0)
             .unwrap_or(false);
 
-        let is_sse = req.uri().path() == "/sse";
+        let _is_sse = req.uri().path() == "/sse";
 
         // Persistente Session vor dem Lock laden (async DB)
         let persisted_session = load_persisted_session(client_id, &self.db).await;
@@ -195,11 +195,6 @@ where
             (state.session.clone(), state.emitter.clone(), handle)
         };
 
-        // Page-Generation — jeder nicht-/sse Request triggert next_page().
-        // Keine Sonderlogik für Methoden oder Pfade.
-        if !is_sse {
-            emitter.next_page();
-        }
 
         // Sprache
         let lang = Lang::from_header(
