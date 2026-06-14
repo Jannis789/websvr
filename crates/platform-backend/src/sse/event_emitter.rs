@@ -112,6 +112,18 @@ impl EventEmitter {
         }
     }
 
+    /// Live-Fan-out ohne Cache-Fallback — fuer volatile Events wie ExecuteScript.
+    /// Dead sender werden aufgeraeumt. Wenn kein live Sender, wird das Event
+    /// STILLSCHWEIGEND verworfen (kein Cache).
+    fn send_live_only(&self, event: BufferedEvent) {
+        let mut senders = Self::recover_lock(self.senders.lock());
+        let sender_count = senders.len();
+        senders.retain(|tx| tx.send(event.clone()).is_ok());
+        if sender_count > 0 {
+            elog!(Debug, "send_live_only ver={}: tried {} senders", event.ver(), sender_count);
+        }
+    }
+
     /// Live-Fan-out an ALLE verbundenen Sender.
     /// Dead sender (rx dropped) werden aufgeräumt.
     /// Returns `true` wenn das Event in den Cache gefallen ist (kein live Sender).
@@ -215,7 +227,7 @@ impl EventEmitter {
         let ver = self.next_ver();
         let exec = ExecuteScript::new(non_empty);
         let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
-        self.send_live(event.clone());
+        self.send_live_only(event.clone());
         Some(event)
     }
 
