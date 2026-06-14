@@ -14,17 +14,11 @@ function now() {
 swLog('loaded at ' + now());
 
 // ── Per-Client Tracked State ──
+var globalSseGen = 0;
+
 // Gen: wird bei jedem /sse-intercept inkrementiert.
-// Alte Streams checken `client.gen != myGen` und stoppen.
+// Alte Streams checken `client.gen != mySseGen` und stoppen.
 
-var trackedClients = {};
-
-function getTracked(id) {
-  var c = trackedClients[id];
-  if (!c) {
-    c = { gen: 0 };
-    trackedClients[id] = c;
-  }
   return c;
 }
 
@@ -140,10 +134,9 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  var client = getTracked(event.clientId);
-  client.gen++;
-  var myGen = client.gen;
-  swLog('  gen=' + myGen + ' closingClients size=' + closingClients.size + ' has=' + closingClients.has(event.clientId) + ' at ' + now());
+  globalSseGen++;
+  var mySseGen = globalSseGen;
+  swLog('  sseGen=' + mySseGen + ' closingClients size=' + closingClients.size + ' has=' + closingClients.has(event.clientId) + ' at ' + now());
 
   event.respondWith(
     (async function () {
@@ -183,8 +176,8 @@ self.addEventListener('fetch', function (event) {
       var closed = false;
 
       function isStale() {
-        var tc = trackedClients[event.clientId];
-        return !tc || tc.gen !== myGen;
+        return mySseGen !== globalSseGen;
+      }
       }
 
       function closeIfStale(controller) {
@@ -196,7 +189,7 @@ self.addEventListener('fetch', function (event) {
         return false;
       }
 
-      swLog('  STREAM START gen=' + myGen + ' at ' + now());
+      swLog('  STREAM START sseGen=' + mySseGen + ' at ' + now());
 
       var stream = new ReadableStream({
         pull: function (controller) {
@@ -215,7 +208,7 @@ self.addEventListener('fetch', function (event) {
             var readMs = (performance.now() - readStart).toFixed(1);
 
             if (isStale()) {
-              swLog('  GEN CHANGED — stopping (was gen=' + myGen + ' now=' + (trackedClients[event.clientId] ? trackedClients[event.clientId].gen : '?') + ') at ' + now());
+              swLog("  SSE GEN CHANGED — stopping (was " + mySseGen + " now " + globalSseGen + ") at " + now());
               if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
               try { reader.releaseLock(); } catch (_) {}
               return;
@@ -223,7 +216,6 @@ self.addEventListener('fetch', function (event) {
 
             if (result.done) {
               swLog('  READ DONE at ' + now() + ' (chunks=' + chunks + ' totalBytes=' + totalBytes + ' events=' + eventsProcessed + ' ms=' + (performance.now() - streamStart).toFixed(1) + ' lastVer=' + lastVer + ')');
-              try { await saveVer(lastVer); } catch (_) {}
               if (!closed) { closed = true; controller.close(); }
               return;
             }
@@ -268,13 +260,12 @@ self.addEventListener('fetch', function (event) {
                 swLog('  EVENT#' + info.id + ' dedup HIT (memory) at ' + now());
                 controller.enqueue(encoder.encode(existing));
               } else {
-                // Vor "from server" Cache Storage checken
-                var cached = await getCache(info.id);
-                if (cached) {
-                  swLog('  EVENT#' + info.id + ' dedup HIT (storage) at ' + now());
-                  memCache.set(info.id, cached);
-                  controller.enqueue(encoder.encode(cached));
-                } else {
+                // from server
+                swLog("  EVENT#" + info.id + " from server at " + now());
+                var fullBlock = block + "\n\n";
+                memCache.set(info.id, fullBlock);
+                putCache(info.id, fullBlock);
+                controller.enqueue(encoder.encode(fullBlock));
                   swLog('  EVENT#' + info.id + ' from server at ' + now());
                   var fullBlock = block + '\n\n';
                   memCache.set(info.id, fullBlock);
@@ -290,7 +281,7 @@ self.addEventListener('fetch', function (event) {
         },
 
         cancel: function () {
-          swLog('  STREAM CANCEL gen=' + myGen + ' lastVer=' + lastVer + ' at ' + now());
+          swLog('  STREAM CANCEL sseGen=' + mySseGen + ' lastVer=' + lastVer + ' at ' + now());
           closed = true;
           // saveVer direkt aufrufen (event.waitUntil ist zu spät)
           saveVer(lastVer);
