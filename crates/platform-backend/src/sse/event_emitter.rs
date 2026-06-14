@@ -244,7 +244,7 @@ impl EventEmitter {
     ///
     /// Filtert NUR Events ab `page_start` (gesetzt vom Layer via `next_page()`).
     /// `page_start` wird hier NICHT verändert — nur der Layer setzt es.
-    /// Innerhalb des Fensters [page_start, cache.len()]: `ver`-basiert.
+    /// Innerhalb des Fensters [page_cache_len, cache.len()]: `ver`-basiert.
     pub fn connect(
         &self,
         client_ver: u64,
@@ -274,6 +274,7 @@ impl EventEmitter {
         }
 
         let cache = Self::recover_lock(self.cache.lock());
+
         let start = self.page_start.load(Ordering::SeqCst);
 
         let mut id_only = Vec::new();
@@ -281,7 +282,7 @@ impl EventEmitter {
 
         for (i, event) in cache.iter().enumerate() {
             if i < start {
-                continue; // Events vorheriger Pages — nie replayen
+                continue;
             }
             if event.ver() > client_ver {
                 full.push(event.clone());
@@ -290,15 +291,6 @@ impl EventEmitter {
             }
         }
 
-        let cache_len = cache.len();
-
-        // Nach dem Replay page_start auf cache.len() setzen. Beim nächsten
-        // reconnect (z.B. nach STREAM DONE) sind die bereits gelieferten
-        // Events vor page_start → leeres Replay → kein Loop.
-        // next_page() (bei Reload) setzt page_start zurück auf 0.
-        if !id_only.is_empty() || !full.is_empty() {
-            self.page_start.store(cache_len, Ordering::SeqCst);
-        }
 
         drop(cache);
 
@@ -311,8 +303,7 @@ impl EventEmitter {
         if !id_only.is_empty() || !full.is_empty() {
             elog!(
                 Info,
-                "SSE → replay plan (start={}): {} id_only, {} full (client_ver={})",
-                start,
+                "SSE → replay plan:  {} id_only, {} full (client_ver={})",
                 id_only.len(),
                 full.len(),
                 client_ver,
@@ -320,9 +311,7 @@ impl EventEmitter {
         } else {
             elog!(
                 Debug,
-                "SSE → replay plan empty (start={}, cache_len={}, client_ver={})",
-                start,
-                cache_len,
+                "SSE → replay empty (client_ver={})",
                 client_ver,
             );
         }

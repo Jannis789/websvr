@@ -93,7 +93,10 @@ pub async fn run() {
 
     elog!(Info, "Rama Platform server listening on http://{bind}");
 
-    HttpServer::http1()
+    let mut server = HttpServer::http1();
+    server.http1_mut().set_writev(false);
+    server.http1_mut().set_pipeline_flush(true);
+    server
         .listen(bind, app)
         .await
         .expect("failed to start HTTP server");
