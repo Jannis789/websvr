@@ -362,7 +362,8 @@ pub async fn register(State(state): State<SharedState>, req: Request) -> Respons
     emit_success(&ctx, "/login")
 }
 
-/// POST /logout — clear session and redirect to login via SSE executeScript.
+/// POST /logout — form submit logout. Redirect per HTTP 303 (kein SSE, da
+/// der Form-Submit eine nativer Page-Navigation ist).
 pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
 
@@ -373,13 +374,7 @@ pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response
         session.set_volatile("user_id", serde_json::Value::Null);
     }
 
-    // Layer hat page_gen bereits inkrementiert — kein manuelles clear nötig.
-
-    // Push redirect script into broadcaster
-    ctx.event_emitter
-        .try_emit_script("setTimeout(() => { window.location.href = '/login'; }, 500);");
-
-    let mut resp = empty_response(StatusCode::OK);
+    let mut resp = crate::utils::response::redirect("/login");
     let clear_cookie = format!(
         "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
         platform_core::client_id::CLIENT_ID_COOKIE
