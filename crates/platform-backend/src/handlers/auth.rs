@@ -93,7 +93,7 @@ fn emit_success(ctx: &crate::context::ClientContext, redirect_url: &str) -> Resp
     let signals = json!({ "errors": "", "success": true });
     let signals_json = serde_json::to_string(&signals).unwrap();
     ctx.event_emitter.emit_signal(&signals_json);
-    ctx.event_emitter.try_emit_script(&format!(
+    ctx.event_emitter.try_emit_script_volatile(&format!(
         "setTimeout(() => {{ window.location.href = '{}'; }}, 1200);",
         redirect_url
     ));
