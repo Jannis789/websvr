@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::BufferedEvent;
@@ -23,9 +23,8 @@ impl ReplayPlan {
 /// Per-client event emitter.
 ///
 /// **Cache**: Persistiert über Pages hinweg (FIFO-eviction bei MAX_CACHE).
-/// **page_start**: Wird vom Layer via `next_page()` auf `cache.len()` gesetzt.
-/// `connect()` replays NUR Events ab `page_start` — und verändert `page_start` NICHT.
-/// So werden Events vorheriger Pages nie replayt, aber Fast-Reload verliert keine Events.
+/// page_start: nicht mehr verwendet. Content-Dedup ueber EventData-Hash
+/// verhindert stale Replays — gleicher Inhalt = gleiche Version.
 /// **page_gen**: Wird vom Layer pro non-/sse Request inkrementiert.
 /// Via `x-sse-gen` Header an den SW übermittelt (nicht-destruktiv).
 ///
@@ -34,7 +33,6 @@ impl ReplayPlan {
 #[derive(Debug, Clone)]
 pub struct EventEmitter {
     cache: Arc<Mutex<Vec<BufferedEvent>>>,
-    page_start: Arc<AtomicUsize>,
     page_gen: Arc<AtomicU64>,
     senders: Arc<Mutex<Vec<UnboundedSender<BufferedEvent>>>>,
     next_ver: Arc<AtomicU64>,
@@ -46,7 +44,6 @@ impl EventEmitter {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(Mutex::new(Vec::new())),
-            page_start: Arc::new(AtomicUsize::new(0)),
             page_gen: Arc::new(AtomicU64::new(1)),
             senders: Arc::new(Mutex::new(Vec::new())),
             next_ver: Arc::new(AtomicU64::new(1)),
@@ -73,12 +70,8 @@ impl EventEmitter {
     /// Wird via `x-sse-gen` Header an den SW übermittelt.
     pub fn next_page(&self) -> u64 {
         let new_gen = self.page_gen.fetch_add(1, Ordering::SeqCst) + 1;
-        // page_start auf cache.len() setzen = alle bisherigen Events werden
-        // beim nächsten Replay übersprungen. Nur Events die NACH der Navigation
-        // in den Cache kommen (via emit_element/emit_signal) landen nach diesem
-        // Index und werden beim nächsten SSE-Connect replayt.
-        let cache_len = Self::recover_lock(self.cache.lock()).len();
-        self.page_start.store(cache_len, Ordering::SeqCst);
+        // page_start wird nicht mehr verwendet — Content-Dedup ueber
+        // EventData-Hash verhindert stale Replays von selbst.
         new_gen
     }
 
@@ -105,10 +98,7 @@ impl EventEmitter {
         cache.push(event);
         while cache.len() > MAX_CACHE {
             cache.remove(0);
-            // page_start mitverschieben, damit es nicht ins Leere zeigt
-            self.page_start
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v.saturating_sub(1)))
-                .ok();
+
         }
     }
 
@@ -254,9 +244,8 @@ impl EventEmitter {
     /// ist dies eine alte Page die reconnectet → Sender registrieren, aber LEERES Replay.
     /// Nur die aktuelle Page kriegt Events — keine Doppel-Delivery.
     ///
-    /// Filtert NUR Events ab `page_start` (gesetzt vom Layer via `next_page()`).
-    /// `page_start` wird hier NICHT verändert — nur der Layer setzt es.
-    /// Innerhalb des Fensters [page_cache_len, cache.len()]: `ver`-basiert.
+    /// Replay: Events mit `ver > client_ver` = full, sonst id_only (Dedup via SW-Cache).
+    /// Content-identische Events haben dieselbe Version (siehe dedup()) → Client hat sie schon → id_only.
     pub fn connect(
         &self,
         client_ver: u64,
@@ -287,18 +276,14 @@ impl EventEmitter {
 
         let cache = Self::recover_lock(self.cache.lock());
 
-        let start = self.page_start.load(Ordering::SeqCst);
-
         let mut id_only = Vec::new();
         let mut full = Vec::new();
 
-        for (i, event) in cache.iter().enumerate() {
-            if i < start {
-                continue; // Events vorheriger Pages — nie replayen
-            } else {
-                // Events ab page_start (aktuelle Seite): immer full,
-                // da der Client sie noch nicht im SW-Cache haben kann
+        for event in cache.iter() {
+            if event.ver() > client_ver {
                 full.push(event.clone());
+            } else {
+                id_only.push(event.ver());
             }
         }
 
