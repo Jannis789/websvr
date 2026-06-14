@@ -1,7 +1,7 @@
 // Service Worker — SSE Cache Proxy
-// Kein autonomes Replay aus dem SW-Cache — der Server entscheidet was replayt wird.
-// id_only Events werden nur als nackter Event-Header durchgereicht.
-// Ein globaler sseGen killt alte Streams sobald ein neuer startet.
+// Jeder Event checkt zuerst den In-Memory-Cache.
+// Wenn der Server (durch Dedup) dieselbe id: nochmal sendet,
+// wird aus dem Cache replaied. Cache Storage für Persistenz.
 
 function swLog() {
   console.log('[sw]', ...arguments);
@@ -13,12 +13,22 @@ function now() {
 
 swLog('loaded at ' + now());
 
-// ── Globaler SSE-Gen — jeder neue Stream inkrementiert ihn.
-// Alte Streams checken ob ihr gen noch aktuell ist → stoppen.
-var globalSseGen = 0;
+// ── Per-Client Tracked State ──
+// Gen: wird bei jedem /sse-intercept inkrementiert.
+// Alte Streams checken `client.gen != myGen` und stoppen.
 
-// ── Per-Client-Tracking (nur fuer beforeunload/closing) ──
+var trackedClients = {};
 
+function getTracked(id) {
+  var c = trackedClients[id];
+  if (!c) {
+    c = { gen: 0 };
+    trackedClients[id] = c;
+  }
+  return c;
+}
+
+// ── Closing-Clients (vor beforeunload-Race) ──
 var closingClients = new Set();
 
 self.addEventListener('message', function (event) {
@@ -46,7 +56,7 @@ self.addEventListener('install', () => {
 });
 self.addEventListener('activate', () => { swLog('activate at ' + now()); self.clients.claim(); });
 
-// ── Cache Storage (Persistenz fuer Reload) ──
+// ── Cache Storage (Persistenz für Reload) ──
 
 var cacheName = 'sse-v4';
 var storedBytes = 0;
@@ -122,7 +132,7 @@ self.addEventListener('fetch', function (event) {
   var cid = (event.clientId || '?').slice(0, 8);
   swLog('conn start client=' + cid + ' at ' + now());
 
-  // closing client: 204 zurueckgeben, keinen Server-Fetch machen
+  // closing client: 204 zurückgeben, keinen Server-Fetch machen
   if (closingClients.has(event.clientId)) {
     swLog('CLOSING CLIENT — 204 at ' + now());
     closingClients.delete(event.clientId);
@@ -130,10 +140,10 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  // Globaler SSE-Gen: jeder neue Stream inkrementiert
-  globalSseGen++;
-  var mySseGen = globalSseGen;
-  swLog('  sseGen=' + mySseGen + ' closingClients size=' + closingClients.size + ' at ' + now());
+  var client = getTracked(event.clientId);
+  client.gen++;
+  var myGen = client.gen;
+  swLog('  gen=' + myGen + ' closingClients size=' + closingClients.size + ' has=' + closingClients.has(event.clientId) + ' at ' + now());
 
   event.respondWith(
     (async function () {
@@ -172,9 +182,9 @@ self.addEventListener('fetch', function (event) {
       var streamStart = performance.now();
       var closed = false;
 
-      // Prueft ob ein NEUERER Stream gestartet ist (global)
       function isStale() {
-        return mySseGen !== globalSseGen;
+        var tc = trackedClients[event.clientId];
+        return !tc || tc.gen !== myGen;
       }
 
       function closeIfStale(controller) {
@@ -186,7 +196,7 @@ self.addEventListener('fetch', function (event) {
         return false;
       }
 
-      swLog('  STREAM START sseGen=' + mySseGen + ' at ' + now());
+      swLog('  STREAM START gen=' + myGen + ' at ' + now());
 
       var stream = new ReadableStream({
         pull: function (controller) {
@@ -205,7 +215,7 @@ self.addEventListener('fetch', function (event) {
             var readMs = (performance.now() - readStart).toFixed(1);
 
             if (isStale()) {
-              swLog('  SSE GEN CHANGED — stopping (was ' + mySseGen + ' now ' + globalSseGen + ') at ' + now());
+              swLog('  GEN CHANGED — stopping (was gen=' + myGen + ' now=' + (trackedClients[event.clientId] ? trackedClients[event.clientId].gen : '?') + ') at ' + now());
               if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
               try { reader.releaseLock(); } catch (_) {}
               return;
@@ -241,9 +251,15 @@ self.addEventListener('fetch', function (event) {
               eventsProcessed++;
 
               if (!info.hasBody) {
-                // id_only: NUR den Event-Header weiterleiten, KEIN Cache-Replay.
-                // Der Server entscheidet was replayt wird — nicht der SW.
-                controller.enqueue(encoder.encode(block + '\n\n'));
+                // id_only: versuche aus persistierendem Cache zu laden
+                var cached = memCache.get(info.id) || await getCache(info.id);
+                if (cached) {
+                  swLog('  EVENT#' + info.id + ' cache HIT (id_only) at ' + now());
+                  controller.enqueue(encoder.encode(cached + '\n\n'));
+                } else {
+                  swLog('  EVENT#' + info.id + ' cache MISS (id_only) at ' + now());
+                  controller.enqueue(encoder.encode(block + '\n\n'));
+                }
                 continue;
               }
 
@@ -252,12 +268,19 @@ self.addEventListener('fetch', function (event) {
                 swLog('  EVENT#' + info.id + ' dedup HIT (memory) at ' + now());
                 controller.enqueue(encoder.encode(existing));
               } else {
-                // "from server" — in memory + storage cachen
-                swLog('  EVENT#' + info.id + ' from server at ' + now());
-                var fullBlock = block + '\n\n';
-                memCache.set(info.id, fullBlock);
-                putCache(info.id, fullBlock);
-                controller.enqueue(encoder.encode(fullBlock));
+                // Vor "from server" Cache Storage checken
+                var cached = await getCache(info.id);
+                if (cached) {
+                  swLog('  EVENT#' + info.id + ' dedup HIT (storage) at ' + now());
+                  memCache.set(info.id, cached);
+                  controller.enqueue(encoder.encode(cached));
+                } else {
+                  swLog('  EVENT#' + info.id + ' from server at ' + now());
+                  var fullBlock = block + '\n\n';
+                  memCache.set(info.id, fullBlock);
+                  putCache(info.id, fullBlock);
+                  controller.enqueue(encoder.encode(fullBlock));
+                }
               }
             }
           })().catch(function (err) {
@@ -265,18 +288,24 @@ self.addEventListener('fetch', function (event) {
             if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
           });
         },
-        cancel: function (reason) {
+
+        cancel: function () {
+          swLog('  STREAM CANCEL gen=' + myGen + ' lastVer=' + lastVer + ' at ' + now());
           closed = true;
-          swLog('  STREAM CANCEL sseGen=' + mySseGen + ' lastVer=' + lastVer + ' at ' + now());
-          if (mySseGen === globalSseGen) {
-            saveVer(lastVer);
-          }
+          // saveVer direkt aufrufen (event.waitUntil ist zu spät)
+          saveVer(lastVer);
+          reader.cancel().catch(function () {});
         }
       });
 
       return new Response(stream, {
-        headers: { 'Content-Type': 'text/event-stream' }
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
       });
-    })()
+    })().catch(function (err) {
+      swLog('  FETCH HANDLER ERROR:', err && err.message, 'at', now());
+      return new Response('', { status: 204 });
+    })
   );
 });
