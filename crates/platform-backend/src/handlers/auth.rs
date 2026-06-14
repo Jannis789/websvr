@@ -29,8 +29,22 @@ static EMAIL_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new
 struct LoginPayload {
     email: Option<String>,
     password: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_bool_lenient")]
     remember_me: bool,
+}
+
+/// Accept "" (empty string) as false for bool fields — Datastar-Signale
+/// sind initial "" (Signal-Laziness) und wuerden sonst den Login brechen.
+fn deserialize_bool_lenient<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match serde_json::Value::deserialize(deserializer)? {
+        serde_json::Value::Bool(b) => Ok(b),
+        serde_json::Value::String(s) => Ok(!s.is_empty() && s != "false" && s != "0"),
+        serde_json::Value::Number(n) => Ok(n.as_f64().map_or(false, |f| f != 0.0)),
+        _ => Ok(false),
+    }
 }
 
 #[derive(Debug, Deserialize)]
