@@ -86,12 +86,10 @@ pub async fn test_stats(State(_state): State<SharedState>, req: Request) -> Resp
     let ctx = extract_context(&req);
     let cached = ctx.event_emitter.cached_count();
     let ver = ctx.event_emitter.current_ver();
-    let epoch = ctx.event_emitter.epoch();
 
     let json = serde_json::json!({
         "cached_count": cached,
         "current_ver": ver,
-        "epoch": epoch,
     });
 
     Response::builder()

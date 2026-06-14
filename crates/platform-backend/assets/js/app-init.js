@@ -1,6 +1,12 @@
 // App-Initialisierung: Service Worker + SSE (sofort, kein Warten auf SW)
 import { actions } from '/assets/js/datastar.js';
 
+function now() {
+  return performance.now().toFixed(1);
+}
+
+console.log('[init] app-init.js loaded at ' + now());
+
 // ── Service Worker (asynchron, blockiert nichts) ──
 // Scope: NICHT auf /sse einschränken — Firefox interpretiert Scope inkonsistent.
 // Der fetch-Handler in sw.js filtert sowieso nur /sse-Pfade (Line 84).
@@ -14,18 +20,23 @@ if ('serviceWorker' in navigator) {
     }
   });
 
-  console.log('[init] registering SW /sw2.js ...');
+  console.log('[init] registering SW /sw2.js at ' + now());
 
+  var regStart = performance.now();
   navigator.serviceWorker.register('/sw2.js', {
     updateViaCache: 'none',
   }).then(function (reg) {
+    var regMs = (performance.now() - regStart).toFixed(1);
     var state = reg.active ? 'active' : reg.installing ? 'installing' : 'waiting';
-    console.log('[init] SW registered, state: ' + state +
-      ' | controller: ' + (navigator.serviceWorker.controller ? 'YES' : 'NO') +
-      ' | waiting: ' + (reg.waiting ? 'YES' : 'NO'));
+    console.log('[init] SW registered in ' + regMs + 'ms state=' + state +
+      ' controller=' + (navigator.serviceWorker.controller ? 'YES' : 'NO') +
+      ' waiting=' + (reg.waiting ? 'YES' : 'NO') +
+      ' at ' + now());
   }).catch(function (err) {
-    console.error('[init] SW registration failed:', err);
+    console.error('[init] SW registration failed at ' + now() + ':', err && err.message);
   });
+} else {
+  console.log('[init] ServiceWorker NOT supported');
 }
 
 // ── SSE sofort starten ──
@@ -35,33 +46,40 @@ if ('serviceWorker' in navigator) {
 // Der erste Stream läuft direkt zum Server — völlig in Ordnung.
 
 console.log('[init] starting SSE (SW controlled: ' +
-  (navigator.serviceWorker && navigator.serviceWorker.controller ? 'YES' : 'NO') + ')');
+  (navigator.serviceWorker && navigator.serviceWorker.controller ? 'YES' : 'NO') + ') at ' + now());
 
 (function initSse() {
   var sseEl = document.createElement('div');
   sseEl.hidden = true;
   document.body.appendChild(sseEl);
 
-  actions.post({ el: sseEl }, '/sse').catch(function (err) {
-    console.warn('[init] SSE POST /sse failed:', err);
+  console.log('[init] SSE POST /sse at ' + now());
+  var sseStart = performance.now();
+  actions.post({ el: sseEl }, '/sse').then(function () {
+    console.log('[init] SSE POST resolved at ' + now() + ' (took ' + (performance.now() - sseStart).toFixed(1) + 'ms)');
+  }).catch(function (err) {
+    console.log('[init] SSE POST rejected at ' + now() + ' (took ' + (performance.now() - sseStart).toFixed(1) + 'ms):', err && err.message);
   });
 })();
 
 // ── Page-Lifecycle ──
 
-// beforeunload: SW zwingen, den inneren fetch zum Server abzubrechen.
-// Ohne expliziten Abbruch bleibt die alte Server-Verbindung offen
-// (tee() propagiert den Tab-Tod nicht zuverlässig durch Chromium).
-// Der Server blockiert dann die neue SSE-Verbindung → "pending".
-window.addEventListener('beforeunload', function () {
+var lifecycleLog = function (event, data) {
+  console.log('[init] lifecycle: ' + event + (data ? ' ' + data : '') + ' at ' + now());
   if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: 'sse-close' });
+    console.log('[init]  → posting message type=' + (data || event));
+    navigator.serviceWorker.controller.postMessage({ type: data || event });
+  } else {
+    console.log('[init]  → NO controller to postMessage');
   }
+};
+
+window.addEventListener('beforeunload', function () {
+  lifecycleLog('beforeunload');
 });
 
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) {
-    navigator.serviceWorker && navigator.serviceWorker.controller &&
-      navigator.serviceWorker.controller.postMessage({ type: 'sse-close' });
+    lifecycleLog('visibilitychange', 'sse-close');
   }
 });

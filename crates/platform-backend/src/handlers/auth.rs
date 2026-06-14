@@ -2,12 +2,16 @@ use crate::context::SharedState;
 use crate::elog;
 use crate::entities::users;
 use crate::utils::request::extract_context;
-use crate::utils::response::{empty_response, Response};
+use crate::utils::response::{empty_response, sse_response, Response};
 use platform_core::PasswordUtil;
 use platform_core::Config;
 use rama::http::service::web::extract::State;
 use rama::http::{header, Request, StatusCode};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::ActiveModelTrait;
+use sea_orm::ColumnTrait;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use sea_orm::Set;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -25,6 +29,8 @@ static EMAIL_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new
 struct LoginPayload {
     email: Option<String>,
     password: Option<String>,
+    #[serde(default)]
+    remember_me: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,29 +62,32 @@ async fn read_body_limited(req: Request) -> Option<Vec<u8>> {
     }
 }
 
-/// Push error signals into the SSE broadcaster, return 200 OK.
-/// Events arrive through the persistent /sse stream.
+/// Push error signals into the SSE broadcaster AND return SSE response for @post.
 fn emit_error(ctx: &crate::context::ClientContext, field: &str, message: impl AsRef<str>) -> Response {
     let msg = message.as_ref();
     let signals = json!({ "errors": { field: msg }, "submitting": false, "success": false });
     let signals_json = serde_json::to_string(&signals).unwrap();
     ctx.event_emitter.emit_signal_volatile(&signals_json);
-    empty_response(StatusCode::OK)
+    sse_response(&[])
 }
 
-/// Push success signals + redirect script into the broadcaster, return 200 OK.
-/// Events arrive through the persistent /sse stream.
+/// Push success signals + redirect script into broadcaster AND return SSE response for @post.
 fn emit_success(ctx: &crate::context::ClientContext, redirect_url: &str) -> Response {
     // Layer hat page_gen bereits inkrementiert — kein manuelles clear nötig.
 
     let signals = json!({ "errors": "", "success": true });
     let signals_json = serde_json::to_string(&signals).unwrap();
-    ctx.event_emitter.emit_signal_volatile(&signals_json);
-    ctx.event_emitter.try_emit_script_volatile(&format!(
+
+    let mut events = Vec::new();
+    events.push(ctx.event_emitter.emit_signal(&signals_json));
+    if let Some(event) = ctx.event_emitter.try_emit_script(&format!(
         "setTimeout(() => {{ window.location.href = '{}'; }}, 1200);",
         redirect_url
-    ));
-    empty_response(StatusCode::OK)
+    )) {
+        events.push(event);
+    }
+
+    sse_response(&events)
 }
 
 /// POST /login — authenticate user via email + password.
@@ -176,10 +185,52 @@ pub async fn login(State(state): State<SharedState>, req: Request) -> Response {
     }
 
     // Mark session as authenticated
-    {
+    let persist_data = {
         let mut session = ctx.session_storage.lock().await;
-        session.set_volatile("authenticated", serde_json::Value::Bool(true));
-        session.set_volatile("user_id", serde_json::Value::Number(user.id.into()));
+        if form.remember_me {
+            session.set_persistent("authenticated", serde_json::Value::Bool(true));
+            session.set_persistent("user_id", serde_json::Value::Number(user.id.into()));
+            session.persistent_data()
+        } else {
+            session.set_volatile("authenticated", serde_json::Value::Bool(true));
+            session.set_volatile("user_id", serde_json::Value::Number(user.id.into()));
+            serde_json::Value::Null
+        }
+    };
+
+    // Remember-me: in sessions-Tabelle persistieren
+    if form.remember_me {
+        use chrono::Utc;
+        use sea_orm::ActiveModelTrait;
+        use sea_orm::Set;
+
+        use crate::entities::sessions;
+
+        let cid_str = ctx.client_id.to_string();
+        let expires: chrono::DateTime<chrono::FixedOffset> = Utc::now()
+            .checked_add_signed(chrono::TimeDelta::try_days(30).unwrap())
+            .unwrap()
+            .into();
+
+        // Upsert: existing session loeschen, neue einfuegen
+        let _ = sessions::Entity::delete_many()
+            .filter(sessions::Column::ClientId.eq(&cid_str))
+            .exec(&state.db)
+            .await;
+
+        sessions::ActiveModel {
+            id: Set(uuid::Uuid::new_v4().to_string()),
+            user_id: Set(user.id),
+            client_id: Set(cid_str),
+            data: Set(persist_data),
+            expires_at: Set(expires),
+            created_at: Set(Utc::now().into()),
+        }
+        .insert(&state.db)
+        .await
+        .ok();
+
+        elog!(Info, "Remember-me session saved for user_id={}", user.id);
     }
     elog!(
         Info,
@@ -317,9 +368,31 @@ pub async fn logout(State(_state): State<SharedState>, req: Request) -> Response
 
     // Push redirect script into broadcaster
     ctx.event_emitter
-        .try_emit_script_volatile("setTimeout(() => { window.location.href = '/login'; }, 500);");
+        .try_emit_script("setTimeout(() => { window.location.href = '/login'; }, 500);");
 
     let mut resp = empty_response(StatusCode::OK);
+    let clear_cookie = format!(
+        "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+        platform_core::client_id::CLIENT_ID_COOKIE
+    );
+    resp.headers_mut()
+        .insert(header::SET_COOKIE, clear_cookie.parse().unwrap());
+    resp
+}
+
+/// GET /logout — direct logout via browser navigation.
+/// Clears session and redirects to /login via HTTP 303.
+pub async fn logout_get(State(_state): State<SharedState>, req: Request) -> Response {
+    let ctx = extract_context(&req);
+
+    // Clear session
+    {
+        let mut session = ctx.session_storage.lock().await;
+        session.set_volatile("authenticated", serde_json::Value::Null);
+        session.set_volatile("user_id", serde_json::Value::Null);
+    }
+
+    let mut resp = crate::utils::response::redirect("/login");
     let clear_cookie = format!(
         "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
         platform_core::client_id::CLIENT_ID_COOKIE

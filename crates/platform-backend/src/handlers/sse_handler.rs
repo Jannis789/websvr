@@ -4,10 +4,10 @@ use crate::context::SharedState;
 use crate::utils::request::extract_context;
 use rama::http::service::web::extract::State;
 use rama::http::service::web::response::{IntoResponse, Sse};
-use rama::http::sse::server::KeepAlive;
 use rama::http::body::sse::datastar::EventData;
 use rama::http::sse::{Event, EventBuildError};
-use rama::http::{Request, Response};
+use rama::http::{BodyExtractExt, Request, Response};
+use serde::Deserialize;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
@@ -22,27 +22,39 @@ fn query_u64(req: &Request, key: &str) -> u64 {
         .unwrap_or(0)
 }
 
+#[derive(Deserialize, Default)]
+struct SseInit {
+    #[serde(default)]
+    seen: u64,
+}
+
 fn id_only_event(ver: u64) -> Result<Event<EventData>, EventBuildError> {
     Event::<EventData>::new().try_with_id(ver.to_string())
 }
 
-/// GET /sse — SSE endpoint mit Cache-Replay.
+/// GET /sse und POST /sse — SSE endpoint mit Cache-Replay.
 pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
-    let client_ver = query_u64(&req, "v");
-    let client_epoch = query_u64(&req, "e");
+    let is_post = req.method() == "POST";
     let client_gen = query_u64(&req, "g");
-    let server_epoch = ctx.event_emitter.epoch();
+
+    let client_ver = if is_post {
+        let (_, body) = req.into_parts();
+        body.try_into_json::<SseInit>().await.unwrap_or_default().seen
+    } else {
+        query_u64(&req, "v")
+    };
 
     elog!(
-        Debug,
-        "SSE → connected (client_id={}, v={}, e={})",
+        Info,
+        "SSE → connect client_id={} method={} v={} g={}",
         ctx.client_id,
+        if is_post { "POST" } else { "GET" },
         client_ver,
-        client_epoch
+        client_gen,
     );
 
-    let (rx, plan) = ctx.event_emitter.connect(client_ver, client_epoch, client_gen);
+    let (rx, plan) = ctx.event_emitter.connect(client_ver, client_gen);
     let (id_only, full) = plan.into_parts();
 
     // Phase 1+2: id_only + full replay
@@ -67,10 +79,15 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
 
     // Phase 3: Live-Events via mpsc
     let live_stream = UnboundedReceiverStream::new(rx).filter_map(|event| {
+        let ver = event.ver();
+        elog!(Info, "SSE → live event ver={} arriving", ver);
         match event.to_sse_event_with_id() {
-            Ok(sse_event) => Some(Ok(sse_event)),
+            Ok(sse_event) => {
+                elog!(Info, "SSE → live event ver={} SERIALIZED OK", ver);
+                Some(Ok::<_, EventBuildError>(sse_event))
+            }
             Err(e) => {
-                elog!(Error, "SSE → serialization failed: {}", e);
+                elog!(Error, "SSE → live event ver={} serialization failed: {}", ver, e);
                 None
             }
         }
@@ -78,14 +95,9 @@ pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Re
 
     let stream = replay_stream.chain(live_stream);
 
-    let mut response = Sse::new(stream).with_keep_alive(KeepAlive::new()).into_response();
+    let response = Sse::new(stream).into_response();
 
-    if let Ok(val) = server_epoch.to_string().parse() {
-        response.headers_mut().insert("x-sse-epoch", val);
-    }
-    if let Ok(val) = ctx.event_emitter.current_gen().to_string().parse() {
-        response.headers_mut().insert("x-sse-gen", val);
-    }
+    elog!(Info, "SSE → response built for client_id={}", ctx.client_id);
 
     response
 }

@@ -38,20 +38,18 @@ pub struct EventEmitter {
     page_gen: Arc<AtomicU64>,
     senders: Arc<Mutex<Vec<UnboundedSender<BufferedEvent>>>>,
     next_ver: Arc<AtomicU64>,
-    epoch: u64,
 }
 
 const MAX_CACHE: usize = 200;
 
 impl EventEmitter {
-    pub fn new(epoch: u64) -> Self {
+    pub fn new() -> Self {
         Self {
             cache: Arc::new(Mutex::new(Vec::new())),
             page_start: Arc::new(AtomicUsize::new(0)),
             page_gen: Arc::new(AtomicU64::new(1)),
             senders: Arc::new(Mutex::new(Vec::new())),
             next_ver: Arc::new(AtomicU64::new(1)),
-            epoch,
         }
     }
 
@@ -75,7 +73,12 @@ impl EventEmitter {
     /// Wird via `x-sse-gen` Header an den SW übermittelt.
     pub fn next_page(&self) -> u64 {
         let new_gen = self.page_gen.fetch_add(1, Ordering::SeqCst) + 1;
-        self.page_start.store(0, Ordering::SeqCst);
+        // page_start auf cache.len() setzen = alle bisherigen Events werden
+        // beim nächsten Replay übersprungen. Nur Events die NACH der Navigation
+        // in den Cache kommen (via emit_element/emit_signal) landen nach diesem
+        // Index und werden beim nächsten SSE-Connect replayt.
+        let cache_len = Self::recover_lock(self.cache.lock()).len();
+        self.page_start.store(cache_len, Ordering::SeqCst);
         new_gen
     }
 
@@ -90,6 +93,7 @@ impl EventEmitter {
         let cache = Self::recover_lock(self.cache.lock());
         for entry in cache.iter() {
             if entry.content_eq(candidate) {
+                elog!(Info, "dedup HIT ver={}", entry.ver());
                 return Some(entry.clone());
             }
         }
@@ -114,6 +118,7 @@ impl EventEmitter {
     fn send_live(&self, event: BufferedEvent) -> bool {
         let mut senders = Self::recover_lock(self.senders.lock());
         let mut any_received = false;
+        let sender_count = senders.len();
         senders.retain(|tx| {
             if tx.send(event.clone()).is_ok() {
                 any_received = true;
@@ -123,10 +128,12 @@ impl EventEmitter {
             }
         });
         if !any_received {
+            elog!(Info, "send_live ver={}: no live sender (had {}), falling back to cache", event.ver(), sender_count);
             drop(senders);
             self.push_cache(event);
             true
         } else {
+            elog!(Debug, "send_live ver={}: delivered to {} live senders", event.ver(), sender_count);
             false
         }
     }
@@ -237,11 +244,10 @@ impl EventEmitter {
     ///
     /// Filtert NUR Events ab `page_start` (gesetzt vom Layer via `next_page()`).
     /// `page_start` wird hier NICHT verändert — nur der Layer setzt es.
-    /// Innerhalb des Fensters [page_start, cache.len()]: `ver`/`epoch`-basiert.
+    /// Innerhalb des Fensters [page_start, cache.len()]: `ver`-basiert.
     pub fn connect(
         &self,
         client_ver: u64,
-        client_epoch: u64,
         client_gen: u64,
     ) -> (UnboundedReceiver<BufferedEvent>, ReplayPlan) {
         let (tx, rx) = mpsc::unbounded_channel();
@@ -269,7 +275,6 @@ impl EventEmitter {
 
         let cache = Self::recover_lock(self.cache.lock());
         let start = self.page_start.load(Ordering::SeqCst);
-        let epoch_match = client_epoch == 0 || client_epoch == self.epoch;
 
         let mut id_only = Vec::new();
         let mut full = Vec::new();
@@ -278,7 +283,7 @@ impl EventEmitter {
             if i < start {
                 continue; // Events vorheriger Pages — nie replayen
             }
-            if !epoch_match || event.ver() > client_ver {
+            if event.ver() > client_ver {
                 full.push(event.clone());
             } else {
                 id_only.push(event.ver());
@@ -306,21 +311,19 @@ impl EventEmitter {
         if !id_only.is_empty() || !full.is_empty() {
             elog!(
                 Info,
-                "SSE → replay plan (start={}): {} id_only, {} full (client_ver={}, epoch_match={})",
+                "SSE → replay plan (start={}): {} id_only, {} full (client_ver={})",
                 start,
                 id_only.len(),
                 full.len(),
                 client_ver,
-                epoch_match
             );
         } else {
             elog!(
                 Debug,
-                "SSE → replay plan empty (start={}, cache_len={}, client_ver={}, epoch_match={})",
+                "SSE → replay plan empty (start={}, cache_len={}, client_ver={})",
                 start,
                 cache_len,
                 client_ver,
-                epoch_match
             );
         }
 
@@ -333,9 +336,5 @@ impl EventEmitter {
 
     pub fn current_ver(&self) -> u64 {
         self.next_ver.load(Ordering::SeqCst)
-    }
-
-    pub fn epoch(&self) -> u64 {
-        self.epoch
     }
 }

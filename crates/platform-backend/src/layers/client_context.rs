@@ -1,4 +1,5 @@
 use crate::elog;
+use crate::entities;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak};
@@ -13,6 +14,10 @@ use rama::http::header;
 use rama::http::response::Response;
 use rama::http::Request;
 use rama::service::Service;
+use sea_orm::ColumnTrait;
+use sea_orm::DatabaseConnection;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
 use std::convert::Infallible;
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -88,20 +93,49 @@ impl SseCleanupHandle {
 /// Single service managing per-client state (session + emitter) in ONE HashMap.
 ///
 /// Kein globaler SseBroadcaster mehr — Events gehen per mpsc direkt zum Client.
+/// Lädt persistente Session-Daten aus der sessions-Tabelle beim ersten Connect.
 #[derive(Debug, Clone)]
 pub struct ClientContextService<S> {
     inner: S,
     clients: Arc<Mutex<HashMap<ClientId, ClientState>>>,
-    server_epoch: u64,
+    db: DatabaseConnection,
 }
 
 impl<S> ClientContextService<S> {
-    pub fn new(inner: S, server_epoch: u64) -> Self {
+    pub fn new(inner: S, db: DatabaseConnection) -> Self {
         Self {
             inner,
             clients: Arc::new(Mutex::new(HashMap::new())),
-            server_epoch,
+            db,
         }
+    }
+}
+
+/// Lade persistente Session-Daten aus der sessions-Tabelle (async).
+async fn load_persisted_session(
+    client_id: ClientId,
+    db: &DatabaseConnection,
+) -> SessionStorage {
+    let cid_str = client_id.to_string();
+    match entities::sessions::Entity::find()
+        .filter(entities::sessions::Column::ClientId.eq(&cid_str))
+        .one(db)
+        .await
+    {
+        Ok(Some(row)) => {
+            if row.expires_at > chrono::Utc::now() {
+                elog!(Info, "Session → loaded persistent data for client {}", cid_str);
+                SessionStorage::from_persisted(client_id, row.data)
+            } else {
+                elog!(Debug, "Session → expired for client {}, cleaning up", cid_str);
+                let _ = entities::sessions::Entity::delete_many()
+                    .filter(entities::sessions::Column::ClientId.eq(&cid_str))
+                    .exec(db)
+                    .await;
+                SessionStorage::new(client_id)
+            }
+        }
+        _ => SessionStorage::new(client_id),
     }
 }
 
@@ -128,6 +162,9 @@ where
 
         let is_sse = req.uri().path() == "/sse";
 
+        // Persistente Session vor dem Lock laden (async DB)
+        let persisted_session = load_persisted_session(client_id, &self.db).await;
+
         // Ein HashMap-Lookup — session + emitter + cleanup handle
         let (session, emitter, cleanup_handle) = {
             let mut clients = match self.clients.lock() {
@@ -135,10 +172,16 @@ where
                 Err(poisoned) => poisoned.into_inner(),
             };
             let state = clients.entry(client_id).or_insert_with(|| {
-                elog!(Debug, "ClientState → new for {}", client_id);
+                let has_persisted = persisted_session.get("authenticated").is_some();
+                elog!(
+                    Debug,
+                    "ClientState → new for {} (persisted={})",
+                    client_id,
+                    has_persisted
+                );
                 ClientState {
-                    session: Arc::new(AsyncMutex::new(SessionStorage::new(client_id))),
-                    emitter: EventEmitter::new(self.server_epoch),
+                    session: Arc::new(AsyncMutex::new(persisted_session)),
+                    emitter: EventEmitter::new(),
                     last_active: Instant::now(),
                     sse_gen: AtomicU64::new(0),
                 }
@@ -152,14 +195,9 @@ where
             (state.session.clone(), state.emitter.clone(), handle)
         };
 
-        // Page-Generation für SW-Stale-Erkennung.
-        // Nur für Full-Page-Requests — NICHT für In-Page-Nav (/home/overview etc.).
-        // /sse ist ebenfalls ausgeschlossen.
-        let is_in_page_nav = matches!(
-            req.uri().path(),
-            "/home/overview" | "/home/movies" | "/home/series"
-        );
-        if !is_sse && !is_in_page_nav {
+        // Page-Generation — jeder nicht-/sse Request triggert next_page().
+        // Keine Sonderlogik für Methoden oder Pfade.
+        if !is_sse {
             emitter.next_page();
         }
 

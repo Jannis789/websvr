@@ -22,7 +22,7 @@ impl ClientContext {
     pub fn new(client_id: ClientId) -> Self {
         Self {
             session_storage: Arc::new(Mutex::new(SessionStorage::new(client_id))),
-            event_emitter: crate::sse::EventEmitter::new(0),
+            event_emitter: crate::sse::EventEmitter::new(),
             client_id,
             lang: Lang::En,
             cleanup_handle: None,
@@ -35,7 +35,7 @@ impl ClientContext {
         Self {
             client_id,
             session_storage: session,
-            event_emitter: crate::sse::EventEmitter::new(0),
+            event_emitter: crate::sse::EventEmitter::new(),
             lang: Lang::En,
             cleanup_handle: None,
         }

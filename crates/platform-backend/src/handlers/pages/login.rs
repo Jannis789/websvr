@@ -15,6 +15,7 @@ const I18N_KEYS: &[&str] = [
     "login_email",
     "login_password",
     "login_submit",
+    "login_remember",
     "login_create_account",
 ]
 .as_slice();

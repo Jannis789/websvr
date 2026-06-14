@@ -1,357 +1,311 @@
-// Service Worker — SSE Caching via Cache Storage API + ReadableStream  
-// beforeunload: via postMessage({ type: 'sse-close' }) vom Client  
-  
-function swLog(...args) {  
-  console.log('[sw]', ...args);  
-}  
-  
-swLog('loaded');  
-  
-self.addEventListener('install', () => {  
-  swLog('install');  
-  self.skipWaiting();  
-});  
-  
-self.addEventListener('activate', () => {  
-  swLog('activate');  
-  self.clients.claim();  
-});  
-  
-// ── Client-State ──  
-  
-const clients = new Map();  
-const closingClients = new Set(); // clientIds die gerade schließen  
-const MAX_CACHE_SIZE = 5000;  
-const pendingRestore = new Map();  
-const CACHE_NAME = 'sse-cache-v1';  
-  
-// ── postMessage Handler (beforeunload) ──  
-  
-self.addEventListener('message', (event) => {  
-  if (event.data?.type === 'sse-close') {  
-    const clientId = event.source?.id;  
-    if (clientId) {  
-      swLog('sse-close from client:', clientId.slice(0, 8));  
-      closingClients.add(clientId);  
-      // Automatisch nach 10s entfernen (Fallback)  
-      setTimeout(() => closingClients.delete(clientId), 10000);  
-    }  
-  }  
-});  
-  
-// ── Cache Storage API (persistent) ──  
-  
-async function clearPersistentCache() {  
-  try {  
-    const cache = await caches.open(CACHE_NAME);  
-    const keys = await cache.keys();  
-    let count = 0;  
-    for (const req of keys) {  
-      const path = req.url.split('/').pop();  
-      if (path === '_ver' || path === '_epoch') continue;  
-      await cache.delete(req);  
-      count++;  
-    }  
-    if (count > 0) swLog('  persistent cache cleared (', count, 'events)');  
-  } catch (e) {  
-    swLog('CACHE CLEAR ERROR:', e.message);  
-  }  
-}  
-  
-async function storeEvent(ver, data) {  
-  try {  
-    const cache = await caches.open(CACHE_NAME);  
-    await cache.put('/' + ver, new Response(data));  
-  } catch (e) {  
-    swLog('CACHE PUT ERROR:', e.message);  
-  }  
-}  
-  
-async function storeMeta(ver, epoch) {  
-  try {  
-    const cache = await caches.open(CACHE_NAME);  
-    await cache.put('/_ver', new Response(String(ver)));  
-    if (epoch !== null) await cache.put('/_epoch', new Response(String(epoch)));  
-  } catch (e) {  
-    swLog('META ERROR:', e.message);  
-  }  
-}  
-  
-async function restoreCache(targetMap) {  
-  try {  
-    const cache = await caches.open(CACHE_NAME);  
-    const keys = await cache.keys();  
-    let count = 0;  
-    for (const req of keys) {  
-      const path = req.url.split('/').pop();  
-      if (path === '_ver' || path === '_epoch') continue;  
-      const resp = await cache.match(req);  
-      if (resp) {  
-        targetMap.set(parseInt(path, 10), await resp.text());  
-        count++;  
-      }  
-    }  
-    return count;  
-  } catch (e) {  
-    swLog('RESTORE ERROR:', e.message);  
-    return 0;  
-  }  
-}  
-  
-async function restoreMeta() {  
-  try {  
-    const cache = await caches.open(CACHE_NAME);  
-    const [verResp, epochResp] = await Promise.all([  
-      cache.match('/_ver'),  
-      cache.match('/_epoch'),  
-    ]);  
-    return {  
-      ver: verResp ? parseInt(await verResp.text(), 10) || 0 : 0,  
-      epoch: epochResp ? parseInt(await epochResp.text(), 10) || null : null,  
-    };  
-  } catch {  
-    return { ver: 0, epoch: null };  
-  }  
-}  
-  
-function evictIfNeeded(cache) {  
-  while (cache.size > MAX_CACHE_SIZE) {  
-    const k = cache.keys().next().value;  
-    cache.delete(k);  
-  }  
-}  
-  
-async function getClient(id) {  
-  let c = clients.get(id);  
-  if (!c) {  
-    swLog('NEW CLIENT', id.slice(0, 8));  
-    c = { cache: new Map(), ver: 0, epoch: null, gen: 0 };  
-    clients.set(id, c);  
-    pendingRestore.set(id, (async () => {  
-      const [n, meta] = await Promise.all([restoreCache(c.cache), restoreMeta()]);  
-      if (n > 0) swLog('  loaded', n, 'events from cache storage');  
-      if (meta.ver > 0 || meta.epoch !== null) {  
-        c.ver = meta.ver;  
-        c.epoch = meta.epoch;  
-        swLog('  restored meta: ver=', meta.ver, 'epoch=', meta.epoch);  
-      }  
-    })());  
-  }  
-  const p = pendingRestore.get(id);  
-  if (p) { await p; pendingRestore.delete(id); }  
-  return c;  
-}  
-  
-// ── ReadableStream-Wrapper ──  
-  
-function wrapStream(body, clientId, gen) {  
-  const reader = body.getReader();  
-  const decoder = new TextDecoder();  
-  let buffer = '';  
-  let totalChunks = 0;  
-  let active = true;  
-  
-  return new ReadableStream({  
-    pull(controller) {  
-      return reader.read().then(function (result) {  
-        try {  
-          const client = clients.get(clientId);  
-  
-          if (!client || client.gen !== gen) {  
-            if (active) { active = false; try { controller.close(); } catch (e2) {} }  
-            try { reader.releaseLock(); } catch (e) {}  
-            return;  
-          }  
-  
-          if (result.done) {  
-            if (buffer.trim()) {  
-              const norm = buffer.replace(/\r\n/g, '\n');  
-              const out = processChunk(norm, client);  
-              if (out) controller.enqueue(new TextEncoder().encode(out));  
-            }  
-            storeMeta(client.ver, client.epoch);  
-            swLog('STREAM DONE client:', clientId.slice(0, 8), 'chunks:', totalChunks, 'cached:', client.cache.size);  
-            if (active) { active = false; try { controller.close(); } catch (e2) {} }  
-            try { reader.releaseLock(); } catch (e) {}  
-            return;  
-          }  
-  
-          totalChunks++;  
-          const decoded = decoder.decode(result.value, { stream: true });  
-          buffer += decoded;  
-  
-          while (true) {  
-            const doubleNewlineIdx = buffer.indexOf('\n\n');  
-            if (doubleNewlineIdx !== -1) {  
-              const raw = buffer.slice(0, doubleNewlineIdx);  
-              buffer = buffer.slice(doubleNewlineIdx + 2);  
-              if (raw.trim()) {  
-                const norm = raw.replace(/\r\n/g, '\n');  
-                const out = processChunk(norm, client);  
-                if (out) controller.enqueue(new TextEncoder().encode(out));  
-              }  
-            } else {  
-              break;  
-            }  
-          }  
-        } catch (e) {  
-          swLog('WRAP ERROR:', e.message);  
-          if (active) { active = false; try { controller.close(); } catch (e2) {} }  
-          try { reader.releaseLock(); } catch (e2) {}  
-        }  
-      }).catch(function (e) {  
-        if (active) {  
-          swLog('STREAM ERROR:', e.message);  
-          const client = clients.get(clientId);  
-          storeMeta(client ? client.ver || 0 : 0, client ? client.epoch || null : null);  
-          active = false;  
-          try { reader.releaseLock(); } catch (e2) {}  
-          try { controller.close(); } catch (e2) {}  
-        }  
-      });  
-    },  
-    cancel: function () {  
-      if (active) {  
-        active = false;  
-        reader.cancel().catch(function () {});  
-      }  
-    }  
-  });  
-}  
-  
-// ── Event-Verarbeitung ──  
-  
-function processChunk(raw, client) {  
-  var output = [];  
-  var id = null;  
-  var hasData = false;  
-  var isScript = false;  
-  
-  var lines = raw.split('\n');  
-  for (var i = 0; i < lines.length; i++) {  
-    var line = lines[i];  
-    if (line.indexOf('id:') === 0) id = parseInt(line.slice(3).trim(), 10);  
-    if (line.indexOf('data:') === 0 || line.indexOf('event:') === 0) hasData = true;  
-  }  
-  
-  isScript = raw.indexOf('event: datastar-execute-script') !== -1;  
-  
-  if (id === null || isNaN(id)) return '';  
-  
-  if (id > client.ver) client.ver = id;  
-  
-  if (!hasData) {  
-    var cached = client.cache.get(id);  
-    if (cached) {  
-      swLog('from cache', id);  
-      output.push(cached);  
-    }  
-    return output.join('');  
-  }  
-  
-  if (isScript) {  
-    output.push(raw + '\n\n');  
-    return output.join('');  
-  }  
-  
-  var cached = client.cache.get(id);  
-  if (cached !== undefined) {  
-    swLog('from cache', id);  
-    output.push(cached);  
-  } else {  
-    swLog('from server', id);  
-    var data = raw + '\n\n';  
-    client.cache.set(id, data);  
-    storeEvent(id, data);  
-    evictIfNeeded(client.cache);  
-    output.push(data);  
-  }  
-  
-  return output.join('');  
-}  
-  
-// ── Fetch Intercept ──  
-  
-self.addEventListener('fetch', function (event) {  
-  try {  
-    var url = new URL(event.request.url);  
-    if (url.pathname !== '/sse') return;  
-  
-    // beforeunload via postMessage: Client schließt gerade → 204 zurückgeben  
-    if (closingClients.has(event.clientId)) {  
-      swLog('  closing client — returning 204');  
-      closingClients.delete(event.clientId);  
-      return event.respondWith(new Response(null, { status: 204 }));  
-    }  
-  
-    swLog('intercept /sse');  
-  
-    event.respondWith(  
-      (async function () {  
-        var client = await getClient(event.clientId);  
-  
-        var clientInfo;  
-        try { clientInfo = await self.clients.get(event.clientId); } catch (e) {}  
-        var currentUrl = clientInfo ? clientInfo.url : '';  
-  
-        if (!client.lastUrl) {  
-          swLog('first connect, url:', currentUrl.slice(0, 60));  
-        } else {  
-          swLog('reconnect, cache:', client.cache.size, 'ev, ver:', client.ver);  
-        }  
-        client.lastUrl = currentUrl;  
-  
-        client.gen++;  
-        swLog('  gen:', client.gen, 'cache:', client.cache.size, 'ver:', client.ver);  
-  
-        var cleanUrl = new URL(url.origin + url.pathname);  
-        var origParams = new URLSearchParams(url.search);  
-        for (const [k, v] of origParams) {  
-          cleanUrl.searchParams.set(k, v);  
-        }  
-        if (client.ver > 0) cleanUrl.searchParams.set('v', client.ver);  
-        if (client.epoch !== null) cleanUrl.searchParams.set('e', client.epoch);  
-        if (client.pageGen !== undefined && client.pageGen > 0) cleanUrl.searchParams.set('g', client.pageGen);  
-  
-        var response = await fetch(cleanUrl.toString(), {  
-          headers: event.request.headers,  
-          signal: event.request.signal,  
-        });  
-  
-        var newEpoch = response.headers.get('x-sse-epoch');  
-        if (newEpoch !== null) {  
-          var epoch = parseInt(newEpoch, 10);  
-          if (!isNaN(epoch)) {  
-            if (client.epoch !== null && client.epoch !== epoch) {  
-              swLog('epoch mismatch — cache cleared (in-memory + persistent)');  
-              client.cache.clear();  
-              client.ver = 0;  
-              clearPersistentCache();  
-            }  
-            client.epoch = epoch;  
-            storeMeta(client.ver, client.epoch);  
-          }  
-        }  
-  
-        var newGen = response.headers.get('x-sse-gen');  
-        if (newGen !== null) {  
-          var gen = parseInt(newGen, 10);  
-          if (!isNaN(gen)) client.pageGen = gen;  
-        }  
-  
-        if (!response.body) return response;  
-  
-        return new Response(wrapStream(response.body, event.clientId, client.gen), {  
-          status: response.status,  
-          statusText: response.statusText,  
-          headers: response.headers,  
-        });  
-      })().catch(function (err) {  
-        swLog('fetch error:', err.message);  
-        return new Response(null, { status: 503 });  
-      })  
-    );  
-  } catch (e) {  
-    swLog('exception:', e.message);  
-  }  
+// Service Worker — SSE Cache Proxy
+// Jeder Event checkt zuerst den In-Memory-Cache.
+// Wenn der Server (durch Dedup) dieselbe id: nochmal sendet,
+// wird aus dem Cache replaied. Cache Storage für Persistenz.
+
+function swLog() {
+  console.log('[sw]', ...arguments);
+}
+
+function now() {
+  return performance.now().toFixed(1);
+}
+
+swLog('loaded at ' + now());
+
+// ── Per-Client Tracked State ──
+// Gen: wird bei jedem /sse-intercept inkrementiert.
+// Alte Streams checken `client.gen != myGen` und stoppen.
+
+var trackedClients = {};
+
+function getTracked(id) {
+  var c = trackedClients[id];
+  if (!c) {
+    c = { gen: 0 };
+    trackedClients[id] = c;
+  }
+  return c;
+}
+
+// ── Closing-Clients (vor beforeunload-Race) ──
+var closingClients = new Set();
+
+self.addEventListener('message', function (event) {
+  var type = event.data && event.data.type;
+  var sourceId = (event.source && event.source.id) || 'none';
+  swLog('MSG type=' + type + ' source=' + sourceId.slice(0, 8) + ' at ' + now());
+  if (type === 'sse-close') {
+    if (event.source && event.source.id) {
+      var cid = event.source.id;
+      swLog('CLOSE ADD client=' + cid.slice(0, 8) + ' at ' + now());
+      closingClients.add(cid);
+      setTimeout(function () {
+        if (closingClients.has(cid)) {
+          swLog('CLOSE TIMEOUT remove client=' + cid.slice(0, 8) + ' at ' + now());
+          closingClients.delete(cid);
+        }
+      }, 10000);
+    }
+  }
+});
+
+self.addEventListener('install', () => {
+  swLog('install at ' + now());
+  self.skipWaiting();
+});
+self.addEventListener('activate', () => { swLog('activate at ' + now()); self.clients.claim(); });
+
+// ── Cache Storage (Persistenz für Reload) ──
+
+var cacheName = 'sse-v4';
+var storedBytes = 0;
+var maxBytes = null;
+
+async function ensureMaxBytes() {
+  if (maxBytes !== null) return;
+  var estimate = await navigator.storage.estimate();
+  maxBytes = Math.max(1024 * 1024, Math.floor((estimate.quota - estimate.usage) * 0.5));
+}
+
+async function putCache(id, raw) {
+  try {
+    var cache = await caches.open(cacheName);
+    await ensureMaxBytes();
+    await cache.put('/' + id, new Response(raw));
+    storedBytes += raw.length;
+    if (storedBytes <= maxBytes) return;
+    var keys = await cache.keys();
+    for (var i = 0; i < keys.length && storedBytes > maxBytes; i++) {
+      var name = keys[i].url.split('/').pop();
+      if (name === 'ver') continue;
+      var response = await cache.match(keys[i]);
+      if (response) storedBytes -= (await response.text()).length;
+      await cache.delete(keys[i]);
+    }
+  } catch (error) {
+    swLog('putCache error:', error && error.message);
+  }
+}
+
+async function getCache(id) {
+  try {
+    var response = await (await caches.open(cacheName)).match('/' + id);
+    return response ? await response.text() : null;
+  } catch (error) { swLog('getCache error for', id, ':', error && error.message); return null; }
+}
+
+async function saveVer(value) {
+  swLog('saveVer value=' + value + ' at ' + now());
+  try { await (await caches.open(cacheName)).put('/ver', new Response(String(value))); } catch (error) { swLog('saveVer error:', error && error.message); }
+}
+
+async function loadVer() {
+  try {
+    var response = await (await caches.open(cacheName)).match('/ver');
+    var ver = response ? (parseInt(await response.text(), 10) || 0) : 0;
+    swLog('loadVer=' + ver + ' at ' + now());
+    return ver;
+  } catch (error) { swLog('loadVer error:', error && error.message); return 0; }
+}
+
+// ── SSE-Parser ──
+
+function parseBlock(block) {
+  var idMatch = block.match(/id:\s*(\d+)/);
+  if (!idMatch) return null;
+  var id = parseInt(idMatch[1], 10);
+  if (isNaN(id)) return null;
+  return { id: id, hasBody: block.indexOf('\n') !== -1 };
+}
+
+// ── Fetch Intercept ──
+
+self.addEventListener('fetch', function (event) {
+  var url = new URL(event.request.url);
+  if (url.pathname !== '/sse') return;
+  if (event.request.signal.aborted) {
+    swLog('conn ABORTED client=' + (event.clientId ? event.clientId.slice(0, 8) : '?') + ' at ' + now());
+    return;
+  }
+
+  var cid = (event.clientId || '?').slice(0, 8);
+  swLog('conn start client=' + cid + ' at ' + now());
+
+  // closing client: 204 zurückgeben, keinen Server-Fetch machen
+  if (closingClients.has(event.clientId)) {
+    swLog('CLOSING CLIENT — 204 at ' + now());
+    closingClients.delete(event.clientId);
+    event.respondWith(new Response(null, { status: 204 }));
+    return;
+  }
+
+  var client = getTracked(event.clientId);
+  client.gen++;
+  var myGen = client.gen;
+  swLog('  gen=' + myGen + ' closingClients size=' + closingClients.size + ' has=' + closingClients.has(event.clientId) + ' at ' + now());
+
+  event.respondWith(
+    (async function () {
+      var ver = await loadVer();
+      swLog('  POST body seen=' + ver + ' at ' + now());
+
+      var headers = new Headers({ 'Content-Type': 'application/json' });
+      var fetchStart = performance.now();
+      var response = await fetch(url.origin + url.pathname, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ seen: ver }),
+        credentials: 'include'
+      });
+      var fetchMs = (performance.now() - fetchStart).toFixed(1);
+      swLog('  server response status=' + response.status + ' took=' + fetchMs + 'ms at ' + now());
+
+      if (!response.ok) {
+        swLog('  server NOT OK — returning ' + response.status + ' at ' + now());
+        return new Response(null, { status: response.status });
+      }
+      if (!response.body) {
+        swLog('  server NO BODY at ' + now());
+        return response;
+      }
+
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var encoder = new TextEncoder();
+      var buffer = '';
+      var memCache = new Map();
+      var lastVer = ver;
+      var totalBytes = 0;
+      var chunks = 0;
+      var eventsProcessed = 0;
+      var streamStart = performance.now();
+      var closed = false;
+
+      function isStale() {
+        var tc = trackedClients[event.clientId];
+        return !tc || tc.gen !== myGen;
+      }
+
+      function closeIfStale(controller) {
+        if (isStale()) {
+          if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
+          try { reader.releaseLock(); } catch (_) {}
+          return true;
+        }
+        return false;
+      }
+
+      swLog('  STREAM START gen=' + myGen + ' at ' + now());
+
+      var stream = new ReadableStream({
+        pull: function (controller) {
+          return (async function () {
+            if (closeIfStale(controller)) return;
+
+            var readStart = performance.now();
+            var result;
+            try {
+              result = await reader.read();
+            } catch (err) {
+              swLog('  READ ERROR:', err && err.message, 'at', now());
+              if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
+              return;
+            }
+            var readMs = (performance.now() - readStart).toFixed(1);
+
+            if (isStale()) {
+              swLog('  GEN CHANGED — stopping (was gen=' + myGen + ' now=' + (trackedClients[event.clientId] ? trackedClients[event.clientId].gen : '?') + ') at ' + now());
+              if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
+              try { reader.releaseLock(); } catch (_) {}
+              return;
+            }
+
+            if (result.done) {
+              swLog('  READ DONE at ' + now() + ' (chunks=' + chunks + ' totalBytes=' + totalBytes + ' events=' + eventsProcessed + ' ms=' + (performance.now() - streamStart).toFixed(1) + ' lastVer=' + lastVer + ')');
+              try { await saveVer(lastVer); } catch (_) {}
+              if (!closed) { closed = true; controller.close(); }
+              return;
+            }
+
+            chunks++;
+            totalBytes += result.value.length;
+            swLog('  READ chunk#' + chunks + ' size=' + result.value.length + 'B total=' + totalBytes + 'B took=' + readMs + 'ms at ' + now());
+
+            buffer += decoder.decode(result.value, { stream: true });
+
+            while (true) {
+              var i = buffer.indexOf('\n\n');
+              if (i === -1) break;
+              var block = buffer.slice(0, i);
+              buffer = buffer.slice(i + 2);
+              if (!block.trim()) continue;
+
+              var info = parseBlock(block);
+              if (!info) {
+                controller.enqueue(encoder.encode(block + '\n\n'));
+                continue;
+              }
+              if (info.id > lastVer) lastVer = info.id;
+
+              eventsProcessed++;
+
+              if (!info.hasBody) {
+                // id_only: versuche aus persistierendem Cache zu laden
+                var cached = memCache.get(info.id) || await getCache(info.id);
+                if (cached) {
+                  swLog('  EVENT#' + info.id + ' cache HIT (id_only) at ' + now());
+                  controller.enqueue(encoder.encode(cached + '\n\n'));
+                } else {
+                  swLog('  EVENT#' + info.id + ' cache MISS (id_only) at ' + now());
+                  controller.enqueue(encoder.encode(block + '\n\n'));
+                }
+                continue;
+              }
+
+              var existing = memCache.get(info.id);
+              if (existing) {
+                swLog('  EVENT#' + info.id + ' dedup HIT (memory) at ' + now());
+                controller.enqueue(encoder.encode(existing));
+              } else {
+                // Vor "from server" Cache Storage checken
+                var cached = await getCache(info.id);
+                if (cached) {
+                  swLog('  EVENT#' + info.id + ' dedup HIT (storage) at ' + now());
+                  memCache.set(info.id, cached);
+                  controller.enqueue(encoder.encode(cached));
+                } else {
+                  swLog('  EVENT#' + info.id + ' from server at ' + now());
+                  var fullBlock = block + '\n\n';
+                  memCache.set(info.id, fullBlock);
+                  putCache(info.id, fullBlock);
+                  controller.enqueue(encoder.encode(fullBlock));
+                }
+              }
+            }
+          })().catch(function (err) {
+            swLog('  PULL ERROR:', err && err.message, 'at', now());
+            if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
+          });
+        },
+
+        cancel: function () {
+          swLog('  STREAM CANCEL gen=' + myGen + ' lastVer=' + lastVer + ' at ' + now());
+          closed = true;
+          // saveVer direkt aufrufen (event.waitUntil ist zu spät)
+          saveVer(lastVer);
+          reader.cancel().catch(function () {});
+        }
+      });
+
+      return new Response(stream, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
+    })().catch(function (err) {
+      swLog('  FETCH HANDLER ERROR:', err && err.message, 'at', now());
+      return new Response('', { status: 204 });
+    })
+  );
 });

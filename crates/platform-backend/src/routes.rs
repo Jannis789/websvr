@@ -1,9 +1,7 @@
 use crate::elog;
-use rama::http::layer::compression::CompressionLayer;
 use rama::http::service::web::extract::State;
 use rama::http::service::web::Router;
 use rama::http::Request;
-use rama::Layer;
 
 use crate::context::SharedState;
 use crate::layers::{auth, session_stack};
@@ -16,7 +14,6 @@ pub async fn run() {
 
     let state = SharedState::init().await;
     let bind = format!("{}:{}", state.config.host, state.config.port);
-    let server_epoch = state.server_epoch;
 
     let app = Router::new_with_state(state.clone())
         // Static assets
@@ -62,9 +59,7 @@ pub async fn run() {
         .with_sub_service(
             "/",
             session_stack::session_layer(
-                server_epoch,
                 Router::new_with_state(state.clone())
-                    // Auth-required
                     .with_sub_service(
                         "/",
                         auth::require_auth(
@@ -77,8 +72,8 @@ pub async fn run() {
                                 .with_get("/settings/account", handlers::pages::get_settings_account),
                         ),
                     )
-                    // Session-only: no auth check
                     .with_get("/sse", handlers::sse_handler::sse_endpoint)
+                    .with_post("/sse", handlers::sse_handler::sse_endpoint)
                     .with_get("/login", handlers::pages::login_page)
                     .with_get("/register", handlers::pages::register_page)
                     .with_get("/test", handlers::test::test_page)
@@ -90,15 +85,16 @@ pub async fn run() {
                     .with_get("/i18n/{lang}.json", handlers::i18n_handler::i18n_json)
                     .with_post("/login", handlers::auth::login)
                     .with_post("/register", handlers::auth::register)
-                    .with_post("/logout", handlers::auth::logout),
+                    .with_post("/logout", handlers::auth::logout)
+                    .with_get("/logout", handlers::auth::logout_get),
+                state.db.clone(),
             ),
         );
 
     elog!(Info, "Rama Platform server listening on http://{bind}");
 
-    let service = CompressionLayer::new().layer(app);
     HttpServer::http1()
-        .listen(bind, service)
+        .listen(bind, app)
         .await
         .expect("failed to start HTTP server");
 }

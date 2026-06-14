@@ -8,7 +8,6 @@ pub struct SharedState {
     pub config: &'static Config,
     pub db: DatabaseConnection,
     pub i18n: I18n,
-    pub server_epoch: u64,
 }
 
 impl SharedState {
@@ -21,15 +20,10 @@ impl SharedState {
                 .expect("Failed to parse en.json"),
         );
         let db = crate::db::init(&config.database_url).await;
-        let server_epoch = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
         Self {
             config,
             db,
             i18n,
-            server_epoch,
         }
     }
 }

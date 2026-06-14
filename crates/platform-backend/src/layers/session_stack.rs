@@ -4,6 +4,7 @@ use rama::http::layer::validate_request::ValidateRequestHeaderLayer;
 use rama::http::service::web::Router;
 use rama::layer::layer_fn;
 use rama::Layer;
+use sea_orm::DatabaseConnection;
 
 use crate::context::SharedState;
 use crate::layers::client_context::{ClientContextService, CookieWasPresent};
@@ -12,8 +13,8 @@ use crate::utils;
 /// Build the layer stack:
 /// ClientId extraction → ClientContextService (session + emitter in einer HashMap).
 pub fn session_layer(
-    server_epoch: u64,
     inner: Router<SharedState>,
+    db: DatabaseConnection,
 ) -> impl rama::Service<rama::http::Request, Output = rama::http::Response, Error = std::convert::Infallible>
 {
     (
@@ -26,7 +27,7 @@ pub fn session_layer(
             req.extensions_mut().insert(CookieWasPresent(had_cookie));
             Ok(req)
         }),
-        layer_fn(|s| ClientContextService::new(s, server_epoch)),
+        layer_fn(move |s| ClientContextService::new(s, db.clone())),
     )
         .layer(inner)
 }

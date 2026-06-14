@@ -26,7 +26,7 @@
 
     <form
         class="auth-form"
-        data-on:submit="console.log('[login] submit event fired', Date.now(), new Error().stack);$errors='';$submitting=true;@post('/login')"
+        data-on:submit="console.log('[login] submit event fired', Date.now());$errors='';$submitting=true;@post('/login')"
     >
         <div class="input-stack">
             <div class="floating-group">

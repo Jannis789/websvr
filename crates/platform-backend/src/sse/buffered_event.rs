@@ -50,6 +50,4 @@ impl BufferedEvent {
             .try_into_sse_event()
             .and_then(|e| e.try_with_id(self.ver.to_string()))
     }
-
-
 }
