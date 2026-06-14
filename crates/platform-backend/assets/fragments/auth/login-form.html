@@ -28,44 +28,69 @@
         class="auth-form"
         data-on:submit="console.log('[login] submit event fired', Date.now(), new Error().stack);$errors='';$submitting=true;@post('/login')"
     >
-        <div class="form-group">
-            <label
-                for="email"
-                data-text="$login_email"
-            ></label>
-            <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                data-bind:email
-            />
-            <div
-                class="field-error"
-                data-show="$errors.email"
-                data-text="$errors.email"
-            >
+        <div class="input-stack">
+            <div class="floating-group">
+                <div class="input-wrapper">
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        data-bind:email
+                        placeholder=" "
+                    />
+                    <label
+                        for="email"
+                        data-text="$login_email"
+                    ></label>
+                </div>
+                <div
+                    class="field-error"
+                    data-show="$errors.email"
+                    data-text="$errors.email"
+                >
+                </div>
+            </div>
+            <div class="floating-group">
+                <div class="input-wrapper">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        data-bind:password
+                        placeholder=" "
+                    />
+                    <label
+                        for="password"
+                        data-text="$login_password"
+                    ></label>
+                </div>
+                <div
+                    class="field-error"
+                    data-show="$errors.password"
+                    data-text="$errors.password"
+                >
+                </div>
+            </div>
+            <div class="floating-group">
+                <div class="input-wrapper remember-wrapper">
+                    <label class="switch-label">
+                        <span data-text="$login_remember"></span>
+                        <div
+                            class="theme-switch remember-switch"
+                            data-on:click="$remember_me=!$remember_me"
+                        >
+                            <div
+                                class="slider"
+                                data-class:checked="$remember_me"
+                            ></div>
+                        </div>
+                    </label>
+                </div>
             </div>
         </div>
-        <div class="form-group">
-            <label
-                for="password"
-                data-text="$login_password"
-            ></label>
-            <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                data-bind:password
-            />
-            <div
-                class="field-error"
-                data-show="$errors.password"
-                data-text="$errors.password"
-            >
-            </div>
-        </div>
+
         <button
             type="submit"
             class="btn btn-primary auth-submit"

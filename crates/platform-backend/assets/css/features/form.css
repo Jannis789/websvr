@@ -5,68 +5,181 @@
     flex-direction: column;
 }
 
-.form-group {
-    margin-bottom: 18px;
+/* ── Connected Input Stack (GNOME Adwaita-Style) ── */
+
+.input-stack {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
 }
 
-.form-group label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: var(--fg-secondary);
+.input-stack .floating-group {
+    position: relative;
 }
 
-.form-group input {
+/* Input wrapper for positioning */
+.input-stack .input-wrapper {
+    position: relative;
+}
+
+.input-stack .input-wrapper input {
     width: 100%;
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
+    padding: 18px 14px 6px;
+    border: 2px solid var(--border-color);
     background-color: var(--bg-primary);
     color: var(--fg-primary);
     font-size: 0.95rem;
     font-family: inherit;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
     outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.form-group input:focus {
+/* First input — top radius */
+.input-stack .floating-group:first-child .input-wrapper input {
+    border-radius: 10px 10px 0 0;
+}
+
+/* Last real input — bottom radius */
+.input-stack .floating-group:has(.input-wrapper:not(.remember-wrapper)):last-child .input-wrapper input {
+    border-radius: 0 0 10px 10px;
+}
+
+/* Single input — full radius */
+.input-stack .floating-group:only-child .input-wrapper input {
+    border-radius: 10px;
+}
+
+/* Consecutive inputs overlap by 2px to appear seamless */
+.input-stack .floating-group + .floating-group .input-wrapper input {
+    margin-top: -2px;
+    border-top-color: var(--bg-card);
+}
+
+/* Focus: blue border with subtle glow, z-index to raise above neighbors */
+.input-stack .input-wrapper input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-bg);
+    position: relative;
+    z-index: 1;
 }
 
-.form-group input::placeholder {
+/* Focus overrides the card-colored top border */
+.input-stack .input-wrapper input:focus {
+    border-top-color: var(--accent);
+}
+
+/* ── Floating Labels (GNOME Adwaita Style) ── */
+
+.input-wrapper label {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.95rem;
+    z-index: 2;
     color: var(--fg-muted);
+    pointer-events: none;
+    transition: all 0.15s ease;
+    transform-origin: left center;
 }
 
-.form-footer {
-    text-align: center;
-    margin-top: 20px;
-    font-size: 0.85rem;
-    color: var(--fg-muted);
+/* Float up when input has content or is focused */
+.input-wrapper input:focus + label,
+.input-wrapper input:not(:placeholder-shown) + label {
+    top: 4px;
+    transform: translateY(0);
+    font-size: 0.65rem;
+    color: var(--fg-secondary);
 }
 
-.link {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 600;
+/* Hidden placeholder for :not(:placeholder-shown) detection */
+.input-wrapper input::placeholder {
+    color: transparent;
 }
 
-.link:hover {
-    text-decoration: underline;
+/* ── Remember-Me als Connected-Input ── */
+
+.input-stack .remember-wrapper {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    border: 2px solid var(--border-color);
+    background-color: var(--bg-primary);
 }
 
-/* Auth form button full width */
-.auth-form .btn {
+.input-stack .floating-group:last-child .remember-wrapper {
+    border-radius: 0 0 10px 10px;
+}
+
+.input-stack .floating-group + .floating-group .remember-wrapper {
+    margin-top: -2px;
+    border-top-color: var(--bg-card);
+}
+
+.input-stack .floating-group:only-child .remember-wrapper {
+    border-radius: 10px;
+}
+
+.input-stack .remember-wrapper .switch-label {
+    position: static;
+    transform: none;
+    top: auto;
+    left: auto;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    margin-top: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--fg-secondary);
 }
 
-/* ===== Field Errors (GNOME-style) ===== */
+.remember-switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.remember-switch .slider {
+    position: absolute;
+    inset: 0;
+    background-color: var(--switch-inactive-bg);
+    border-radius: 12px;
+    transition: background-color 0.25s ease;
+}
+
+.remember-switch .slider::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--switch-icon-color);
+    left: 3px;
+    top: 3px;
+    transition: transform 0.25s ease, background-color 0.25s ease;
+}
+
+.remember-switch .slider.checked {
+    background-color: var(--accent);
+}
+
+.remember-switch .slider.checked::after {
+    transform: translateX(18px);
+    background-color: #fff;
+}
+
+/* ── Field Errors ── */
 
 .field-error {
     display: none;
     margin-top: 6px;
+    margin-bottom: 4px;
     padding: 6px 10px;
     border-radius: 6px;
     background-color: #4a1010;
@@ -79,7 +192,7 @@
     display: block;
 }
 
-/* ===== Form Messages (global error & success) ===== */
+/* ── Form Messages (global error & success) ── */
 
 .form-message {
     padding: 10px 14px;
@@ -104,4 +217,11 @@
     background: var(--success-bg, #d4edda);
     color: var(--success-fg, #155724);
     border: 1px solid var(--success-border, #c3e6cb);
+}
+
+/* ── Auth form button full width ── */
+
+.auth-form .btn {
+    width: 100%;
+    margin-top: 8px;
 }

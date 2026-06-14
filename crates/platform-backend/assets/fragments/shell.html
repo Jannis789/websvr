@@ -24,21 +24,10 @@
             type="module"
             src="/assets/js/ds-cache.js"
         ></script>
-        <script>
-        if ('serviceWorker' in navigator) {
-          // SW message listener — logs SW messages in normal page console
-          navigator.serviceWorker.addEventListener('message', (evt) => {
-            if (evt.data?.type === 'sw-log') {
-              console.log('[sw]', ...evt.data.args);
-            }
-          });
-          navigator.serviceWorker.register('/sw2.js', {
-            scope: '/',
-            updateViaCache: 'none',
-          });
-
-          }
-        </script>
+        <script
+            type="module"
+            src="/assets/js/app-init.js"
+        ></script>
     </head>
     <body data-class:light-mode="$lightMode">
         <div class="app-layout">
@@ -51,11 +40,6 @@
                 <div id="content-slot">
                 </div>
             </main>
-        </div>
-<div data-init="@get('/sse')"
-     data-on:beforeunload__window="console.log('beforeunload: page closing')"
-     data-on:visibilitychange__document="if (document.hidden) { navigator.serviceWorker?.controller?.postMessage({ type: 'sse-close' }); } else { navigator.serviceWorker?.controller?.postMessage({ type: 'sse-open' }); }">
-
         </div>
     </body>
 </html>

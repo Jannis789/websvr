@@ -28,84 +28,99 @@
         class="auth-form"
         data-on:submit.prevent="$errors='';$submitting=true;@post('/register')"
     >
-        <div class="form-group">
-            <label
-                for="username"
-                data-text="$register_username"
-            ></label>
-            <input
-                type="text"
-                id="username"
-                name="username"
-                required
-                maxlength="32"
-                data-bind:username
-            />
-            <div
-                class="field-error"
-                data-show="$errors.username"
-                data-text="$errors.username"
-            >
+        <div class="input-stack">
+            <div class="floating-group">
+                <div class="input-wrapper">
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        required
+                        maxlength="32"
+                        data-bind:username
+                        placeholder=" "
+                    />
+                    <label
+                        for="username"
+                        data-text="$register_username"
+                    ></label>
+                </div>
+                <div
+                    class="field-error"
+                    data-show="$errors.username"
+                    data-text="$errors.username"
+                >
+                </div>
+            </div>
+            <div class="floating-group">
+                <div class="input-wrapper">
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        data-bind:email
+                        placeholder=" "
+                    />
+                    <label
+                        for="email"
+                        data-text="$register_email"
+                    ></label>
+                </div>
+                <div
+                    class="field-error"
+                    data-show="$errors.email"
+                    data-text="$errors.email"
+                >
+                </div>
+            </div>
+            <div class="floating-group">
+                <div class="input-wrapper">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        minlength="8"
+                        data-bind:password
+                        placeholder=" "
+                    />
+                    <label
+                        for="password"
+                        data-text="$register_password"
+                    ></label>
+                </div>
+                <div
+                    class="field-error"
+                    data-show="$errors.password"
+                    data-text="$errors.password"
+                >
+                </div>
+            </div>
+            <div class="floating-group">
+                <div class="input-wrapper">
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        required
+                        data-bind:confirm_password
+                        placeholder=" "
+                    />
+                    <label
+                        for="confirm_password"
+                        data-text="$register_confirm_password"
+                    ></label>
+                </div>
+                <div
+                    class="field-error"
+                    data-show="$errors.confirm"
+                    data-text="$errors.confirm"
+                >
+                </div>
             </div>
         </div>
-        <div class="form-group">
-            <label
-                for="email"
-                data-text="$register_email"
-            ></label>
-            <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                data-bind:email
-            />
-            <div
-                class="field-error"
-                data-show="$errors.email"
-                data-text="$errors.email"
-            >
-            </div>
-        </div>
-        <div class="form-group">
-            <label
-                for="password"
-                data-text="$register_password"
-            ></label>
-            <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                minlength="8"
-                data-bind:password
-            />
-            <div
-                class="field-error"
-                data-show="$errors.password"
-                data-text="$errors.password"
-            >
-            </div>
-        </div>
-        <div class="form-group">
-            <label
-                for="confirm_password"
-                data-text="$register_confirm_password"
-            ></label>
-            <input
-                type="password"
-                id="confirm_password"
-                name="confirm_password"
-                required
-                data-bind:confirm_password
-            />
-            <div
-                class="field-error"
-                data-show="$errors.confirm"
-                data-text="$errors.confirm"
-            >
-            </div>
-        </div>
+
         <button
             type="submit"
             class="btn btn-primary auth-submit"
