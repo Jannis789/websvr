@@ -294,12 +294,7 @@ impl EventEmitter {
 
         for (i, event) in cache.iter().enumerate() {
             if i < start {
-                // Events vor page_start: id_only wenn Client sie kennt
-                if event.ver() > client_ver {
-                    full.push(event.clone());
-                } else {
-                    id_only.push(event.ver());
-                }
+                continue; // Events vorheriger Pages — nie replayen
             } else {
                 // Events ab page_start (aktuelle Seite): immer full,
                 // da der Client sie noch nicht im SW-Cache haben kann
