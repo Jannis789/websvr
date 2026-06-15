@@ -1,9 +1,12 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::BufferedEvent;
 use crate::elog;
 use rama::http::body::sse::datastar::{EventData, ExecuteScript, PatchElements, PatchSignals};
+use rama::http::sse::EventDataWrite;
 use rama::utils::str::NonEmptyStr;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
@@ -27,6 +30,7 @@ pub struct EventEmitter {
 #[derive(Debug, Clone)]
 struct StateEntry {
     key: Option<String>,
+    content_hash: u64,
     data: EventData,
     event: BufferedEvent,
 }
@@ -82,19 +86,31 @@ impl EventEmitter {
             .unwrap_or_default()
     }
 
+    /// Compute a content hash from the wire-format serialization of EventData.
+    /// Identical payloads produce identical hashes — used for dedup detection.
+    fn hash_event_data(data: &EventData) -> u64 {
+        let mut buf = Vec::new();
+        let _ = data.write_data(&mut buf);
+        let mut hasher = DefaultHasher::new();
+        buf.hash(&mut hasher);
+        hasher.finish()
+    }
+
     /// State setzen: alten Eintrag mit gleichem Key/Selector ersetzen.
     fn set_state(&self, state_key: Option<String>, data: EventData) -> BufferedEvent {
         let mut state = Self::recover_lock(self.state.lock());
+        let new_hash = Self::hash_event_data(&data);
 
-        // Dedup: gleicher Key + gleicher Content → id-only (is_dedup=true)
+        // Dedup: gleicher Key + gleicher Content-Hash → id-only (is_dedup=true)
         if let Some(ref key) = state_key {
-            if let Some(pos) = state.iter().position(|e| e.key.as_deref() == Some(key.as_str()) && e.data == data) {
+            if let Some(pos) = state.iter().position(|e| e.key.as_deref() == Some(key.as_str()) && e.content_hash == new_hash) {
                 let original_ver = state[pos].event.ver();
                 let dedup = BufferedEvent::new_dedup(original_ver, data);
                 elog!(
                     Info,
-                    "dedup content match key={} → id-only ver={}",
+                    "dedup hash match key={} hash={} → id-only ver={}",
                     key,
+                    new_hash,
                     original_ver,
                 );
                 return dedup;
@@ -105,6 +121,7 @@ impl EventEmitter {
         let event = BufferedEvent::new(data.clone(), ver);
         let entry = StateEntry {
             key: state_key,
+            content_hash: new_hash,
             data,
             event: event.clone(),
         };
@@ -112,13 +129,13 @@ impl EventEmitter {
         // Alten Eintrag mit gleichem Key ersetzen
         if let Some(ref k) = entry.key {
             if let Some(pos) = state.iter().position(|e| e.key.as_deref() == Some(k.as_str())) {
-                elog!(Debug, "state replace key={} (old_ver={} → new_ver={})", k, state[pos].event.ver(), ver);
+                elog!(Debug, "state replace key={} hash={} (old_ver={} → new_ver={})", k, new_hash, state[pos].event.ver(), ver);
                 state[pos] = entry;
                 return event;
             }
         }
 
-        elog!(Debug, "state push ver={} (state_len={})", ver, state.len());
+        elog!(Debug, "state push ver={} hash={} (state_len={})", ver, new_hash, state.len());
         state.push(entry);
         event
     }

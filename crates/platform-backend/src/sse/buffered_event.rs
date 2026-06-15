@@ -41,10 +41,6 @@ impl BufferedEvent {
         self.is_dedup
     }
 
-    pub fn content_eq(&self, other: &EventData) -> bool {
-        self.data.as_ref() == other
-    }
-
     /// SSE-Rohformat:
     /// - Dedup:  `id:{ver}\n\n`
     /// - Voll:   `id:{ver}\nevent:{type}\ndata: {line}\n...\n\n`
