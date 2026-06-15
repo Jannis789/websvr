@@ -12,7 +12,11 @@ function now() {
   return performance.now().toFixed(1);
 }
 
-async function initCache() {
+swLog('loaded at ' + now());
+
+// Wird beim Aufwachen des SW SOFORT ausgeführt, damit cacheReady gesetzt wird
+async function ensureCacheReady() {
+  if (cacheReady) return;
   try {
     var cache = await caches.open(CACHE_NAME);
     var keys = await cache.keys();
@@ -40,10 +44,14 @@ async function initCache() {
   resolveCacheReady();
 }
 
+// Sofort beim Start des SW ausführen (wichtig für Wiederverwendung)!
+ensureCacheReady();
+
 self.addEventListener('install', function(e) {
   swLog('install at ' + now());
-  e.waitUntil(initCache().then(function() { return self.skipWaiting(); }));
+  e.waitUntil(ensureCacheReady().then(function() { return self.skipWaiting(); }));
 });
+
 self.addEventListener('activate', function(e) {
   swLog('activate at ' + now());
   e.waitUntil(self.clients.claim());
@@ -58,14 +66,14 @@ self.addEventListener('fetch', function(event) {
   swLog('conn start client=' + cid + ' at ' + now());
 
   event.respondWith((async function() {
-    // 1. Warten bis Cache initialisiert ist
+    // Warten bis Cache initialisiert ist (dauert meist < 1ms, da es schon läuft)
     if (!cacheReady) {
       swLog('  WAITING for cache ready...');
       await cacheReadyPromise;
     }
     
     var fetchUrl = url.origin + '/sse?v=' + maxId;
-    swLog('  FETCHING: ' + fetchUrl);
+    swLog('  FETCHING: ' + fetchUrl + ' (maxId=' + maxId + ')');
 
     var response = await fetch(fetchUrl, {
       method: 'POST',
@@ -89,7 +97,7 @@ self.addEventListener('fetch', function(event) {
 
     return new Response(new ReadableStream({
       pull: async function(controller) {
-        if (closed) return;
+        if (closed) return; // SOFORT ABBRECHEN
         
         var result;
         try {
@@ -111,7 +119,7 @@ self.addEventListener('fetch', function(event) {
         buffer += decoder.decode(result.value, { stream: true });
         
         while (true) {
-          if (closed) return; // SOFORT ABBRECHEN falls cancel aufgerufen wurde
+          if (closed) return; // Prüfen bei jeder Iteration
           
           var i = buffer.indexOf('\n\n');
           if (i === -1) break;
@@ -147,7 +155,7 @@ self.addEventListener('fetch', function(event) {
               var cached = memoryCache.get(id);
               
               if (cached) {
-                swLog('  EVENT #' + id + ': REPLAY from memoryCache');
+                swLog('  EVENT #' + id + ': REPLAY from memoryCache SUCCESS');
                 controller.enqueue(encoder.encode(cached));
               } else {
                 swLog('  EVENT #' + id + ': MISS in memory, trying CacheStorage...');
@@ -156,12 +164,12 @@ self.addEventListener('fetch', function(event) {
                 
                 if (resp) {
                   var text = await resp.text();
-                  swLog('  EVENT #' + id + ': REPLAY from CacheStorage');
-                  memoryCache.set(id, text); // Promote to memory
+                  swLog('  EVENT #' + id + ': REPLAY from CacheStorage SUCCESS');
+                  memoryCache.set(id, text); // Promote to memory for next time
                   controller.enqueue(encoder.encode(text));
                 } else {
-                  swLog('  EVENT #' + id + ': CRITICAL CACHE MISS! Body will be empty. Server sent id-only but SW has no record.');
-                  // Wir enqueuen es trotzdem, damit der Stream nicht hängt, aber es ist kaputt.
+                  swLog('  EVENT #' + id + ': CRITICAL CACHE MISS! Server sent id-only but SW has no record. Passing broken block.');
+                  // Fallback: wir müssen den Stream am Leben erhalten, auch wenn der Content fehlt
                   controller.enqueue(encoder.encode(block + '\n\n'));
                 }
               }
@@ -188,7 +196,7 @@ self.addEventListener('fetch', function(event) {
   }));
 });
 
-// Intercept Cache Storage reads just in case
+// Intercept Cache Storage reads
 self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
   if (url.pathname.startsWith('/sse-cache/') || url.pathname.startsWith('/sse/event/')) {
