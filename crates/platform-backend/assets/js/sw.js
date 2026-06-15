@@ -1,8 +1,10 @@
 // Service Worker — SSE Cache Proxy
-// Server sendet volle Events ODER nur `id: N` (Content-Dedup).
-// Volle Events → FIFO-Cache + durchreichen.
-// id: N → Replay aus FIFO.
-// Connect mit ?s=N (FIFO-Größe). Server pusht id-only bei Match, volle bei Mismatch.
+// FIFO-Cache persistiert via Cache Storage API.
+// SW-Update → FIFO aus Cache restauriert → kein FULL-Resync nötig.
+// Server sendet id-only bei Match, volle Events bei Mismatch.
+
+var CACHE_NAME = 'sse-fifo-v1';
+var FIFO_MAX = 1000;
 
 function swLog() {
   console.log('[sw]', ...arguments);
@@ -11,6 +13,52 @@ function now() {
   return performance.now().toFixed(1);
 }
 swLog('loaded at ' + now());
+
+// ── FIFO-Cache (Map + Cache Storage) ──
+var fifo = new Map();
+var fifoReady = false;   // true nachdem fifoRestore() fertig ist
+var fifoReadyResolve;
+var fifoReadyPromise = new Promise(function(r) { fifoReadyResolve = r; });
+
+async function fifoPersist(id, block) {
+  try {
+    var cache = await caches.open(CACHE_NAME);
+    var req = '/sse-cache/' + id;
+    cache.put(req, new Response(block));
+    var keys = await cache.keys();
+    if (keys.length > FIFO_MAX) {
+      var oldest = keys.slice(0, keys.length - FIFO_MAX);
+      for (var r of oldest) cache.delete(r);
+    }
+  } catch(e) {
+    swLog('  CACHE ERROR:', e && e.message);
+  }
+}
+
+async function fifoRestore() {
+  try {
+    var cache = await caches.open(CACHE_NAME);
+    var keys = await cache.keys();
+    keys.sort(function(a, b) {
+      var idA = parseInt(a.url.split('/').pop(), 10);
+      var idB = parseInt(b.url.split('/').pop(), 10);
+      return idA - idB;
+    });
+    for (var req of keys) {
+      var resp = await cache.match(req);
+      if (resp) {
+        var block = await resp.text();
+        var id = parseInt(req.url.split('/').pop(), 10);
+        if (!isNaN(id) && block) fifo.set(id, block);
+      }
+    }
+    swLog('  CACHE RESTORED: ' + fifo.size + ' events at ' + now());
+  } catch(e) {
+    swLog('  CACHE RESTORE ERROR:', e && e.message);
+  }
+  fifoReady = true;
+  fifoReadyResolve();
+}
 
 // ── Closing-Clients ──
 var closingClients = new Set();
@@ -24,12 +72,16 @@ self.addEventListener('message', function (event) {
   }
 });
 
-self.addEventListener('install', function () { swLog('install at ' + now()); self.skipWaiting(); });
-self.addEventListener('activate', function () { swLog('activate at ' + now()); self.clients.claim(); });
-
-// ── FIFO-Cache ──
-var FIFO_MAX = 1000;
-var fifo = new Map();
+self.addEventListener('install', function (evt) {
+  swLog('install at ' + now());
+  // Cache aus vorheriger SW-Version laden (bevor skipWaiting aktiv wird)
+  evt.waitUntil(fifoRestore());
+  self.skipWaiting();
+});
+self.addEventListener('activate', function (evt) {
+  swLog('activate at ' + now());
+  evt.waitUntil(self.clients.claim());
+});
 
 // ── SSE-Parser ──
 
@@ -38,7 +90,6 @@ function parseBlock(block) {
   if (!idMatch) return null;
   var id = parseInt(idMatch[1], 10);
   if (isNaN(id)) return null;
-  // id-only wenn KEINE event:/data: Zeile
   var hasData = block.indexOf('event:') !== -1 || block.indexOf('data:') !== -1;
   return { id: id, full: hasData };
 }
@@ -61,6 +112,8 @@ self.addEventListener('fetch', function (event) {
 
   event.respondWith(
     (async function () {
+      // Warten bis CACHE RESTORED abgeschlossen ist
+      if (!fifoReady) await fifoReadyPromise;
       var sParam = fifo.size > 0 ? '?s=' + fifo.size : '';
       var response = await fetch(url.origin + url.pathname + sParam, {
         method: 'POST',
@@ -86,7 +139,6 @@ self.addEventListener('fetch', function (event) {
       var stream = new ReadableStream({
         pull: function (controller) {
           return (async function () {
-            // Nach beforeunload oder Cancel: Stream sofort beenden
             if (closingClients.has(event.clientId) || streamCancelled) {
               if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
               try { reader.cancel(); } catch (_) {}
@@ -123,7 +175,6 @@ self.addEventListener('fetch', function (event) {
               }
 
               if (parsed.full) {
-                // Volles Event: cachen + durchreichen
                 if (closingClients.has(event.clientId) || streamCancelled) {
                   if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
                   try { reader.cancel(); } catch (_) {}
@@ -136,9 +187,10 @@ self.addEventListener('fetch', function (event) {
                   fifo.delete(firstKey);
                 }
                 fifo.set(parsed.id, fullBlock);
+                // Asynchron in Cache Storage persistieren
+                fifoPersist(parsed.id, fullBlock);
                 controller.enqueue(encoder.encode(fullBlock));
               } else {
-                // id-only: Replay aus FIFO
                 if (closingClients.has(event.clientId) || streamCancelled) {
                   if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
                   try { reader.cancel(); } catch (_) {}
@@ -175,4 +227,12 @@ self.addEventListener('fetch', function (event) {
       return new Response('', { status: 204 });
     })
   );
+});
+
+// Cache für SW-internen Gebrauch registrieren (nötig für Cache Storage API)
+self.addEventListener('fetch', function (event) {
+  var url = new URL(event.request.url);
+  if (url.pathname.startsWith('/sse-cache/')) {
+    event.respondWith(caches.match(event.request));
+  }
 });
