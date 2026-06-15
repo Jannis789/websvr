@@ -7,37 +7,40 @@ use rama::http::body::sse::datastar::{EventData, ExecuteScript, PatchElements, P
 use rama::utils::str::NonEmptyStr;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-/// Replay-Plan für SSE-Reconnect.
-#[derive(Debug)]
-pub struct ReplayPlan {
-    pub id_only: Vec<u64>,
-    pub full: Vec<BufferedEvent>,
-}
-
-impl ReplayPlan {
-    pub fn into_parts(self) -> (Vec<u64>, Vec<BufferedEvent>) {
-        (self.id_only, self.full)
-    }
-}
-
 /// Per-client event emitter.
 ///
-/// **Cache**: FIFO-Cache mit Content-Dedup. Gleicher Inhalt = gleiche Version.
-/// Der Dedup (`dedup()`) durchsucht den GESAMTEN Cache, pages-übergreifend.
-/// **Fan-out**: `send_live()` feuert an ALLE live Sender.
+/// Speichert NUR den letzten State pro Signal-Key / Slot-Selector.
+/// Kein FIFO-Cache, keine History. Beim Reconnect wird nur der
+/// aktuelle Snapshot als full-Events geliefert (kein id_only).
+///
+/// emit_* = state setzen + live broadcast
+/// POST-Handler: emit + 200 OK (kein sse_response)
+/// GET-Handler: emit + sse_response(events)
 #[derive(Debug, Clone)]
 pub struct EventEmitter {
-    cache: Arc<Mutex<Vec<BufferedEvent>>>,
+    /// Letzter Stand pro Key (Signal) / Selector (PatchElements).
+    state: Arc<Mutex<Vec<StateEntry>>>,
     senders: Arc<Mutex<Vec<UnboundedSender<BufferedEvent>>>>,
     next_ver: Arc<AtomicU64>,
 }
 
-const MAX_CACHE: usize = 200;
+#[derive(Debug, Clone)]
+struct StateEntry {
+    key: Option<String>,
+    data: EventData,
+    event: BufferedEvent,
+}
+
+impl Default for EventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl EventEmitter {
     pub fn new() -> Self {
         Self {
-            cache: Arc::new(Mutex::new(Vec::new())),
+            state: Arc::new(Mutex::new(Vec::new())),
             senders: Arc::new(Mutex::new(Vec::new())),
             next_ver: Arc::new(AtomicU64::new(1)),
         }
@@ -57,132 +60,86 @@ impl EventEmitter {
         }
     }
 
-    /// Dedub im GESAMTEN Cache: gleicher Content → gleiche Version.
-    fn dedup(&self, candidate: &EventData) -> Option<BufferedEvent> {
-        let cache = Self::recover_lock(self.cache.lock());
-        for entry in cache.iter() {
-            if entry.content_eq(candidate) {
-                elog!(Info, "dedup HIT ver={}", entry.ver());
-                return Some(entry.clone());
+    /// Signal-Keys aus JSON extrahieren.
+    fn signal_keys(json: &str) -> Vec<&str> {
+        json.trim()
+            .strip_prefix('{')
+            .and_then(|s| s.strip_suffix('}'))
+            .map(|inner| {
+                inner
+                    .split(',')
+                    .filter_map(|pair| {
+                        let mut parts = pair.splitn(2, ':');
+                        let key = parts.next()?.trim().strip_prefix('"')?.strip_suffix('"')?;
+                        if key.starts_with('$') || key.is_empty() {
+                            None
+                        } else {
+                            Some(key)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    }
+
+    /// State setzen: alten Eintrag mit gleichem Key/Selector ersetzen.
+    fn set_state(&self, state_key: Option<String>, data: EventData) -> BufferedEvent {
+        let mut state = Self::recover_lock(self.state.lock());
+
+        // Dedup: gleicher Key + gleicher Content → id-only (is_dedup=true)
+        if let Some(ref key) = state_key {
+            if let Some(pos) = state.iter().position(|e| e.key.as_deref() == Some(key.as_str()) && e.data == data) {
+                let original_ver = state[pos].event.ver();
+                let dedup = BufferedEvent::new_dedup(original_ver, EventData::clone(&data));
+                elog!(
+                    Info,
+                    "dedup content match key={} → id-only ver={}",
+                    key,
+                    original_ver,
+                );
+                return dedup;
             }
         }
-        None
-    }
 
-    fn push_cache(&self, event: BufferedEvent) {
-        let mut cache = Self::recover_lock(self.cache.lock());
-        cache.push(event);
-        while cache.len() > MAX_CACHE {
-            cache.remove(0);
-        }
-    }
+        let ver = self.next_ver();
+        let event = BufferedEvent::new(data.clone(), ver);
+        let entry = StateEntry {
+            key: state_key,
+            data,
+            event: event.clone(),
+        };
 
-    /// Live-Fan-out ohne Cache-Fallback (volatile ExecuteScript).
-    fn send_live_only(&self, event: BufferedEvent) {
-        let mut senders = Self::recover_lock(self.senders.lock());
-        let sender_count = senders.len();
-        senders.retain(|tx| tx.send(event.clone()).is_ok());
-        if sender_count > 0 {
-            elog!(Debug, "send_live_only ver={}: tried {} senders", event.ver(), sender_count);
-        }
-    }
-
-    /// Live-Fan-out + Cache-Fallback falls kein live Sender.
-    fn send_live(&self, event: BufferedEvent) -> bool {
-        let mut senders = Self::recover_lock(self.senders.lock());
-        let mut any_received = false;
-        let sender_count = senders.len();
-        senders.retain(|tx| {
-            if tx.send(event.clone()).is_ok() {
-                any_received = true;
-                true
-            } else {
-                false
+        // Alten Eintrag mit gleichem Key ersetzen
+        if let Some(ref k) = entry.key {
+            if let Some(pos) = state.iter().position(|e| e.key.as_deref() == Some(k.as_str())) {
+                elog!(Debug, "state replace key={} (old_ver={} → new_ver={})", k, state[pos].event.ver(), ver);
+                state[pos] = entry;
+                return event;
             }
-        });
-        if !any_received {
-            elog!(Info, "send_live ver={}: no live sender (had {}), falling back to cache", event.ver(), sender_count);
-            drop(senders);
-            self.push_cache(event);
-            true
-        } else {
-            elog!(Debug, "send_live ver={}: delivered to {} live senders", event.ver(), sender_count);
-            false
         }
+
+        elog!(Debug, "state push ver={} (state_len={})", ver, state.len());
+        state.push(entry);
+        event
     }
 
-    fn send_and_cache(&self, event: BufferedEvent) {
-        if !self.send_live(event.clone()) {
-            self.push_cache(event);
-        }
+    // ── emit_*: state + live broadcast ──
+
+    pub fn emit_signal(&self, signals_json: &str) -> BufferedEvent {
+        let keys = Self::signal_keys(signals_json);
+        let data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
+        let state_key = keys.first().map(|s| (*s).to_string());
+        let event = self.set_state(state_key, data);
+        self.broadcast(&event);
+        event
     }
 
     pub fn emit_element(&self, patch: PatchElements) -> BufferedEvent {
-        let candidate_data = EventData::PatchElements(patch.clone());
-        if let Some(existing) = self.dedup(&candidate_data) {
-            self.send_and_cache(existing.clone());
-            return existing;
-        }
-        let ver = self.next_ver();
-        let event = BufferedEvent::new(EventData::PatchElements(patch), ver);
-        self.send_and_cache(event.clone());
+        let selector = patch.selector.clone().map(|s| s.to_string());
+        let data = EventData::PatchElements(patch);
+        let event = self.set_state(selector, data);
+        self.broadcast(&event);
         event
-    }
-
-    pub fn emit_element_volatile(&self, patch: PatchElements) -> BufferedEvent {
-        let candidate_data = EventData::PatchElements(patch.clone());
-        if let Some(existing) = self.dedup(&candidate_data) {
-            self.send_live(existing.clone());
-            return existing;
-        }
-        let ver = self.next_ver();
-        let event = BufferedEvent::new(EventData::PatchElements(patch), ver);
-        self.send_live(event.clone());
-        event
-    }
-
-    pub fn emit_signal(&self, signals_json: &str) -> BufferedEvent {
-        let candidate_data =
-            EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
-        if let Some(existing) = self.dedup(&candidate_data) {
-            self.send_and_cache(existing.clone());
-            return existing;
-        }
-        let ver = self.next_ver();
-        let event = BufferedEvent::new(candidate_data, ver);
-        self.send_and_cache(event.clone());
-        event
-    }
-
-    pub fn emit_signal_volatile(&self, signals_json: &str) -> BufferedEvent {
-        let candidate_data =
-            EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
-        if let Some(existing) = self.dedup(&candidate_data) {
-            self.send_live(existing.clone());
-            return existing;
-        }
-        let ver = self.next_ver();
-        let event = BufferedEvent::new(candidate_data, ver);
-        self.send_live(event.clone());
-        event
-    }
-
-    pub fn try_emit_script(&self, script: &str) -> Option<BufferedEvent> {
-        let non_empty = NonEmptyStr::try_from(script).ok()?;
-        let ver = self.next_ver();
-        let exec = ExecuteScript::new(non_empty);
-        let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
-        self.send_and_cache(event.clone());
-        Some(event)
-    }
-
-    pub fn try_emit_script_volatile(&self, script: &str) -> Option<BufferedEvent> {
-        let non_empty = NonEmptyStr::try_from(script).ok()?;
-        let ver = self.next_ver();
-        let exec = ExecuteScript::new(non_empty);
-        let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
-        self.send_live_only(event.clone());
-        Some(event)
     }
 
     pub fn emit_signals(&self, signals: &[&str]) -> Vec<BufferedEvent> {
@@ -202,57 +159,105 @@ impl EventEmitter {
             .collect()
     }
 
-    /// Connect: registriert Sender + baut Replay-Plan über ALLE gecachten Events.
-    /// Events mit `ver > client_ver` = full (Client hat sie noch nicht).
-    /// Events mit `ver <= client_ver` = id_only (Client hat sie im SW-Cache).
-    pub fn connect(
-        &self,
-        client_ver: u64,
-        _client_gen: u64,
-    ) -> (UnboundedReceiver<BufferedEvent>, ReplayPlan) {
-        let (tx, rx) = mpsc::unbounded_channel();
-        {
-            let mut senders = Self::recover_lock(self.senders.lock());
-            senders.push(tx);
-        }
+    /// Gecachtes ExecuteScript (wird bei Replay wiederholt).
+    pub fn try_emit_script(&self, script: &str) -> Option<BufferedEvent> {
+        let non_empty = NonEmptyStr::try_from(script).ok()?;
+        let exec = ExecuteScript::new(non_empty);
+        let event = self.set_state(None, EventData::ExecuteScript(exec));
+        self.broadcast(&event);
+        Some(event)
+    }
 
-        let cache = Self::recover_lock(self.cache.lock());
+    // ── Volatile: live broadcast + return (NIEMALS state) ──
 
-        let mut id_only = Vec::new();
-        let mut full = Vec::new();
+    pub fn emit_signal_volatile(&self, signals_json: &str) -> BufferedEvent {
+        let ver = self.next_ver();
+        let data = EventData::PatchSignals(PatchSignals::new(signals_json.to_string()));
+        let event = BufferedEvent::new(data, ver);
+        self.broadcast(&event);
+        event
+    }
 
-        for event in cache.iter() {
-            if event.ver() > client_ver {
-                full.push(event.clone());
+    pub fn try_emit_script_volatile(&self, script: &str) -> Option<BufferedEvent> {
+        let non_empty = NonEmptyStr::try_from(script).ok()?;
+        let ver = self.next_ver();
+        let exec = ExecuteScript::new(non_empty);
+        let event = BufferedEvent::new(EventData::ExecuteScript(exec), ver);
+        self.broadcast(&event);
+        Some(event)
+    }
+
+    // ── Broadcast: live send an alle SSE-Streams ──
+
+    pub fn broadcast(&self, event: &BufferedEvent) -> bool {
+        let mut senders = Self::recover_lock(self.senders.lock());
+        let before = senders.len();
+        let mut delivered = 0usize;
+        senders.retain(|tx| {
+            if tx.send(event.clone()).is_ok() {
+                delivered += 1;
+                true
             } else {
-                id_only.push(event.ver());
+                false
+            }
+        });
+        let stale = before - senders.len();
+        if delivered > 0 || stale > 0 {
+            elog!(
+                Info,
+                "broadcast ver={} → {} live, {} stale",
+                event.ver(),
+                delivered,
+                stale,
+            );
+        }
+        delivered > 0
+    }
+
+    // ── Connect: Sender registrieren + live-Rx zurück ──
+    //
+    // client_seen: Anzahl Events im SW-FIFO.
+    // - Match (client_seen == cached_count) → State als id-only pushen (SW replays)
+    // - Mismatch → State als volle Events pushen
+    pub fn connect(&self, client_seen: usize) -> UnboundedReceiver<BufferedEvent> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let state_len = self.cached_count();
+        let mismatch = client_seen != state_len;
+
+        {
+            let state = Self::recover_lock(self.state.lock());
+            for entry in state.iter() {
+                if mismatch {
+                    // Volles Event
+                    let _ = tx.send(entry.event.clone());
+                } else {
+                    // id-only (SW hat es schon, soll nur ID zum Replay kriegen)
+                    let dedup = BufferedEvent::new_dedup(entry.event.ver(), EventData::clone(&entry.data));
+                    let _ = tx.send(dedup);
+                }
             }
         }
 
-        drop(cache);
-
-        id_only.sort_unstable();
-        id_only.dedup();
-        full.sort_unstable_by_key(|e| e.ver());
-        full.dedup_by_key(|e| e.ver());
-
-        if !id_only.is_empty() || !full.is_empty() {
-            elog!(
-                Info,
-                "SSE → replay: {} id_only, {} full (client_ver={})",
-                id_only.len(),
-                full.len(),
-                client_ver,
-            );
-        } else {
-            elog!(Debug, "SSE → replay empty (client_ver={})", client_ver,);
+        let senders_count;
+        {
+            let mut senders = Self::recover_lock(self.senders.lock());
+            senders.push(tx);
+            senders_count = senders.len();
         }
 
-        (rx, ReplayPlan { id_only, full })
+        elog!(
+            Info,
+            "connect → {} senders (pushed {} events, mismatch={})",
+            senders_count,
+            state_len,
+            mismatch,
+        );
+
+        rx
     }
 
     pub fn cached_count(&self) -> usize {
-        Self::recover_lock(self.cache.lock()).len()
+        Self::recover_lock(self.state.lock()).len()
     }
 
     pub fn current_ver(&self) -> u64 {
