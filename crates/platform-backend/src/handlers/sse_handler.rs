@@ -21,33 +21,23 @@ fn query_u64(req: &Request, key: &str) -> u64 {
 }
 
 /// GET /sse und POST /sse — SSE endpoint mit raw byte stream.
-/// Volle Events: `id:N\nevent:T\ndata:...\n\n`
-/// Dedup:       `id:N\n\n`  (SW replays aus FIFO-Cache)
+/// Volles Event: `id:N\nevent:T\ndata:...\n\n`
+/// Dedup Event: `id:N\n\n` (SW liest aus Cache)
 pub async fn sse_endpoint(State(_state): State<SharedState>, req: Request) -> Response {
     let ctx = extract_context(&req);
-    let client_seen = query_u64(&req, "s");
+    let client_max_id = query_u64(&req, "v");
 
     elog!(
         Info,
-        "SSE → connect client_id={} seen={}",
+        "SSE → connect client_id={} max_id={}",
         ctx.client_id,
-        client_seen,
+        client_max_id,
     );
 
-    let rx = ctx.event_emitter.connect(client_seen as usize);
+    let rx = ctx.event_emitter.connect(client_max_id);
 
-    // Live-Events via mpsc → raw SSE strings
     let live_stream = UnboundedReceiverStream::new(rx).map(|event| {
-        let ver = event.ver();
-        let is_dedup = event.is_dedup();
         let raw = event.to_sse_raw_string();
-        elog!(
-            Info,
-            "SSE → {} ver={} ({} bytes)",
-            if is_dedup { "dedup" } else { "live" },
-            ver,
-            raw.len(),
-        );
         Ok::<_, Infallible>(raw)
     });
 

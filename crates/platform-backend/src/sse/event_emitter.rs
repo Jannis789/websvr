@@ -90,7 +90,7 @@ impl EventEmitter {
         if let Some(ref key) = state_key {
             if let Some(pos) = state.iter().position(|e| e.key.as_deref() == Some(key.as_str()) && e.data == data) {
                 let original_ver = state[pos].event.ver();
-                let dedup = BufferedEvent::new_dedup(original_ver, EventData::clone(&data));
+                let dedup = BufferedEvent::new_dedup(original_ver, data);
                 elog!(
                     Info,
                     "dedup content match key={} → id-only ver={}",
@@ -216,43 +216,45 @@ impl EventEmitter {
 
     // ── Connect: Sender registrieren + live-Rx zurück ──
     //
-    // client_seen: Anzahl Events im SW-FIFO.
-    // - Match (client_seen == cached_count) → State als id-only pushen (SW replays)
-    // - Mismatch → State als volle Events pushen
-    pub fn connect(&self, client_seen: usize) -> UnboundedReceiver<BufferedEvent> {
+    // client_max_id: die höchste ID, die der SW im Cache hat.
+    // - event.ver <= client_max_id → ID-ONLY (SW hat es schon)
+    // - event.ver > client_max_id  → FULL (SW braucht es)
+    pub fn connect(&self, client_max_id: u64) -> UnboundedReceiver<BufferedEvent> {
         let (tx, rx) = mpsc::unbounded_channel();
-        let state_len = self.cached_count();
-        let mismatch = client_seen != state_len;
-
         {
             let state = Self::recover_lock(self.state.lock());
             for entry in state.iter() {
-                if mismatch {
-                    // Volles Event
-                    let _ = tx.send(entry.event.clone());
+                if entry.event.ver() <= client_max_id {
+                    elog!(
+                        Debug,
+                        "SSE state → ID-ONLY ver={} (client_max_id={})",
+                        entry.event.ver(),
+                        client_max_id
+                    );
+                    let _ = tx.send(BufferedEvent::new_dedup(entry.event.ver(), entry.data.clone()));
                 } else {
-                    // id-only (SW hat es schon, soll nur ID zum Replay kriegen)
-                    let dedup = BufferedEvent::new_dedup(entry.event.ver(), EventData::clone(&entry.data));
-                    let _ = tx.send(dedup);
+                    elog!(
+                        Debug,
+                        "SSE state → FULL ver={} (client_max_id={})",
+                        entry.event.ver(),
+                        client_max_id
+                    );
+                    let _ = tx.send(entry.event.clone());
                 }
             }
         }
-
         let senders_count;
         {
             let mut senders = Self::recover_lock(self.senders.lock());
             senders.push(tx);
             senders_count = senders.len();
         }
-
         elog!(
             Info,
-            "connect → {} senders (pushed {} events, mismatch={})",
+            "connect → {} senders (client_max_id={})",
             senders_count,
-            state_len,
-            mismatch,
+            client_max_id
         );
-
         rx
     }
 

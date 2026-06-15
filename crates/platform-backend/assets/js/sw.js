@@ -1,10 +1,9 @@
-// Service Worker — SSE Cache Proxy
-// FIFO-Cache persistiert via Cache Storage API.
-// SW-Update → FIFO aus Cache restauriert → kein FULL-Resync nötig.
-// Server sendet id-only bei Match, volle Events bei Mismatch.
-
-var CACHE_NAME = 'sse-fifo-v1';
-var FIFO_MAX = 1000;
+var CACHE_NAME = 'sse-cache-v1';
+var memoryCache = new Map();
+var maxId = 0;
+var cacheReady = false;
+var resolveCacheReady;
+var cacheReadyPromise = new Promise(function(r) { resolveCacheReady = r; });
 
 function swLog() {
   console.log('[sw]', ...arguments);
@@ -12,227 +11,187 @@ function swLog() {
 function now() {
   return performance.now().toFixed(1);
 }
-swLog('loaded at ' + now());
 
-// ── FIFO-Cache (Map + Cache Storage) ──
-var fifo = new Map();
-var fifoReady = false;   // true nachdem fifoRestore() fertig ist
-var fifoReadyResolve;
-var fifoReadyPromise = new Promise(function(r) { fifoReadyResolve = r; });
-
-async function fifoPersist(id, block) {
-  try {
-    var cache = await caches.open(CACHE_NAME);
-    var req = '/sse-cache/' + id;
-    cache.put(req, new Response(block));
-    var keys = await cache.keys();
-    if (keys.length > FIFO_MAX) {
-      var oldest = keys.slice(0, keys.length - FIFO_MAX);
-      for (var r of oldest) cache.delete(r);
-    }
-  } catch(e) {
-    swLog('  CACHE ERROR:', e && e.message);
-  }
-}
-
-async function fifoRestore() {
+async function initCache() {
   try {
     var cache = await caches.open(CACHE_NAME);
     var keys = await cache.keys();
-    keys.sort(function(a, b) {
-      var idA = parseInt(a.url.split('/').pop(), 10);
-      var idB = parseInt(b.url.split('/').pop(), 10);
-      return idA - idB;
-    });
+    swLog('  INIT: found ' + keys.length + ' items in cache');
     for (var req of keys) {
-      var resp = await cache.match(req);
-      if (resp) {
-        var block = await resp.text();
-        var id = parseInt(req.url.split('/').pop(), 10);
-        if (!isNaN(id) && block) fifo.set(id, block);
+      if (req.url.includes('/sse/event/')) {
+        var idStr = req.url.split('/').pop();
+        var id = parseInt(idStr, 10);
+        if (!isNaN(id)) {
+          if (id > maxId) maxId = id;
+          var resp = await cache.match(req);
+          if (resp) {
+            var text = await resp.text();
+            memoryCache.set(id, text);
+            swLog('  INIT: restored id=' + id);
+          }
+        }
       }
     }
-    swLog('  CACHE RESTORED: ' + fifo.size + ' events at ' + now());
+    swLog('  INIT: complete, maxId=' + maxId + ', memoryCache.size=' + memoryCache.size);
   } catch(e) {
-    swLog('  CACHE RESTORE ERROR:', e && e.message);
+    swLog('  INIT CACHE ERROR:', e && e.message);
   }
-  fifoReady = true;
-  fifoReadyResolve();
+  cacheReady = true;
+  resolveCacheReady();
 }
 
-// ── Closing-Clients ──
-var closingClients = new Set();
-
-self.addEventListener('message', function (event) {
-  var type = event.data && event.data.type;
-  if ((type === 'sse-close' || type === 'beforeunload') && event.source && event.source.id) {
-    var cid = event.source.id;
-    closingClients.add(cid);
-    setTimeout(function () { closingClients.delete(cid); }, 10000);
-  }
-});
-
-self.addEventListener('install', function (evt) {
+self.addEventListener('install', function(e) {
   swLog('install at ' + now());
-  // Cache aus vorheriger SW-Version laden (bevor skipWaiting aktiv wird)
-  evt.waitUntil(fifoRestore());
-  self.skipWaiting();
+  e.waitUntil(initCache().then(function() { return self.skipWaiting(); }));
 });
-self.addEventListener('activate', function (evt) {
+self.addEventListener('activate', function(e) {
   swLog('activate at ' + now());
-  evt.waitUntil(self.clients.claim());
+  e.waitUntil(self.clients.claim());
 });
 
-// ── SSE-Parser ──
-
-function parseBlock(block) {
-  var idMatch = block.match(/id:\s*(\d+)/);
-  if (!idMatch) return null;
-  var id = parseInt(idMatch[1], 10);
-  if (isNaN(id)) return null;
-  var hasData = block.indexOf('event:') !== -1 || block.indexOf('data:') !== -1;
-  return { id: id, full: hasData };
-}
-
-// ── Fetch Intercept ──
-
-self.addEventListener('fetch', function (event) {
+self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
   if (url.pathname !== '/sse') return;
   if (event.request.signal.aborted) return;
 
   var cid = (event.clientId || '?').slice(0, 8);
   swLog('conn start client=' + cid + ' at ' + now());
-  if (closingClients.has(event.clientId)) {
-    swLog('CLOSING CLIENT — 204 at ' + now());
-    closingClients.delete(event.clientId);
-    event.respondWith(new Response(null, { status: 204 }));
-    return;
-  }
 
-  event.respondWith(
-    (async function () {
-      // Warten bis CACHE RESTORED abgeschlossen ist
-      if (!fifoReady) await fifoReadyPromise;
-      var sParam = fifo.size > 0 ? '?s=' + fifo.size : '';
-      var response = await fetch(url.origin + url.pathname + sParam, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        credentials: 'include'
-      });
-      swLog('  server response status=' + response.status + ' at ' + now());
+  event.respondWith((async function() {
+    // 1. Warten bis Cache initialisiert ist
+    if (!cacheReady) {
+      swLog('  WAITING for cache ready...');
+      await cacheReadyPromise;
+    }
+    
+    var fetchUrl = url.origin + '/sse?v=' + maxId;
+    swLog('  FETCHING: ' + fetchUrl);
 
-      if (!response.ok || !response.body) {
-        return response.ok ? response : new Response(null, { status: response.status });
-      }
+    var response = await fetch(fetchUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      credentials: 'include'
+    });
 
-      var reader = response.body.getReader();
-      var decoder = new TextDecoder();
-      var encoder = new TextEncoder();
-      var buffer = '';
-      var closed = false;
-      var streamCancelled = false;
+    if (!response.ok || !response.body) {
+      swLog('  FETCH FAILED: status=' + response.status);
+      return response.ok ? response : new Response(null, { status: response.status });
+    }
 
-      swLog('  STREAM START at ' + now());
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var encoder = new TextEncoder();
+    var buffer = '';
+    var closed = false;
 
-      var stream = new ReadableStream({
-        pull: function (controller) {
-          return (async function () {
-            if (closingClients.has(event.clientId) || streamCancelled) {
-              if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-              try { reader.cancel(); } catch (_) {}
-              return;
-            }
+    swLog('  STREAM START at ' + now());
 
-            var result;
-            try {
-              result = await reader.read();
-            } catch (err) {
-              swLog('  READ ERROR:', err && err.message, 'at', now());
-              if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-              return;
-            }
-
-            if (result.done) {
-              if (!closed) { closed = true; controller.close(); }
-              return;
-            }
-
-            buffer += decoder.decode(result.value, { stream: true });
-
-            while (true) {
-              var i = buffer.indexOf('\n\n');
-              if (i === -1) break;
-              var block = buffer.slice(0, i);
-              buffer = buffer.slice(i + 2);
-              if (!block.trim()) continue;
-
-              var parsed = parseBlock(block);
-              if (!parsed) {
-                controller.enqueue(encoder.encode(block + '\n\n'));
-                continue;
-              }
-
-              if (parsed.full) {
-                if (closingClients.has(event.clientId) || streamCancelled) {
-                  if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-                  try { reader.cancel(); } catch (_) {}
-                  return;
-                }
-                swLog('  EVENT#' + parsed.id + ' FULL at ' + now());
-                var fullBlock = block + '\n\n';
-                if (fifo.size >= FIFO_MAX) {
-                  var firstKey = fifo.keys().next().value;
-                  fifo.delete(firstKey);
-                }
-                fifo.set(parsed.id, fullBlock);
-                // Asynchron in Cache Storage persistieren
-                fifoPersist(parsed.id, fullBlock);
-                controller.enqueue(encoder.encode(fullBlock));
-              } else {
-                if (closingClients.has(event.clientId) || streamCancelled) {
-                  if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-                  try { reader.cancel(); } catch (_) {}
-                  return;
-                }
-                var cached = fifo.get(parsed.id);
-                swLog('  EVENT#' + parsed.id + (cached ? ' REPLAY' : ' MISS') + ' at ' + now());
-                if (cached) {
-                  controller.enqueue(encoder.encode(cached));
-                }
-              }
-            }
-          })().catch(function (err) {
-            swLog('  PULL ERROR:', err && err.message, 'at', now());
-            if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
-          });
-        },
-
-        cancel: function () {
-          swLog('  STREAM CANCEL at ' + now());
+    return new Response(new ReadableStream({
+      pull: async function(controller) {
+        if (closed) return;
+        
+        var result;
+        try {
+          result = await reader.read();
+        } catch (err) {
+          swLog('  READ ERROR:', err && err.message);
           closed = true;
-          streamCancelled = true;
-          reader.cancel().catch(function () {});
+          controller.close();
+          return;
         }
-      });
 
-      return new Response(stream, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers
-      });
-    })().catch(function (err) {
-      swLog('  FETCH HANDLER ERROR:', err && err.message, 'at', now());
-      return new Response('', { status: 204 });
-    })
-  );
+        if (result.done) {
+          swLog('  STREAM DONE at ' + now());
+          closed = true;
+          controller.close();
+          return;
+        }
+        
+        buffer += decoder.decode(result.value, { stream: true });
+        
+        while (true) {
+          if (closed) return; // SOFORT ABBRECHEN falls cancel aufgerufen wurde
+          
+          var i = buffer.indexOf('\n\n');
+          if (i === -1) break;
+          
+          var block = buffer.slice(0, i);
+          buffer = buffer.slice(i + 2);
+          if (!block.trim()) continue;
+
+          var idMatch = block.match(/id:\s*(\d+)/);
+          if (!idMatch) {
+            swLog('  EVENT: no ID found, passing through');
+            controller.enqueue(encoder.encode(block + '\n\n'));
+            continue;
+          }
+          
+          var id = parseInt(idMatch[1], 10);
+          var isFull = block.indexOf('event:') !== -1 || block.indexOf('data:') !== -1;
+
+          try {
+            if (isFull) {
+              swLog('  EVENT #' + id + ': FULL -> caching and enqueueing');
+              if (id > maxId) maxId = id;
+              
+              var fullBlock = block + '\n\n';
+              memoryCache.set(id, fullBlock);
+              
+              var cache = await caches.open(CACHE_NAME);
+              cache.put('/sse/event/' + id, new Response(fullBlock));
+              
+              controller.enqueue(encoder.encode(fullBlock));
+            } else {
+              swLog('  EVENT #' + id + ': ID-ONLY -> attempting replay');
+              var cached = memoryCache.get(id);
+              
+              if (cached) {
+                swLog('  EVENT #' + id + ': REPLAY from memoryCache');
+                controller.enqueue(encoder.encode(cached));
+              } else {
+                swLog('  EVENT #' + id + ': MISS in memory, trying CacheStorage...');
+                var cache = await caches.open(CACHE_NAME);
+                var resp = await cache.match('/sse/event/' + id);
+                
+                if (resp) {
+                  var text = await resp.text();
+                  swLog('  EVENT #' + id + ': REPLAY from CacheStorage');
+                  memoryCache.set(id, text); // Promote to memory
+                  controller.enqueue(encoder.encode(text));
+                } else {
+                  swLog('  EVENT #' + id + ': CRITICAL CACHE MISS! Body will be empty. Server sent id-only but SW has no record.');
+                  // Wir enqueuen es trotzdem, damit der Stream nicht hängt, aber es ist kaputt.
+                  controller.enqueue(encoder.encode(block + '\n\n'));
+                }
+              }
+            }
+          } catch (e) {
+            swLog('  EVENT PROCESS ERROR for id=' + id + ':', e && e.message);
+          }
+        }
+      },
+      
+      cancel: function() {
+        swLog('  STREAM CANCELLED at ' + now());
+        closed = true;
+        reader.cancel().catch(function(){});
+      }
+    }), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    });
+  })().catch(function(err) {
+    swLog('  FETCH HANDLER ERROR:', err && err.message);
+    return new Response('', { status: 204 });
+  }));
 });
 
-// Cache für SW-internen Gebrauch registrieren (nötig für Cache Storage API)
-self.addEventListener('fetch', function (event) {
+// Intercept Cache Storage reads just in case
+self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
-  if (url.pathname.startsWith('/sse-cache/')) {
+  if (url.pathname.startsWith('/sse-cache/') || url.pathname.startsWith('/sse/event/')) {
     event.respondWith(caches.match(event.request));
   }
 });
