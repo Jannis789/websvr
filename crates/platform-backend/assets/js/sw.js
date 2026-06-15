@@ -79,14 +79,15 @@ self.addEventListener('fetch', function (event) {
       var encoder = new TextEncoder();
       var buffer = '';
       var closed = false;
+      var streamCancelled = false;
 
       swLog('  STREAM START at ' + now());
 
       var stream = new ReadableStream({
         pull: function (controller) {
           return (async function () {
-            // Wenn sse-close schon kam, Stream sofort beenden
-            if (closingClients.has(event.clientId)) {
+            // Nach beforeunload oder Cancel: Stream sofort beenden
+            if (closingClients.has(event.clientId) || streamCancelled) {
               if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
               try { reader.cancel(); } catch (_) {}
               return;
@@ -123,8 +124,7 @@ self.addEventListener('fetch', function (event) {
 
               if (parsed.full) {
                 // Volles Event: cachen + durchreichen
-                // Vor enqueue prüfen ob Stream noch relevant ist
-                if (closingClients.has(event.clientId)) {
+                if (closingClients.has(event.clientId) || streamCancelled) {
                   if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
                   try { reader.cancel(); } catch (_) {}
                   return;
@@ -139,8 +139,7 @@ self.addEventListener('fetch', function (event) {
                 controller.enqueue(encoder.encode(fullBlock));
               } else {
                 // id-only: Replay aus FIFO
-                // Vor enqueue prüfen ob Stream noch relevant ist
-                if (closingClients.has(event.clientId)) {
+                if (closingClients.has(event.clientId) || streamCancelled) {
                   if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
                   try { reader.cancel(); } catch (_) {}
                   return;
@@ -161,6 +160,7 @@ self.addEventListener('fetch', function (event) {
         cancel: function () {
           swLog('  STREAM CANCEL at ' + now());
           closed = true;
+          streamCancelled = true;
           reader.cancel().catch(function () {});
         }
       });
