@@ -14,7 +14,6 @@ function now() {
 
 swLog('loaded at ' + now());
 
-// Wird beim Aufwachen des SW SOFORT ausgeführt, damit cacheReady gesetzt wird
 async function ensureCacheReady() {
   if (cacheReady) return;
   try {
@@ -44,7 +43,7 @@ async function ensureCacheReady() {
   resolveCacheReady();
 }
 
-// Sofort beim Start des SW ausführen (wichtig für Wiederverwendung)!
+// SOFORT beim Aufwachen des SW ausführen (verhindert infinite WAITING bei Wiederverwendung)
 ensureCacheReady();
 
 self.addEventListener('install', function(e) {
@@ -66,7 +65,6 @@ self.addEventListener('fetch', function(event) {
   swLog('conn start client=' + cid + ' at ' + now());
 
   event.respondWith((async function() {
-    // Warten bis Cache initialisiert ist (dauert meist < 1ms, da es schon läuft)
     if (!cacheReady) {
       swLog('  WAITING for cache ready...');
       await cacheReadyPromise;
@@ -97,7 +95,8 @@ self.addEventListener('fetch', function(event) {
 
     return new Response(new ReadableStream({
       pull: async function(controller) {
-        if (closed) return; // SOFORT ABBRECHEN
+        // AGGRESSIVES CHECKING: Sofort abbrechen, falls cancel bereits gefeuert hat
+        if (closed) return;
         
         var result;
         try {
@@ -119,7 +118,8 @@ self.addEventListener('fetch', function(event) {
         buffer += decoder.decode(result.value, { stream: true });
         
         while (true) {
-          if (closed) return; // Prüfen bei jeder Iteration
+          // Bei jeder Iteration prüfen, ob wir abgebrochen wurden
+          if (closed) return;
           
           var i = buffer.indexOf('\n\n');
           if (i === -1) break;
@@ -130,7 +130,6 @@ self.addEventListener('fetch', function(event) {
 
           var idMatch = block.match(/id:\s*(\d+)/);
           if (!idMatch) {
-            swLog('  EVENT: no ID found, passing through');
             controller.enqueue(encoder.encode(block + '\n\n'));
             continue;
           }
@@ -165,11 +164,10 @@ self.addEventListener('fetch', function(event) {
                 if (resp) {
                   var text = await resp.text();
                   swLog('  EVENT #' + id + ': REPLAY from CacheStorage SUCCESS');
-                  memoryCache.set(id, text); // Promote to memory for next time
+                  memoryCache.set(id, text);
                   controller.enqueue(encoder.encode(text));
                 } else {
-                  swLog('  EVENT #' + id + ': CRITICAL CACHE MISS! Server sent id-only but SW has no record. Passing broken block.');
-                  // Fallback: wir müssen den Stream am Leben erhalten, auch wenn der Content fehlt
+                  swLog('  EVENT #' + id + ': CRITICAL CACHE MISS! Server sent id-only but SW has no record.');
                   controller.enqueue(encoder.encode(block + '\n\n'));
                 }
               }
@@ -196,7 +194,6 @@ self.addEventListener('fetch', function(event) {
   }));
 });
 
-// Intercept Cache Storage reads
 self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
   if (url.pathname.startsWith('/sse-cache/') || url.pathname.startsWith('/sse/event/')) {
