@@ -17,7 +17,7 @@ var closingClients = new Set();
 
 self.addEventListener('message', function (event) {
   var type = event.data && event.data.type;
-  if (type === 'sse-close' && event.source && event.source.id) {
+  if ((type === 'sse-close' || type === 'beforeunload') && event.source && event.source.id) {
     var cid = event.source.id;
     closingClients.add(cid);
     setTimeout(function () { closingClients.delete(cid); }, 10000);
@@ -123,6 +123,12 @@ self.addEventListener('fetch', function (event) {
 
               if (parsed.full) {
                 // Volles Event: cachen + durchreichen
+                // Vor enqueue prüfen ob Stream noch relevant ist
+                if (closingClients.has(event.clientId)) {
+                  if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
+                  try { reader.cancel(); } catch (_) {}
+                  return;
+                }
                 swLog('  EVENT#' + parsed.id + ' FULL at ' + now());
                 var fullBlock = block + '\n\n';
                 if (fifo.size >= FIFO_MAX) {
@@ -133,6 +139,12 @@ self.addEventListener('fetch', function (event) {
                 controller.enqueue(encoder.encode(fullBlock));
               } else {
                 // id-only: Replay aus FIFO
+                // Vor enqueue prüfen ob Stream noch relevant ist
+                if (closingClients.has(event.clientId)) {
+                  if (!closed) { closed = true; try { controller.close(); } catch (_) {} }
+                  try { reader.cancel(); } catch (_) {}
+                  return;
+                }
                 var cached = fifo.get(parsed.id);
                 swLog('  EVENT#' + parsed.id + (cached ? ' REPLAY' : ' MISS') + ' at ' + now());
                 if (cached) {
